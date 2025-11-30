@@ -19,18 +19,18 @@ serve(async (req) => {
       throw new Error("WEBHOOK_URL is not configured");
     }
 
-    console.log("Calling webhook:", WEBHOOK_URL);
-    console.log("Payload:", { message, conversationId });
+    // Build URL with query parameters for GET request
+    const url = new URL(WEBHOOK_URL);
+    url.searchParams.set("message", message);
+    url.searchParams.set("conversationId", conversationId);
 
-    const response = await fetch(WEBHOOK_URL, {
-      method: "POST",
+    console.log("Calling webhook:", url.toString());
+
+    const response = await fetch(url.toString(), {
+      method: "GET",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        message,
-        conversationId,
-      }),
     });
 
     console.log("Webhook response status:", response.status);
