@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, MessageSquare, LogOut } from "lucide-react";
+import { Plus, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 interface Conversation {
@@ -14,13 +14,11 @@ interface Conversation {
 interface ConversationListProps {
   selectedConversation: string | null;
   onSelectConversation: (id: string | null) => void;
-  onSignOut: () => void;
 }
 
 export const ConversationList = ({
   selectedConversation,
   onSelectConversation,
-  onSignOut,
 }: ConversationListProps) => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
 
@@ -97,18 +95,6 @@ export const ConversationList = ({
           ))}
         </div>
       </ScrollArea>
-
-      <div className="p-4 border-t border-border">
-        <Button
-          onClick={onSignOut}
-          variant="outline"
-          className="w-full"
-          size="sm"
-        >
-          <LogOut className="w-4 h-4 mr-2" />
-          Sign Out
-        </Button>
-      </div>
     </div>
   );
 };
