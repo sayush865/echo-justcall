@@ -21,6 +21,7 @@ export const ConversationList = ({
   onSelectConversation,
 }: ConversationListProps) => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   useEffect(() => {
     loadConversations();
@@ -57,6 +58,12 @@ export const ConversationList = ({
     }
 
     setConversations(data || []);
+    
+    // Auto-select the most recent conversation on first load only
+    if (data && data.length > 0 && !selectedConversation && !hasLoadedOnce) {
+      onSelectConversation(data[0].id);
+      setHasLoadedOnce(true);
+    }
   };
 
   const handleNewChat = () => {
