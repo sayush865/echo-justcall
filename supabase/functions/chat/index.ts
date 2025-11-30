@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,12 +20,42 @@ serve(async (req) => {
       throw new Error("WEBHOOK_URL is not configured");
     }
 
+    // Initialize Supabase client to fetch conversation history
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Fetch full conversation history
+    const { data: messages, error: messagesError } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true });
+
+    if (messagesError) {
+      console.error("Error fetching messages:", messagesError);
+    }
+
+    // Fetch conversation details
+    const { data: conversation, error: conversationError } = await supabase
+      .from("conversations")
+      .select("*")
+      .eq("id", conversationId)
+      .single();
+
+    if (conversationError) {
+      console.error("Error fetching conversation:", conversationError);
+    }
+
     // Build URL with query parameters for GET request
     const url = new URL(WEBHOOK_URL);
     url.searchParams.set("message", message);
     url.searchParams.set("conversationId", conversationId);
+    url.searchParams.set("conversationTitle", conversation?.title || "");
+    url.searchParams.set("messageCount", messages?.length?.toString() || "0");
+    url.searchParams.set("conversationHistory", JSON.stringify(messages || []));
 
-    console.log("Calling webhook:", url.toString());
+    console.log("Calling webhook with full conversation:", url.toString());
 
     const response = await fetch(url.toString(), {
       method: "GET",
