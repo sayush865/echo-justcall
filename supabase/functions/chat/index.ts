@@ -19,6 +19,9 @@ serve(async (req) => {
       throw new Error("WEBHOOK_URL is not configured");
     }
 
+    console.log("Calling webhook:", WEBHOOK_URL);
+    console.log("Payload:", { message, conversationId });
+
     const response = await fetch(WEBHOOK_URL, {
       method: "POST",
       headers: {
@@ -30,8 +33,12 @@ serve(async (req) => {
       }),
     });
 
+    console.log("Webhook response status:", response.status);
+    
     if (!response.ok) {
-      throw new Error(`Webhook returned ${response.status}`);
+      const errorText = await response.text();
+      console.error("Webhook error response:", errorText);
+      throw new Error(`Webhook returned ${response.status}: ${errorText}`);
     }
 
     const data = await response.json();
