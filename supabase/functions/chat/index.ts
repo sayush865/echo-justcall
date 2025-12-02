@@ -47,23 +47,21 @@ serve(async (req) => {
       console.error("Error fetching conversation:", conversationError);
     }
 
-    // Send data via POST body to avoid URL length limits (431 errors)
-    const payload = {
-      message,
-      conversationId,
-      conversationTitle: conversation?.title || "",
-      messageCount: messages?.length || 0,
-      conversationHistory: messages || [],
-    };
+    // Use GET with minimal params to avoid URL length limits (431 errors)
+    // Only send essential data - webhook should fetch full history if needed
+    const url = new URL(WEBHOOK_URL);
+    url.searchParams.set("message", message);
+    url.searchParams.set("conversationId", conversationId);
+    url.searchParams.set("conversationTitle", conversation?.title || "");
+    url.searchParams.set("messageCount", messages?.length?.toString() || "0");
 
-    console.log("Calling webhook with payload:", JSON.stringify({ message, conversationId, messageCount: payload.messageCount }));
+    console.log("Calling webhook:", url.toString());
 
-    const response = await fetch(WEBHOOK_URL, {
-      method: "POST",
+    const response = await fetch(url.toString(), {
+      method: "GET",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload),
     });
 
     console.log("Webhook response status:", response.status);
