@@ -305,14 +305,14 @@ export const ChatInterface = ({
             {/* Gradient glow behind input */}
             <div className="absolute -inset-1.5 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.25)_0%,hsl(256_100%_68%/0.15)_50%,hsl(195_100%_65%/0.25)_100%)] rounded-[2rem] blur-xl opacity-50" />
             <div className={`relative flex items-center gap-3 bg-background/90 backdrop-blur-sm border rounded-3xl px-4 md:px-5 py-3.5 transition-all shadow-sm ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border/80'}`}>
-                <div className="flex-1 relative">
+                <div className="flex-1 relative min-h-[26px] flex items-center">
                   <textarea
                     ref={textareaRef}
                     value={input}
                     onChange={(e) => handleInputChange(e, textareaRef)}
                     onKeyDown={handleKeyDown}
                     placeholder={isListening ? "Listening..." : ""}
-                    className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[26px] max-h-[200px] py-0 text-[15px]"
+                    className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[26px] max-h-[200px] py-0 text-[15px] leading-[26px]"
                     rows={1}
                   />
                   {!input && !isListening && (
@@ -419,14 +419,14 @@ export const ChatInterface = ({
               {/* Gradient glow behind input */}
               <div className="absolute -inset-1.5 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.25)_0%,hsl(256_100%_68%/0.15)_50%,hsl(195_100%_65%/0.25)_100%)] rounded-[2rem] blur-xl opacity-50" />
               <div className={`relative flex items-center gap-3 bg-background/90 backdrop-blur-sm border rounded-3xl px-4 md:px-5 py-3.5 transition-all shadow-sm ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border/80'}`}>
-                <div className="flex-1 relative">
+                <div className="flex-1 relative min-h-[26px] flex items-center">
                   <textarea
                     ref={textareaRef2}
                     value={input}
                     onChange={(e) => handleInputChange(e, textareaRef2)}
                     onKeyDown={handleKeyDown}
                     placeholder={isListening ? "Listening..." : ""}
-                    className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[26px] max-h-[200px] py-0 text-[15px]"
+                    className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[26px] max-h-[200px] py-0 text-[15px] leading-[26px]"
                     rows={1}
                   />
                   {!input && !isListening && (

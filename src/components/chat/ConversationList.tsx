@@ -16,6 +16,22 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreVertical, Trash2, Pencil, Pin, PinOff } from "lucide-react";
 import { toast } from "sonner";
@@ -47,6 +63,7 @@ export const ConversationList = ({
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameConversationId, setRenameConversationId] = useState<string | null>(null);
   const [renameTitle, setRenameTitle] = useState("");
+  const [deleteConversationId, setDeleteConversationId] = useState<string | null>(null);
 
   useEffect(() => {
     loadConversations();
@@ -95,26 +112,31 @@ export const ConversationList = ({
     }
   };
 
-  const handleDeleteConversation = async (e: React.MouseEvent | Event, id: string) => {
+  const handleDeleteConversation = (e: React.MouseEvent | Event, id: string) => {
     e.stopPropagation();
     e.preventDefault();
     triggerHaptic("medium");
+    setDeleteConversationId(id);
+  };
+
+  const confirmDeleteConversation = async () => {
+    if (!deleteConversationId) return;
     
     const { error } = await supabase
       .from("conversations")
       .update({ status: "deleted" })
-      .eq("id", id);
+      .eq("id", deleteConversationId);
 
     if (error) {
       toast.error("Failed to delete conversation");
       return;
     }
 
-    if (selectedConversation === id) {
+    if (selectedConversation === deleteConversationId) {
       onSelectConversation(null);
     }
     
-    // Manually refresh the list since realtime might not be enabled
+    setDeleteConversationId(null);
     await loadConversations();
     toast.success("Conversation deleted");
   };
@@ -227,60 +249,69 @@ export const ConversationList = ({
           </div>
 
           <ScrollArea className="flex-1">
-            <div className="p-2 space-y-1">
-              {conversations.map((conv) => (
-                <div
-                  key={conv.id}
-                  onClick={() => handleSelectConversation(conv.id)}
-                  className={`group w-full text-left p-2 rounded-lg transition-colors flex items-center cursor-pointer ${
-                    selectedConversation === conv.id
-                      ? "bg-primary/10 text-primary"
-                      : "hover:bg-accent text-foreground"
-                  }`}
-                >
-                  {conv.pinned ? (
-                    <Pin className="w-4 h-4 mr-2 flex-shrink-0 text-primary" />
-                  ) : (
-                    <MessageSquare className="w-4 h-4 mr-2 flex-shrink-0" />
-                  )}
-                  <span className="text-sm truncate flex-1 max-w-[140px]">{conv.title}</span>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto flex-shrink-0">
-                        <MoreVertical className="w-3 h-3" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-36 z-[100]">
-                      <DropdownMenuItem onClick={(e) => openRenameDialog(e, conv)}>
-                        <Pencil className="w-4 h-4 mr-2" />
-                        Rename
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={(e) => handleTogglePin(e, conv)}>
-                        {conv.pinned ? (
-                          <>
-                            <PinOff className="w-4 h-4 mr-2" />
-                            Unpin
-                          </>
-                        ) : (
-                          <>
-                            <Pin className="w-4 h-4 mr-2" />
-                            Pin
-                          </>
-                        )}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={(e) => handleDeleteConversation(e, conv.id)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              ))}
-            </div>
+            <TooltipProvider>
+              <div className="p-2 space-y-1">
+                {conversations.map((conv) => (
+                  <div
+                    key={conv.id}
+                    onClick={() => handleSelectConversation(conv.id)}
+                    className={`group w-full text-left p-2 rounded-lg transition-colors flex items-center cursor-pointer ${
+                      selectedConversation === conv.id
+                        ? "bg-primary/10 text-primary"
+                        : "hover:bg-accent text-foreground"
+                    }`}
+                  >
+                    {conv.pinned ? (
+                      <Pin className="w-4 h-4 mr-2 flex-shrink-0 text-primary" />
+                    ) : (
+                      <MessageSquare className="w-4 h-4 mr-2 flex-shrink-0" />
+                    )}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-sm truncate flex-1 max-w-[140px]">{conv.title}</span>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-[250px]">
+                        {conv.title}
+                      </TooltipContent>
+                    </Tooltip>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto flex-shrink-0">
+                          <MoreVertical className="w-3 h-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-36 z-[100]">
+                        <DropdownMenuItem onClick={(e) => openRenameDialog(e, conv)}>
+                          <Pencil className="w-4 h-4 mr-2" />
+                          Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => handleTogglePin(e, conv)}>
+                          {conv.pinned ? (
+                            <>
+                              <PinOff className="w-4 h-4 mr-2" />
+                              Unpin
+                            </>
+                          ) : (
+                            <>
+                              <Pin className="w-4 h-4 mr-2" />
+                              Pin
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={(e) => handleDeleteConversation(e, conv.id)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                ))}
+              </div>
+            </TooltipProvider>
           </ScrollArea>
         </div>
       </div>
@@ -317,6 +348,24 @@ export const ConversationList = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConversationId} onOpenChange={(open) => !open && setDeleteConversationId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this conversation and all its messages. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteConversation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
