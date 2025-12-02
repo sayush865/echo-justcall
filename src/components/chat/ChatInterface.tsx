@@ -166,88 +166,114 @@ export const ChatInterface = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col">
-      <ScrollArea className="flex-1 p-4">
-        {messages.length === 0 && !conversationId ? (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center space-y-4 max-w-md">
-              <h2 className="text-2xl font-bold">Welcome to Echo</h2>
-              <p className="text-muted-foreground">
-                Start a conversation to query your customer insights
-              </p>
+    <div className="flex-1 flex flex-col h-screen">
+      {messages.length === 0 && !conversationId ? (
+        <div className="flex-1 flex flex-col items-center justify-center px-4">
+          <div className="text-center space-y-4 max-w-md mb-8">
+            <h2 className="text-3xl font-bold">Welcome to Echo</h2>
+            <p className="text-muted-foreground">
+              Start a conversation to query your customer insights
+            </p>
+          </div>
+          <div className="w-full max-w-2xl">
+            <div className="flex gap-2">
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask about your customer insights..."
+                className="min-h-[60px] max-h-[200px] bg-card border-border"
+                disabled={loading}
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!input.trim() || loading}
+                size="icon"
+                className="shrink-0 h-[60px] w-[60px]"
+              >
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
+              </Button>
             </div>
           </div>
-        ) : (
-          <div className="space-y-4 max-w-3xl mx-auto">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${
-                  msg.role === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
+        </div>
+      ) : (
+        <>
+          <ScrollArea className="flex-1 p-4">
+            <div className="space-y-4 max-w-3xl mx-auto pb-4">
+              {messages.map((msg) => (
                 <div
-                  className={`max-w-[80%] rounded-lg p-4 ${
-                    msg.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-card border border-border"
+                  key={msg.id}
+                  className={`flex ${
+                    msg.role === "user" ? "justify-end" : "justify-start"
                   }`}
                 >
-                  {msg.role === "user" ? (
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                  ) : (
-                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-muted prose-pre:p-3">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-            {streamingMessage && (
-              <div className="flex justify-start">
-                <div className="max-w-[80%] rounded-lg p-4 bg-card border border-border">
-                  <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-muted prose-pre:p-3">
-                    <ReactMarkdown>{streamingMessage.content + (streamingMessage.isStreaming ? " ▋" : "")}</ReactMarkdown>
+                  <div
+                    className={`max-w-[80%] rounded-lg p-4 ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-card border border-border"
+                    }`}
+                  >
+                    {msg.role === "user" ? (
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    ) : (
+                      <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-muted prose-pre:p-3">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-            )}
-            {loading && !streamingMessage && (
-              <div className="flex justify-start">
-                <div className="bg-card border border-border rounded-lg p-4">
-                  <Loader2 className="w-5 h-5 animate-spin" />
+              ))}
+              {streamingMessage && (
+                <div className="flex justify-start">
+                  <div className="max-w-[80%] rounded-lg p-4 bg-card border border-border">
+                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-muted prose-pre:p-3">
+                      <ReactMarkdown>{streamingMessage.content + (streamingMessage.isStreaming ? " ▋" : "")}</ReactMarkdown>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
-            <div ref={scrollRef} />
-          </div>
-        )}
-      </ScrollArea>
+              )}
+              {loading && !streamingMessage && (
+                <div className="flex justify-start">
+                  <div className="bg-card border border-border rounded-lg p-4">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  </div>
+                </div>
+              )}
+              <div ref={scrollRef} />
+            </div>
+          </ScrollArea>
 
-      <div className="border-t border-border p-4">
-        <div className="max-w-3xl mx-auto flex gap-2">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask about your customer insights..."
-            className="min-h-[60px] max-h-[200px]"
-            disabled={loading}
-          />
-          <Button
-            onClick={handleSend}
-            disabled={!input.trim() || loading}
-            size="icon"
-            className="shrink-0 h-[60px] w-[60px]"
-          >
-            {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Send className="w-5 h-5" />
-            )}
-          </Button>
-        </div>
-      </div>
+          <div className="p-4 bg-background/80 backdrop-blur-sm">
+            <div className="max-w-3xl mx-auto flex gap-2">
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask about your customer insights..."
+                className="min-h-[60px] max-h-[200px] bg-card border-border"
+                disabled={loading}
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!input.trim() || loading}
+                size="icon"
+                className="shrink-0 h-[60px] w-[60px]"
+              >
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
