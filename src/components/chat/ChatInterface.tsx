@@ -133,6 +133,15 @@ export const ChatInterface = ({
         });
       }
       
+      // Optimistically add to messages before clearing streaming
+      const tempId = `temp-${Date.now()}`;
+      setMessages(prev => [...prev, {
+        id: tempId,
+        role: "assistant",
+        content: fullResponse,
+        created_at: new Date().toISOString()
+      }]);
+      
       setStreamingMessage(null);
 
       await supabase.from("messages").insert({
