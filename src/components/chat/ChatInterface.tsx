@@ -238,7 +238,6 @@ export const ChatInterface = ({
           <div className="absolute bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-aqua/5 rounded-full blur-3xl" />
           <h1 className="relative z-10 text-2xl md:text-3xl font-bold mb-2 text-center animate-fade-in">Echo — Bringing the Voice of Customers Back to You</h1>
           <p className="relative z-10 text-muted-foreground mb-8 text-center animate-fade-in [animation-delay:100ms] opacity-0 [animation-fill-mode:forwards]">Our users are talking. Echo remembers.</p>
-          <p className="relative z-10 text-sm text-muted-foreground mb-3 animate-fade-in [animation-delay:200ms] opacity-0 [animation-fill-mode:forwards]">Ask Echo — it knows.</p>
           <div className="relative z-10 w-full max-w-2xl px-2">
             {/* Gradient glow behind input */}
             <div className="absolute -inset-1 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.3)_0%,hsl(256_100%_68%/0.2)_50%,hsl(195_100%_65%/0.3)_100%)] rounded-[2rem] blur-xl opacity-60" />
@@ -248,7 +247,7 @@ export const ChatInterface = ({
                   value={input}
                   onChange={(e) => handleInputChange(e, textareaRef)}
                   onKeyDown={handleKeyDown}
-                  placeholder={isListening ? "Listening..." : "Ask anything"}
+                  placeholder={isListening ? "Listening..." : "Ask Echo"}
                   className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[24px] max-h-[200px] py-0"
                   rows={1}
                 />
@@ -334,7 +333,7 @@ export const ChatInterface = ({
                   value={input}
                   onChange={(e) => handleInputChange(e, textareaRef2)}
                   onKeyDown={handleKeyDown}
-                  placeholder={isListening ? "Listening..." : "Ask anything"}
+                  placeholder={isListening ? "Listening..." : "Ask Echo"}
                   className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[24px] max-h-[200px] py-0"
                   rows={1}
                 />
