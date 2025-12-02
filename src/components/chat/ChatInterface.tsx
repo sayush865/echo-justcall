@@ -235,16 +235,15 @@ export const ChatInterface = ({
           <h1 className="text-2xl md:text-3xl font-medium mb-8 text-center">What can I help with?</h1>
           <div className="w-full max-w-2xl px-2">
             <div className={`flex items-center gap-2 md:gap-3 bg-muted/50 border rounded-3xl px-3 md:px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => handleInputChange(e, textareaRef)}
-                onKeyDown={handleKeyDown}
-                placeholder={isListening ? "Listening..." : "Ask anything"}
-                className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[24px] max-h-[200px] py-0"
-                rows={1}
-                disabled={loading}
-              />
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => handleInputChange(e, textareaRef)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={isListening ? "Listening..." : "Ask anything"}
+                  className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[24px] max-h-[200px] py-0"
+                  rows={1}
+                />
               <div className="flex items-center gap-2">
                 {isSupported && (
                   <button 
@@ -330,7 +329,6 @@ export const ChatInterface = ({
                   placeholder={isListening ? "Listening..." : "Ask anything"}
                   className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[24px] max-h-[200px] py-0"
                   rows={1}
-                  disabled={loading}
                 />
                 <div className="flex items-center gap-2">
                   {isSupported && (
