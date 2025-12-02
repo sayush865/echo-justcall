@@ -210,12 +210,12 @@ export const ChatInterface = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-screen">
+    <div className="flex-1 flex flex-col h-screen min-w-0">
       {messages.length === 0 && !conversationId ? (
-        <div className="flex-1 flex flex-col items-center justify-center px-4">
-          <h1 className="text-3xl font-medium mb-8">What can I help with?</h1>
-          <div className="w-full max-w-2xl">
-            <div className={`flex items-center gap-3 bg-muted/50 border rounded-3xl px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
+        <div className="flex-1 flex flex-col items-center justify-center px-4 pt-12 md:pt-0">
+          <h1 className="text-2xl md:text-3xl font-medium mb-8 text-center">What can I help with?</h1>
+          <div className="w-full max-w-2xl px-2">
+            <div className={`flex items-center gap-2 md:gap-3 bg-muted/50 border rounded-3xl px-3 md:px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -258,8 +258,8 @@ export const ChatInterface = ({
         </div>
       ) : (
         <>
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-4 max-w-3xl mx-auto pb-4">
+          <ScrollArea className="flex-1 p-2 md:p-4 pt-12 md:pt-4">
+            <div className="space-y-4 max-w-3xl mx-auto pb-4 px-1 md:px-0">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -268,7 +268,7 @@ export const ChatInterface = ({
                   }`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-lg p-4 ${
+                    className={`max-w-[90%] md:max-w-[80%] rounded-lg p-3 md:p-4 ${
                       msg.role === "user"
                         ? "bg-primary text-primary-foreground"
                         : "bg-card border border-border"
@@ -284,14 +284,14 @@ export const ChatInterface = ({
               ))}
               {streamingMessage && (
                 <div className="flex justify-start">
-                  <div className="max-w-[80%] rounded-lg p-4 bg-card border border-border">
+                  <div className="max-w-[90%] md:max-w-[80%] rounded-lg p-3 md:p-4 bg-card border border-border">
                     <MarkdownRenderer content={streamingMessage.content + (streamingMessage.isStreaming ? " ▋" : "")} />
                   </div>
                 </div>
               )}
               {loading && !streamingMessage && (
                 <div className="flex justify-start">
-                  <div className="bg-card border border-border rounded-lg p-4">
+                  <div className="bg-card border border-border rounded-lg p-3 md:p-4">
                     <Loader2 className="w-5 h-5 animate-spin" />
                   </div>
                 </div>
@@ -300,9 +300,9 @@ export const ChatInterface = ({
             </div>
           </ScrollArea>
 
-          <div className="p-4 bg-background/80 backdrop-blur-sm">
+          <div className="p-2 md:p-4 bg-background/80 backdrop-blur-sm">
             <div className="max-w-3xl mx-auto">
-              <div className={`flex items-center gap-3 bg-muted/50 border rounded-3xl px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
+              <div className={`flex items-center gap-2 md:gap-3 bg-muted/50 border rounded-3xl px-3 md:px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
                 <textarea
                   ref={textareaRef2}
                   value={input}
