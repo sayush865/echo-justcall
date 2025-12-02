@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, MessageSquare, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Plus, MessageSquare, PanelLeftClose, PanelLeft, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/hooks/useHapticFeedback";
 
@@ -10,6 +10,7 @@ interface Conversation {
   id: string;
   title: string;
   updated_at: string;
+  status: string;
 }
 
 interface ConversationListProps {
@@ -55,6 +56,7 @@ export const ConversationList = ({
     const { data, error } = await supabase
       .from("conversations")
       .select("*")
+      .eq("status", "active")
       .order("updated_at", { ascending: false });
 
     if (error) {
@@ -71,6 +73,28 @@ export const ConversationList = ({
     } else {
       setHasLoadedOnce(true);
     }
+  };
+
+  const handleDeleteConversation = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    triggerHaptic("medium");
+    
+    const { error } = await supabase
+      .from("conversations")
+      .update({ status: "deleted" })
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Failed to delete conversation");
+      return;
+    }
+
+    // If deleting the selected conversation, clear selection
+    if (selectedConversation === id) {
+      onSelectConversation(null);
+    }
+    
+    toast.success("Conversation deleted");
   };
 
   const handleNewChat = () => {
@@ -139,14 +163,21 @@ export const ConversationList = ({
                 <button
                   key={conv.id}
                   onClick={() => handleSelectConversation(conv.id)}
-                  className={`w-full text-left p-3 rounded-lg transition-colors flex items-center gap-2 ${
+                  className={`group w-full text-left p-3 rounded-lg transition-colors flex items-center gap-2 ${
                     selectedConversation === conv.id
                       ? "bg-primary/10 text-primary"
                       : "hover:bg-accent text-foreground"
                   }`}
                 >
                   <MessageSquare className="w-4 h-4 shrink-0" />
-                  <span className="truncate text-sm">{conv.title}</span>
+                  <span className="truncate text-sm flex-1">{conv.title}</span>
+                  <button
+                    onClick={(e) => handleDeleteConversation(e, conv.id)}
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 hover:text-destructive rounded transition-all"
+                    aria-label="Delete conversation"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </button>
               ))}
             </div>
