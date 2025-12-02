@@ -270,37 +270,32 @@ export const ChatInterface = ({
                     msg.role === "user" ? "justify-end" : "justify-start"
                   }`}
                 >
-                  <div
-                    className={`max-w-[90%] md:max-w-[80%] rounded-lg p-3 md:p-4 ${
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-card border border-border"
-                    }`}
-                  >
-                    {msg.role === "user" ? (
+                  {msg.role === "user" ? (
+                    <div className="max-w-[90%] md:max-w-[80%] rounded-2xl px-4 py-2.5 bg-primary text-primary-foreground">
                       <p className="whitespace-pre-wrap">{msg.content}</p>
-                    ) : (
+                    </div>
+                  ) : (
+                    <div className="w-full">
                       <MarkdownRenderer content={msg.content} />
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               ))}
               {streamingMessage && (
                 <div className="flex justify-start">
-                  <div className="max-w-[90%] md:max-w-[80%] rounded-lg p-3 md:p-4 bg-card border border-border">
-                    <MarkdownRenderer content={streamingMessage.content + (streamingMessage.isStreaming ? " ▋" : "")} />
+                  <div className="w-full">
+                    <MarkdownRenderer content={streamingMessage.content + (streamingMessage.isStreaming ? "▋" : "")} />
                   </div>
                 </div>
               )}
               {loading && !streamingMessage && (
                 <div className="flex justify-start">
-                  <div className="bg-card border border-border rounded-lg p-3 md:p-4 flex items-center gap-2">
+                  <div className="flex items-center gap-2 text-muted-foreground">
                     <div className="flex items-center gap-1">
-                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce"></span>
+                      <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                      <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                      <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"></span>
                     </div>
-                    <span className="text-muted-foreground text-sm ml-1">Thinking...</span>
                   </div>
                 </div>
               )}
