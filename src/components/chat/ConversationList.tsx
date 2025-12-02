@@ -243,7 +243,7 @@ export const ConversationList = ({
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                       <button
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-all shrink-0"
+                        className="p-1 hover:bg-muted rounded transition-all shrink-0 opacity-50 hover:opacity-100"
                         aria-label="More options"
                       >
                         <MoreVertical className="w-4 h-4" />
