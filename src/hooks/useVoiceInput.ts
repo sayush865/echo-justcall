@@ -61,6 +61,7 @@ export const useVoiceInput = (): UseVoiceInputReturn => {
   const [transcript, setTranscript] = useState("");
   const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const finalTranscriptRef = useRef("");
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -73,24 +74,19 @@ export const useVoiceInput = (): UseVoiceInputReturn => {
       recognition.lang = "en-US";
 
       recognition.onresult = (event) => {
-        let finalTranscript = "";
         let interimTranscript = "";
 
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const result = event.results[i];
           if (result.isFinal) {
-            finalTranscript += result[0].transcript;
+            finalTranscriptRef.current += result[0].transcript;
           } else {
             interimTranscript += result[0].transcript;
           }
         }
 
-        setTranscript((prev) => {
-          if (finalTranscript) {
-            return prev + finalTranscript;
-          }
-          return prev + interimTranscript;
-        });
+        // Display confirmed text + current interim text
+        setTranscript(finalTranscriptRef.current + interimTranscript);
       };
 
       recognition.onerror = (event) => {
@@ -114,6 +110,7 @@ export const useVoiceInput = (): UseVoiceInputReturn => {
 
   const startListening = useCallback(() => {
     if (recognitionRef.current && !isListening) {
+      finalTranscriptRef.current = "";
       setTranscript("");
       recognitionRef.current.start();
       setIsListening(true);
@@ -128,6 +125,7 @@ export const useVoiceInput = (): UseVoiceInputReturn => {
   }, [isListening]);
 
   const resetTranscript = useCallback(() => {
+    finalTranscriptRef.current = "";
     setTranscript("");
   }, []);
 
