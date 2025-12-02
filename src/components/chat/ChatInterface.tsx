@@ -240,10 +240,8 @@ export const ChatInterface = ({
           <p className="relative z-10 text-muted-foreground mb-8 text-center animate-fade-in [animation-delay:100ms] opacity-0 [animation-fill-mode:forwards]">Our users are talking. Echo remembers.</p>
           <div className="relative z-10 w-full max-w-2xl px-2">
             {/* Gradient glow behind input */}
-            <div className={`absolute -inset-1 rounded-[2rem] blur-xl transition-opacity duration-300 ${input ? 'opacity-80' : 'opacity-40'} bg-[linear-gradient(135deg,hsl(227_93%_60%/0.4)_0%,hsl(256_100%_68%/0.3)_50%,hsl(195_100%_65%/0.4)_100%)]`} />
-            {/* Animated gradient border when typing */}
-            <div className={`absolute -inset-[1px] rounded-3xl transition-opacity duration-300 ${input ? 'opacity-100' : 'opacity-0'} bg-[linear-gradient(135deg,hsl(227_93%_60%)_0%,hsl(256_100%_68%)_50%,hsl(195_100%_65%)_100%)] bg-[length:200%_200%] animate-gradient-shift`} />
-            <div className={`relative flex items-center gap-2 md:gap-3 bg-background/95 backdrop-blur-sm rounded-3xl px-3 md:px-4 py-3 transition-colors ${isListening ? 'border border-red-500 bg-red-500/10' : ''}`}>
+            <div className="absolute -inset-1 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.3)_0%,hsl(256_100%_68%/0.2)_50%,hsl(195_100%_65%/0.3)_100%)] rounded-[2rem] blur-xl opacity-60" />
+            <div className={`relative flex items-center gap-2 md:gap-3 bg-background/80 backdrop-blur-sm border rounded-3xl px-3 md:px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
                 <textarea
                   ref={textareaRef}
                   value={input}
@@ -276,14 +274,6 @@ export const ChatInterface = ({
                 </button>
               </div>
             </div>
-            {/* Typewriter text */}
-            {!isListening && (
-              <p className="text-center text-sm text-muted-foreground mt-4 overflow-hidden">
-                <span className="inline-block overflow-hidden whitespace-nowrap border-r-2 border-primary animate-typewriter animate-blink">
-                  Ask Echo — it knows.
-                </span>
-              </p>
-            )}
             {isListening && (
               <p className="text-center text-sm text-muted-foreground mt-3 animate-pulse">
                 Speak now... Click the mic to stop.
