@@ -35,6 +35,29 @@ export const ChatInterface = ({
   const [loading, setLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState<StreamingMessage | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef2 = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>, ref: React.RefObject<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    if (ref.current) {
+      ref.current.style.height = 'auto';
+      ref.current.style.height = `${Math.min(ref.current.scrollHeight, 200)}px`;
+    }
+  };
+
+  // Reset textarea height when input is cleared
+  useEffect(() => {
+    if (!input) {
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
+      if (textareaRef2.current) {
+        textareaRef2.current.style.height = 'auto';
+      }
+    }
+  }, [input]);
   
   const { isListening, transcript, startListening, stopListening, resetTranscript, isSupported } = useVoiceInput();
 
@@ -192,14 +215,15 @@ export const ChatInterface = ({
         <div className="flex-1 flex flex-col items-center justify-center px-4">
           <h1 className="text-3xl font-medium mb-8">What can I help with?</h1>
           <div className="w-full max-w-2xl">
-            <div className={`flex items-center gap-3 bg-muted/50 border rounded-full px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
-              <input
-                type="text"
+            <div className={`flex items-end gap-3 bg-muted/50 border rounded-3xl px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
+              <textarea
+                ref={textareaRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => handleInputChange(e, textareaRef)}
                 onKeyDown={handleKeyDown}
                 placeholder={isListening ? "Listening..." : "Ask anything"}
-                className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground"
+                className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[24px] max-h-[200px] py-0"
+                rows={1}
                 disabled={loading}
               />
               <div className="flex items-center gap-2">
@@ -278,14 +302,15 @@ export const ChatInterface = ({
 
           <div className="p-4 bg-background/80 backdrop-blur-sm">
             <div className="max-w-3xl mx-auto">
-              <div className={`flex items-center gap-3 bg-muted/50 border rounded-full px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
-                <input
-                  type="text"
+              <div className={`flex items-end gap-3 bg-muted/50 border rounded-3xl px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
+                <textarea
+                  ref={textareaRef2}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => handleInputChange(e, textareaRef2)}
                   onKeyDown={handleKeyDown}
                   placeholder={isListening ? "Listening..." : "Ask anything"}
-                  className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground"
+                  className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[24px] max-h-[200px] py-0"
+                  rows={1}
                   disabled={loading}
                 />
                 <div className="flex items-center gap-2">
