@@ -215,14 +215,14 @@ export const ChatInterface = ({
         <div className="flex-1 flex flex-col items-center justify-center px-4">
           <h1 className="text-3xl font-medium mb-8">What can I help with?</h1>
           <div className="w-full max-w-2xl">
-            <div className={`flex items-end gap-3 bg-muted/50 border rounded-3xl px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
+            <div className={`flex items-center gap-3 bg-muted/50 border rounded-3xl px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
               <textarea
                 ref={textareaRef}
                 value={input}
                 onChange={(e) => handleInputChange(e, textareaRef)}
                 onKeyDown={handleKeyDown}
                 placeholder={isListening ? "Listening..." : "Ask anything"}
-                className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground placeholder:text-center resize-none min-h-[24px] max-h-[200px] py-0"
+                className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[24px] max-h-[200px] py-0"
                 rows={1}
                 disabled={loading}
               />
@@ -302,14 +302,14 @@ export const ChatInterface = ({
 
           <div className="p-4 bg-background/80 backdrop-blur-sm">
             <div className="max-w-3xl mx-auto">
-              <div className={`flex items-end gap-3 bg-muted/50 border rounded-3xl px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
+              <div className={`flex items-center gap-3 bg-muted/50 border rounded-3xl px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
                 <textarea
                   ref={textareaRef2}
                   value={input}
                   onChange={(e) => handleInputChange(e, textareaRef2)}
                   onKeyDown={handleKeyDown}
                   placeholder={isListening ? "Listening..." : "Ask anything"}
-                  className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground placeholder:text-center resize-none min-h-[24px] max-h-[200px] py-0"
+                  className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[24px] max-h-[200px] py-0"
                   rows={1}
                   disabled={loading}
                 />
