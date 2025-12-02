@@ -120,7 +120,7 @@ export const ConversationList = ({
         <div className={`${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'} transition-opacity duration-200 ease-out flex flex-col h-full w-64`}>
           <div className="p-4 border-b border-border space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
+              <h2 className="text-xl font-bold bg-[linear-gradient(135deg,hsl(227_93%_60%)_0%,hsl(256_100%_68%)_50%,hsl(195_100%_65%)_100%)] bg-clip-text text-transparent">
                 Echo
               </h2>
               <Button variant="ghost" size="icon" onClick={handleToggle} className="h-8 w-8">
