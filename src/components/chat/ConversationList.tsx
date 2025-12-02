@@ -228,7 +228,7 @@ export const ConversationList = ({
                 <div
                   key={conv.id}
                   onClick={() => handleSelectConversation(conv.id)}
-                  className={`group w-full text-left p-3 rounded-lg transition-colors flex items-center gap-2 cursor-pointer overflow-hidden ${
+                  className={`group w-full text-left p-3 rounded-lg transition-colors flex items-center gap-2 cursor-pointer ${
                     selectedConversation === conv.id
                       ? "bg-primary/10 text-primary"
                       : "hover:bg-accent text-foreground"
