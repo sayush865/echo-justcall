@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, MessageSquare, PanelLeftClose, PanelLeft } from "lucide-react";
 import { toast } from "sonner";
+import { triggerHaptic } from "@/hooks/useHapticFeedback";
 
 interface Conversation {
   id: string;
@@ -71,6 +72,7 @@ export const ConversationList = ({
   };
 
   const handleNewChat = () => {
+    triggerHaptic("medium");
     onSelectConversation(null);
     // Close sidebar on mobile after selecting
     if (window.innerWidth < 768) {
@@ -79,11 +81,17 @@ export const ConversationList = ({
   };
 
   const handleSelectConversation = (id: string) => {
+    triggerHaptic("light");
     onSelectConversation(id);
     // Close sidebar on mobile after selecting
     if (window.innerWidth < 768) {
       onToggle();
     }
+  };
+
+  const handleToggle = () => {
+    triggerHaptic("light");
+    onToggle();
   };
 
   return (
@@ -111,7 +119,7 @@ export const ConversationList = ({
               <h2 className="text-xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
                 Echo
               </h2>
-              <Button variant="ghost" size="icon" onClick={onToggle} className="h-8 w-8">
+              <Button variant="ghost" size="icon" onClick={handleToggle} className="h-8 w-8">
                 <PanelLeftClose className="h-4 w-4" />
               </Button>
             </div>
@@ -147,7 +155,7 @@ export const ConversationList = ({
         <Button 
           variant="ghost" 
           size="icon" 
-          onClick={onToggle}
+          onClick={handleToggle}
           className="fixed md:absolute top-4 left-4 z-30 h-8 w-8 bg-card border border-border shadow-sm"
         >
           <PanelLeft className="h-4 w-4" />
