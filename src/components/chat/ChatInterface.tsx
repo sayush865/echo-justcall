@@ -134,6 +134,15 @@ export const ChatInterface = ({
     resetTranscript();
     setLoading(true);
 
+    // Optimistically add user message to UI immediately
+    const tempUserMsgId = `temp-user-${Date.now()}`;
+    setMessages(prev => [...prev, {
+      id: tempUserMsgId,
+      role: "user",
+      content: userMessage,
+      created_at: new Date().toISOString()
+    }]);
+
     try {
       let currentConversationId = conversationId;
 
