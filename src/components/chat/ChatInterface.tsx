@@ -207,8 +207,7 @@ export const ChatInterface = ({
               <div className="flex justify-start">
                 <div className="max-w-[80%] rounded-lg p-4 bg-card border border-border">
                   <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-muted prose-pre:p-3">
-                    <ReactMarkdown>{streamingMessage.content}</ReactMarkdown>
-                    <span className="animate-pulse">▋</span>
+                    <ReactMarkdown>{streamingMessage.content + (streamingMessage.isStreaming ? " ▋" : "")}</ReactMarkdown>
                   </div>
                 </div>
               </div>
