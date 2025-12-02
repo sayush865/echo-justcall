@@ -237,7 +237,7 @@ export const ChatInterface = ({
           <div className="absolute top-1/4 -left-1/4 w-1/2 h-1/2 bg-primary/5 rounded-full blur-3xl" />
           <div className="absolute bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-aqua/5 rounded-full blur-3xl" />
           <h1 className="relative z-10 text-2xl md:text-3xl font-bold mb-2 text-center animate-fade-in">Echo — Bringing the Voice of Customers Back to You</h1>
-          <p className="relative z-10 text-muted-foreground mb-8 text-center animate-fade-in [animation-delay:100ms] opacity-0 [animation-fill-mode:forwards]">Our users are talking. Echo remembers.</p>
+          <p className="relative z-10 text-muted-foreground mb-8 text-center animate-fade-in [animation-delay:100ms] opacity-0 [animation-fill-mode:forwards]">Our customers are talking. Echo remembers.</p>
           <div className="relative z-10 w-full max-w-2xl px-2">
             {/* Gradient glow behind input */}
             <div className="absolute -inset-1 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.3)_0%,hsl(256_100%_68%/0.2)_50%,hsl(195_100%_65%/0.3)_100%)] rounded-[2rem] blur-xl opacity-60" />
