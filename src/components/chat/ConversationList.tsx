@@ -111,11 +111,11 @@ export const ConversationList = ({
         className={`
           fixed md:relative z-50 md:z-auto
           h-full border-r border-border flex flex-col bg-card
-          transition-all duration-300 ease-in-out
-          ${isOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full md:w-0 md:translate-x-0 pointer-events-none'}
+          transition-all duration-300 ease-in-out overflow-hidden
+          ${isOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full md:w-0 md:translate-x-0'}
         `}
       >
-        <div className={`${isOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200 flex flex-col h-full min-w-64`}>
+        <div className={`${isOpen ? 'opacity-100 delay-100' : 'opacity-0'} transition-opacity duration-200 flex flex-col h-full w-64`}>
           <div className="p-4 border-b border-border space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
