@@ -232,9 +232,9 @@ export const ChatInterface = ({
     <div className="flex-1 flex flex-col h-screen min-w-0">
       {messages.length === 0 && !conversationId ? (
         <div className="flex-1 flex flex-col items-center justify-center px-4 pt-12 md:pt-0">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2 text-center">Echo — Bringing the Voice of Customers Back to You</h1>
-          <p className="text-muted-foreground mb-8 text-center">Our users are talking. Echo remembers.</p>
-          <p className="text-sm text-muted-foreground mb-3">Ask Echo — it knows.</p>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2 text-center animate-fade-in">Echo — Bringing the Voice of Customers Back to You</h1>
+          <p className="text-muted-foreground mb-8 text-center animate-fade-in [animation-delay:100ms] opacity-0 [animation-fill-mode:forwards]">Our users are talking. Echo remembers.</p>
+          <p className="text-sm text-muted-foreground mb-3 animate-fade-in [animation-delay:200ms] opacity-0 [animation-fill-mode:forwards]">Ask Echo — it knows.</p>
           <div className="w-full max-w-2xl px-2">
             <div className={`flex items-center gap-2 md:gap-3 bg-muted/50 border rounded-3xl px-3 md:px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
                 <textarea
