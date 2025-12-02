@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Mic, MicOff, Send, Loader2 } from "lucide-react";
+import { Mic, MicOff, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
@@ -193,9 +193,6 @@ export const ChatInterface = ({
           <h1 className="text-3xl font-medium mb-8">What can I help with?</h1>
           <div className="w-full max-w-2xl">
             <div className={`flex items-center gap-3 bg-muted/50 border rounded-full px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
-              <button className="text-muted-foreground hover:text-foreground transition-colors">
-                <Plus className="w-5 h-5" />
-              </button>
               <input
                 type="text"
                 value={input}
@@ -282,9 +279,6 @@ export const ChatInterface = ({
           <div className="p-4 bg-background/80 backdrop-blur-sm">
             <div className="max-w-3xl mx-auto">
               <div className={`flex items-center gap-3 bg-muted/50 border rounded-full px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
-                <button className="text-muted-foreground hover:text-foreground transition-colors">
-                  <Plus className="w-5 h-5" />
-                </button>
                 <input
                   type="text"
                   value={input}
