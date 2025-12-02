@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 
 interface Message {
   id: string;
@@ -192,14 +193,23 @@ export const ChatInterface = ({
                       : "bg-card border border-border"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  {msg.role === "user" ? (
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  ) : (
+                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-muted prose-pre:p-3">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
             {streamingMessage && (
               <div className="flex justify-start">
                 <div className="max-w-[80%] rounded-lg p-4 bg-card border border-border">
-                  <p className="whitespace-pre-wrap">{streamingMessage.content}<span className="animate-pulse">▋</span></p>
+                  <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-muted prose-pre:p-3">
+                    <ReactMarkdown>{streamingMessage.content}</ReactMarkdown>
+                    <span className="animate-pulse">▋</span>
+                  </div>
                 </div>
               </div>
             )}
