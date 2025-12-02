@@ -7,6 +7,7 @@ import { Mic, MicOff, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { triggerHaptic } from "@/hooks/useHapticFeedback";
 
 interface Message {
   id: string;
@@ -119,7 +120,8 @@ export const ChatInterface = ({
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
-
+    
+    triggerHaptic("medium");
     const userMessage = input.trim();
     setInput("");
     resetTranscript();
@@ -200,6 +202,7 @@ export const ChatInterface = ({
   };
 
   const handleVoiceToggle = () => {
+    triggerHaptic("medium");
     if (isListening) {
       stopListening();
     } else {
