@@ -282,8 +282,13 @@ export const ChatInterface = ({
           </div>
         </div>
       ) : (
-        <>
-          <ScrollArea className="flex-1 p-2 md:p-4 pt-12 md:pt-4">
+        <div className="flex-1 flex flex-col relative overflow-hidden bg-background">
+          {/* Subtle gradient background - same as welcome screen */}
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.05)_0%,hsl(256_100%_68%/0.08)_50%,hsl(195_100%_65%/0.05)_100%)]" />
+          <div className="absolute top-1/4 -left-1/4 w-1/2 h-1/2 bg-primary/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-aqua/5 rounded-full blur-3xl" />
+          
+          <ScrollArea className="flex-1 p-2 md:p-4 pt-12 md:pt-4 relative z-10">
             <div className="space-y-4 max-w-3xl mx-auto pb-4 px-1 md:px-0">
               {messages.map((msg) => (
                 <div
@@ -325,7 +330,7 @@ export const ChatInterface = ({
             </div>
           </ScrollArea>
 
-          <div className="p-2 md:p-4 bg-background/80 backdrop-blur-sm">
+          <div className="p-2 md:p-4 bg-transparent relative z-10">
             <div className="max-w-3xl mx-auto relative">
               {/* Gradient glow behind input */}
               <div className="absolute -inset-1 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.3)_0%,hsl(256_100%_68%/0.2)_50%,hsl(195_100%_65%/0.3)_100%)] rounded-[2rem] blur-xl opacity-60" />
@@ -369,7 +374,7 @@ export const ChatInterface = ({
               )}
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
