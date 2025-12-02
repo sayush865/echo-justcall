@@ -72,51 +72,43 @@ serve(async (req) => {
       throw new Error(`Webhook returned ${response.status}: ${errorText}`);
     }
 
-    const responseText = await response.text();
-    console.log("Raw webhook response:", responseText);
-
-    let assistantResponse = "";
-    
-    // Check if response is NDJSON (streaming format from n8n AI Agent)
-    if (responseText.includes('{"type":"') && responseText.includes('\n')) {
-      console.log("Detected NDJSON streaming format");
-      const lines = responseText.trim().split('\n');
-      const contentParts: string[] = [];
-      
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const parsed = JSON.parse(line);
-          if (parsed.type === "item" && parsed.content) {
-            contentParts.push(parsed.content);
-          }
-        } catch (e) {
-          console.log("Skipping non-JSON line:", line.substring(0, 50));
-        }
-      }
-      
-      assistantResponse = contentParts.join('') || "No response";
-      console.log("Extracted streaming response:", assistantResponse.substring(0, 200));
-    } else {
-      // Handle standard JSON response
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error("Failed to parse JSON:", parseError);
-        throw new Error(`Webhook returned invalid JSON: ${responseText.substring(0, 200)}`);
-      }
-
-      console.log("Webhook response data:", JSON.stringify(data));
-
-      // Handle array response from n8n (it returns an array with objects)
-      const responseObj = Array.isArray(data) ? data[0] : data;
-      assistantResponse = responseObj?.output || responseObj?.response || responseObj?.message || "No response";
-      console.log("Extracted response:", assistantResponse);
+    // Stream the response back to the client
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error("No response body from webhook");
     }
 
-    return new Response(JSON.stringify({ response: assistantResponse }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Create a TransformStream to pass through the chunks
+    const stream = new ReadableStream({
+      async start(controller) {
+        const decoder = new TextDecoder();
+        
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              controller.close();
+              break;
+            }
+            
+            // Pass through the chunk
+            const chunk = decoder.decode(value, { stream: true });
+            console.log("Streaming chunk:", chunk.substring(0, 100));
+            controller.enqueue(new TextEncoder().encode(chunk));
+          }
+        } catch (error) {
+          console.error("Stream error:", error);
+          controller.error(error);
+        }
+      }
+    });
+
+    return new Response(stream, {
+      headers: { 
+        ...corsHeaders, 
+        "Content-Type": "text/plain; charset=utf-8",
+        "Transfer-Encoding": "chunked"
+      },
     });
   } catch (error) {
     console.error("Error:", error);

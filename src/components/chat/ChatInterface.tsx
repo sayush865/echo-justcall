@@ -21,6 +21,7 @@ interface StreamingMessage {
   role: "assistant";
   content: string;
   isStreaming: boolean;
+  steps?: string[];
 }
 
 interface ChatInterfaceProps {
@@ -167,32 +168,93 @@ export const ChatInterface = ({
 
       if (msgError) throw msgError;
 
-      const { data, error } = await supabase.functions.invoke("chat", {
-        body: { message: userMessage, conversationId: currentConversationId },
+      // Use fetch for true streaming instead of supabase.functions.invoke
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({ message: userMessage, conversationId: currentConversationId }),
       });
 
-      if (error) throw error;
-
-      const fullResponse = data.response;
-      
-      // Stream the response character by character
-      setStreamingMessage({ role: "assistant", content: "", isStreaming: true });
-      
-      for (let i = 0; i <= fullResponse.length; i++) {
-        await new Promise(resolve => setTimeout(resolve, 8));
-        setStreamingMessage({ 
-          role: "assistant", 
-          content: fullResponse.slice(0, i), 
-          isStreaming: i < fullResponse.length 
-        });
+      if (!response.ok) {
+        throw new Error(`Request failed: ${response.status}`);
       }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No response body");
+
+      const decoder = new TextDecoder();
+      let fullContent = "";
+      const steps: string[] = [];
       
-      // Optimistically add to messages before clearing streaming
+      setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
+
+      // Read the stream
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n').filter(line => line.trim());
+
+        for (const line of lines) {
+          try {
+            const parsed = JSON.parse(line);
+            
+            // Handle different event types from n8n
+            if (parsed.type === "item" && parsed.content) {
+              fullContent += parsed.content;
+              setStreamingMessage({ 
+                role: "assistant", 
+                content: fullContent, 
+                isStreaming: true,
+                steps 
+              });
+            } else if (parsed.type === "step" || parsed.type === "tool" || parsed.type === "thinking") {
+              // Handle intermediate steps (tool calls, thinking, etc.)
+              const stepText = parsed.text || parsed.name || parsed.content || JSON.stringify(parsed);
+              steps.push(stepText);
+              setStreamingMessage(prev => prev ? { 
+                ...prev, 
+                steps: [...(prev.steps || []), stepText] 
+              } : null);
+            } else if (parsed.type === "agent" && parsed.text) {
+              // Agent status updates
+              steps.push(parsed.text);
+              setStreamingMessage(prev => prev ? { 
+                ...prev, 
+                steps: [...(prev.steps || []), parsed.text] 
+              } : null);
+            }
+          } catch {
+            // Not JSON, might be plain text content
+            if (line.trim()) {
+              fullContent += line;
+              setStreamingMessage({ 
+                role: "assistant", 
+                content: fullContent, 
+                isStreaming: true,
+                steps 
+              });
+            }
+          }
+        }
+      }
+
+      // Finalize streaming
+      setStreamingMessage({ role: "assistant", content: fullContent, isStreaming: false, steps });
+      
+      // Add to messages
       const tempId = `temp-${Date.now()}`;
       setMessages(prev => [...prev, {
         id: tempId,
         role: "assistant",
-        content: fullResponse,
+        content: fullContent,
         created_at: new Date().toISOString()
       }]);
       
@@ -201,7 +263,7 @@ export const ChatInterface = ({
       await supabase.from("messages").insert({
         conversation_id: currentConversationId,
         role: "assistant",
-        content: fullResponse,
+        content: fullContent,
       });
     } catch (error: any) {
       setStreamingMessage(null);
@@ -318,7 +380,21 @@ export const ChatInterface = ({
               ))}
               {streamingMessage && (
                 <div className="flex justify-start">
-                  <div className="w-full">
+                  <div className="w-full space-y-2">
+                    {/* Intermediate steps */}
+                    {streamingMessage.steps && streamingMessage.steps.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {streamingMessage.steps.map((step, idx) => (
+                          <span 
+                            key={idx} 
+                            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 animate-fade-in"
+                          >
+                            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
+                            {step}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <MarkdownRenderer content={streamingMessage.content + (streamingMessage.isStreaming ? "▋" : "")} />
                   </div>
                 </div>
