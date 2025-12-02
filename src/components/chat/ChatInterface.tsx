@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Mic, AudioWaveform, Send, Loader2 } from "lucide-react";
+import { Plus, Mic, MicOff, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
+import { MarkdownRenderer } from "./MarkdownRenderer";
+import { useVoiceInput } from "@/hooks/useVoiceInput";
 
 interface Message {
   id: string;
@@ -35,6 +35,15 @@ export const ChatInterface = ({
   const [loading, setLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState<StreamingMessage | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  
+  const { isListening, transcript, startListening, stopListening, resetTranscript, isSupported } = useVoiceInput();
+
+  // Update input with transcript when voice input is active
+  useEffect(() => {
+    if (transcript) {
+      setInput(transcript);
+    }
+  }, [transcript]);
 
   useEffect(() => {
     if (conversationId) {
@@ -90,6 +99,7 @@ export const ChatInterface = ({
 
     const userMessage = input.trim();
     setInput("");
+    resetTranscript();
     setLoading(true);
 
     try {
@@ -166,13 +176,23 @@ export const ChatInterface = ({
     }
   };
 
+  const handleVoiceToggle = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      resetTranscript();
+      setInput("");
+      startListening();
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col h-screen">
       {messages.length === 0 && !conversationId ? (
         <div className="flex-1 flex flex-col items-center justify-center px-4">
           <h1 className="text-3xl font-medium mb-8">What can I help with?</h1>
           <div className="w-full max-w-2xl">
-            <div className="flex items-center gap-3 bg-muted/50 border border-border rounded-full px-4 py-3">
+            <div className={`flex items-center gap-3 bg-muted/50 border rounded-full px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
               <button className="text-muted-foreground hover:text-foreground transition-colors">
                 <Plus className="w-5 h-5" />
               </button>
@@ -181,14 +201,20 @@ export const ChatInterface = ({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask anything"
+                placeholder={isListening ? "Listening..." : "Ask anything"}
                 className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground"
                 disabled={loading}
               />
               <div className="flex items-center gap-2">
-                <button className="text-muted-foreground hover:text-foreground transition-colors">
-                  <Mic className="w-5 h-5" />
-                </button>
+                {isSupported && (
+                  <button 
+                    onClick={handleVoiceToggle}
+                    className={`transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-muted-foreground hover:text-foreground'}`}
+                    title={isListening ? "Stop listening" : "Start voice input"}
+                  >
+                    {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                  </button>
+                )}
                 <button 
                   onClick={handleSend}
                   disabled={!input.trim() || loading}
@@ -197,11 +223,16 @@ export const ChatInterface = ({
                   {loading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <AudioWaveform className="w-4 h-4" />
+                    <Send className="w-4 h-4" />
                   )}
                 </button>
               </div>
             </div>
+            {isListening && (
+              <p className="text-center text-sm text-muted-foreground mt-3 animate-pulse">
+                Speak now... Click the mic to stop.
+              </p>
+            )}
           </div>
         </div>
       ) : (
@@ -225,9 +256,7 @@ export const ChatInterface = ({
                     {msg.role === "user" ? (
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                     ) : (
-                      <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-muted prose-pre:p-3">
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
-                      </div>
+                      <MarkdownRenderer content={msg.content} />
                     )}
                   </div>
                 </div>
@@ -235,9 +264,7 @@ export const ChatInterface = ({
               {streamingMessage && (
                 <div className="flex justify-start">
                   <div className="max-w-[80%] rounded-lg p-4 bg-card border border-border">
-                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-muted prose-pre:p-3">
-                      <ReactMarkdown>{streamingMessage.content + (streamingMessage.isStreaming ? " ▋" : "")}</ReactMarkdown>
-                    </div>
+                    <MarkdownRenderer content={streamingMessage.content + (streamingMessage.isStreaming ? " ▋" : "")} />
                   </div>
                 </div>
               )}
@@ -253,27 +280,48 @@ export const ChatInterface = ({
           </ScrollArea>
 
           <div className="p-4 bg-background/80 backdrop-blur-sm">
-            <div className="max-w-3xl mx-auto flex gap-2">
-              <Textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask about your customer insights..."
-                className="min-h-[60px] max-h-[200px] bg-card border-border"
-                disabled={loading}
-              />
-              <Button
-                onClick={handleSend}
-                disabled={!input.trim() || loading}
-                size="icon"
-                className="shrink-0 h-[60px] w-[60px]"
-              >
-                {loading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
-              </Button>
+            <div className="max-w-3xl mx-auto">
+              <div className={`flex items-center gap-3 bg-muted/50 border rounded-full px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
+                <button className="text-muted-foreground hover:text-foreground transition-colors">
+                  <Plus className="w-5 h-5" />
+                </button>
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={isListening ? "Listening..." : "Ask anything"}
+                  className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground"
+                  disabled={loading}
+                />
+                <div className="flex items-center gap-2">
+                  {isSupported && (
+                    <button 
+                      onClick={handleVoiceToggle}
+                      className={`transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-muted-foreground hover:text-foreground'}`}
+                      title={isListening ? "Stop listening" : "Start voice input"}
+                    >
+                      {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                    </button>
+                  )}
+                  <button 
+                    onClick={handleSend}
+                    disabled={!input.trim() || loading}
+                    className="bg-foreground text-background rounded-full p-2 hover:opacity-80 transition-opacity disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              {isListening && (
+                <p className="text-center text-sm text-muted-foreground mt-3 animate-pulse">
+                  Speak now... Click the mic to stop.
+                </p>
+              )}
             </div>
           </div>
         </>
