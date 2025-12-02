@@ -298,7 +298,7 @@ export const ChatInterface = ({
                   }`}
                 >
                   {msg.role === "user" ? (
-                    <div className="max-w-[90%] md:max-w-[80%] rounded-2xl px-4 py-2.5 bg-primary text-primary-foreground">
+                    <div className="max-w-[90%] md:max-w-[80%] rounded-2xl px-4 py-2.5 bg-muted text-foreground">
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                     </div>
                   ) : (
