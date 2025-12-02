@@ -222,34 +222,31 @@ export const ConversationList = ({
             </Button>
           </div>
 
-          <ScrollArea className="flex-1 overflow-hidden">
+          <ScrollArea className="flex-1">
             <div className="p-2 space-y-1">
               {conversations.map((conv) => (
                 <div
                   key={conv.id}
                   onClick={() => handleSelectConversation(conv.id)}
-                  className={`group w-full text-left p-3 rounded-lg transition-colors flex items-center gap-2 cursor-pointer ${
+                  className={`group w-full text-left p-2 rounded-lg transition-colors flex items-center cursor-pointer ${
                     selectedConversation === conv.id
                       ? "bg-primary/10 text-primary"
                       : "hover:bg-accent text-foreground"
                   }`}
                 >
                   {conv.pinned ? (
-                    <Pin className="w-4 h-4 shrink-0 text-primary" />
+                    <Pin className="w-4 h-4 mr-2 flex-shrink-0 text-primary" />
                   ) : (
-                    <MessageSquare className="w-4 h-4 shrink-0" />
+                    <MessageSquare className="w-4 h-4 mr-2 flex-shrink-0" />
                   )}
-                  <span className="truncate text-sm flex-1 min-w-0">{conv.title}</span>
+                  <span className="text-sm truncate flex-1 max-w-[140px]">{conv.title}</span>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <button
-                        className="p-1 hover:bg-muted rounded transition-all shrink-0 opacity-50 hover:opacity-100"
-                        aria-label="More options"
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto flex-shrink-0">
+                        <MoreVertical className="w-3 h-3" />
+                      </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-36">
+                    <DropdownMenuContent align="end" className="w-36 z-[100]">
                       <DropdownMenuItem onClick={(e) => openRenameDialog(e, conv)}>
                         <Pencil className="w-4 h-4 mr-2" />
                         Rename
