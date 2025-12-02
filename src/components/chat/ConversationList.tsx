@@ -33,7 +33,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
-import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreVertical, Trash2, Pencil, Pin, PinOff } from "lucide-react";
+import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreVertical, Trash2, Pencil, Pin, PinOff, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/hooks/useHapticFeedback";
 
@@ -64,6 +64,11 @@ export const ConversationList = ({
   const [renameConversationId, setRenameConversationId] = useState<string | null>(null);
   const [renameTitle, setRenameTitle] = useState("");
   const [deleteConversationId, setDeleteConversationId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredConversations = conversations.filter((conv) =>
+    conv.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   useEffect(() => {
     loadConversations();
@@ -233,7 +238,7 @@ export const ConversationList = ({
         style={{ transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }}
       >
         <div className={`${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'} transition-opacity duration-200 ease-out flex flex-col h-full w-64`}>
-          <div className="p-4 border-b border-border space-y-4">
+          <div className="p-4 border-b border-border space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold bg-[linear-gradient(135deg,hsl(227_93%_60%)_0%,hsl(256_100%_68%)_50%,hsl(195_100%_65%)_100%)] bg-clip-text text-transparent">
                 Echo
@@ -246,21 +251,41 @@ export const ConversationList = ({
               <Plus className="w-4 h-4 mr-2" />
               New Chat
             </Button>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search conversations..."
+                className="pl-8 pr-8 h-8 text-sm"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           <ScrollArea className="flex-1">
             <TooltipProvider>
               <div className="p-2 space-y-1">
-                {conversations.map((conv) => (
-                  <div
-                    key={conv.id}
-                    onClick={() => handleSelectConversation(conv.id)}
-                    className={`group w-full text-left p-2 rounded-lg transition-colors flex items-center cursor-pointer ${
-                      selectedConversation === conv.id
-                        ? "bg-primary/10 text-primary"
-                        : "hover:bg-accent text-foreground"
-                    }`}
-                  >
+                {filteredConversations.length === 0 && searchQuery ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">No conversations found</p>
+                ) : (
+                  filteredConversations.map((conv) => (
+                    <div
+                      key={conv.id}
+                      onClick={() => handleSelectConversation(conv.id)}
+                      className={`group w-full text-left p-2 rounded-lg transition-colors flex items-center cursor-pointer ${
+                        selectedConversation === conv.id
+                          ? "bg-primary/10 text-primary"
+                          : "hover:bg-accent text-foreground"
+                      }`}
+                    >
                     {conv.pinned ? (
                       <Pin className="w-4 h-4 mr-2 flex-shrink-0 text-primary" />
                     ) : (
@@ -309,7 +334,8 @@ export const ConversationList = ({
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                ))}
+                  ))
+                )}
               </div>
             </TooltipProvider>
           </ScrollArea>
