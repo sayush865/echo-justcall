@@ -72,11 +72,22 @@ serve(async (req) => {
       throw new Error(`Webhook returned ${response.status}: ${errorText}`);
     }
 
-    const data = await response.json();
+    const responseText = await response.text();
+    console.log("Raw webhook response:", responseText);
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Failed to parse JSON:", parseError);
+      throw new Error(`Webhook returned invalid JSON: ${responseText.substring(0, 200)}`);
+    }
+
     console.log("Webhook response data:", JSON.stringify(data));
 
-    // n8n returns the output in the 'output' field
-    const assistantResponse = data.output || data.response || data.message || "No response";
+    // Handle array response from n8n (it returns an array with objects)
+    const responseObj = Array.isArray(data) ? data[0] : data;
+    const assistantResponse = responseObj?.output || responseObj?.response || responseObj?.message || "No response";
     console.log("Extracted response:", assistantResponse);
 
     return new Response(JSON.stringify({ response: assistantResponse }), {
