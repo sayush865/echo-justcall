@@ -294,8 +294,13 @@ export const ChatInterface = ({
               )}
               {loading && !streamingMessage && (
                 <div className="flex justify-start">
-                  <div className="bg-card border border-border rounded-lg p-3 md:p-4">
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                  <div className="bg-card border border-border rounded-lg p-3 md:p-4 flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce"></span>
+                    </div>
+                    <span className="text-muted-foreground text-sm ml-1">Thinking...</span>
                   </div>
                 </div>
               )}
