@@ -247,7 +247,7 @@ export const ChatInterface = ({
                   value={input}
                   onChange={(e) => handleInputChange(e, textareaRef)}
                   onKeyDown={handleKeyDown}
-                  placeholder={isListening ? "Listening..." : "Ask Echo"}
+                  placeholder={isListening ? "Listening..." : "Ask Echo — it knows"}
                   className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[24px] max-h-[200px] py-0"
                   rows={1}
                 />
@@ -333,7 +333,7 @@ export const ChatInterface = ({
                   value={input}
                   onChange={(e) => handleInputChange(e, textareaRef2)}
                   onKeyDown={handleKeyDown}
-                  placeholder={isListening ? "Listening..." : "Ask Echo"}
+                  placeholder={isListening ? "Listening..." : "Ask Echo — it knows"}
                   className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[24px] max-h-[200px] py-0"
                   rows={1}
                 />
