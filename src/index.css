@@ -2,107 +2,129 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* Echo Brand Design System
+   All colors MUST be HSL.
+   
+   Primary: Echo Blue #3A60F8
+   Deep Primary: Echo Indigo #2B2E76
+   Accent Violet: #875CFF
+   Accent Aqua: #4CD3FF
+   Neutrals: Soft White, Smoke Gray, Carbon Gray, Muted Slate
 */
 
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --foreground: 231 14% 13%;
 
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 231 14% 13%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
+    --popover-foreground: 231 14% 13%;
 
-    --primary: 210 87% 55%;
+    /* Echo Blue - Primary */
+    --primary: 227 93% 60%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 210 87% 65%;
+    --primary-glow: 256 100% 68%;
 
-    --secondary: 240 5.9% 10%;
-    --secondary-foreground: 0 0% 98%;
+    /* Echo Indigo - Deep Primary */
+    --secondary: 237 47% 32%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
+    /* Muted - Smoke Gray */
+    --muted: 216 33% 97%;
+    --muted-foreground: 221 10% 44%;
 
-    --accent: 210 87% 55%;
+    /* Violet Echo - Accent */
+    --accent: 256 100% 68%;
     --accent-foreground: 0 0% 100%;
+
+    /* Aqua Echo */
+    --aqua: 195 100% 65%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 210 87% 55%;
+    --border: 216 33% 90%;
+    --input: 216 33% 90%;
+    --ring: 227 93% 60%;
 
     --radius: 0.75rem;
     
-    --gradient-primary: linear-gradient(135deg, hsl(210 87% 55%), hsl(200 87% 65%));
-    --gradient-secondary: linear-gradient(180deg, hsl(0 0% 100%), hsl(240 4.8% 97%));
-    --shadow-glow: 0 0 40px hsl(210 87% 55% / 0.3);
-    --shadow-elegant: 0 10px 30px -10px hsl(210 87% 55% / 0.2);
+    /* Echo Primary Gradient: Blue → Violet → Aqua */
+    --gradient-primary: linear-gradient(135deg, hsl(227 93% 60%) 0%, hsl(256 100% 68%) 50%, hsl(195 100% 65%) 100%);
+    /* Echo Secondary Gradient: Indigo → Blue */
+    --gradient-secondary: linear-gradient(135deg, hsl(237 47% 32%) 0%, hsl(227 93% 60%) 100%);
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(216 33% 97%));
+    
+    --shadow-glow: 0 0 40px hsl(227 93% 60% / 0.3);
+    --shadow-elegant: 0 10px 30px -10px hsl(227 93% 60% / 0.2);
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 210 87% 55%;
+    --sidebar-background: 216 33% 97%;
+    --sidebar-foreground: 231 14% 13%;
+    --sidebar-primary: 227 93% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 216 33% 94%;
+    --sidebar-accent-foreground: 231 14% 13%;
+    --sidebar-border: 216 33% 90%;
+    --sidebar-ring: 227 93% 60%;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
+    /* Carbon Gray background */
+    --background: 231 14% 13%;
     --foreground: 0 0% 98%;
 
-    --card: 240 10% 3.9%;
+    --card: 231 14% 16%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 240 10% 3.9%;
+    --popover: 231 14% 16%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 210 87% 55%;
+    /* Echo Blue - Primary */
+    --primary: 227 93% 60%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 210 87% 65%;
+    --primary-glow: 256 100% 68%;
 
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
+    /* Echo Indigo - Deep Primary */
+    --secondary: 237 47% 42%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
+    --muted: 231 14% 20%;
+    --muted-foreground: 221 10% 64%;
 
-    --accent: 210 87% 55%;
+    /* Violet Echo - Accent */
+    --accent: 256 100% 68%;
     --accent-foreground: 0 0% 100%;
+
+    /* Aqua Echo */
+    --aqua: 195 100% 65%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 210 87% 55%;
+    --border: 231 14% 22%;
+    --input: 231 14% 22%;
+    --ring: 227 93% 60%;
     
-    --gradient-primary: linear-gradient(135deg, hsl(210 87% 55%), hsl(200 87% 65%));
-    --gradient-secondary: linear-gradient(180deg, hsl(240 10% 3.9%), hsl(240 5% 8%));
-    --shadow-glow: 0 0 40px hsl(210 87% 55% / 0.4);
-    --shadow-elegant: 0 10px 30px -10px hsl(210 87% 55% / 0.3);
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 210 87% 55%;
+    /* Echo Primary Gradient: Blue → Violet → Aqua */
+    --gradient-primary: linear-gradient(135deg, hsl(227 93% 60%) 0%, hsl(256 100% 68%) 50%, hsl(195 100% 65%) 100%);
+    /* Echo Secondary Gradient: Indigo → Blue */
+    --gradient-secondary: linear-gradient(135deg, hsl(237 47% 32%) 0%, hsl(227 93% 60%) 100%);
+    --gradient-subtle: linear-gradient(180deg, hsl(231 14% 13%), hsl(231 14% 10%));
+    
+    --shadow-glow: 0 0 40px hsl(227 93% 60% / 0.4);
+    --shadow-elegant: 0 10px 30px -10px hsl(227 93% 60% / 0.3);
+
+    --sidebar-background: 231 14% 10%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 227 93% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 210 87% 55%;
+    --sidebar-accent: 231 14% 18%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 231 14% 22%;
+    --sidebar-ring: 227 93% 60%;
   }
 }
 
