@@ -63,67 +63,79 @@ export const useVoiceInput = (): UseVoiceInputReturn => {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const finalTranscriptRef = useRef("");
 
+  // Only check support on mount - don't create instance yet (no permission needed)
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     setIsSupported(!!SpeechRecognition);
 
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      // Use browser language for multilingual support, fallback to English
-      recognition.lang = navigator.language || "en-US";
-
-      recognition.onresult = (event) => {
-        let interimTranscript = "";
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-          if (result.isFinal) {
-            finalTranscriptRef.current += result[0].transcript;
-          } else {
-            interimTranscript += result[0].transcript;
-          }
-        }
-
-        // Display confirmed text + current interim text
-        setTranscript(finalTranscriptRef.current + interimTranscript);
-      };
-
-      recognition.onerror = (event) => {
-        console.error("Speech recognition error:", event.error);
-        setIsListening(false);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognitionRef.current = recognition;
-    }
-
     return () => {
+      // Clean up on unmount
       if (recognitionRef.current) {
         recognitionRef.current.abort();
+        recognitionRef.current = null;
       }
     };
   }, []);
 
   const startListening = useCallback(() => {
-    if (recognitionRef.current && !isListening) {
-      finalTranscriptRef.current = "";
-      setTranscript("");
-      recognitionRef.current.start();
+    if (isListening) return;
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    // Create fresh recognition instance each time - this requests mic permission
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = navigator.language || "en-US";
+
+    recognition.onresult = (event) => {
+      let interimTranscript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalTranscriptRef.current += result[0].transcript;
+        } else {
+          interimTranscript += result[0].transcript;
+        }
+      }
+
+      setTranscript(finalTranscriptRef.current + interimTranscript);
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
+      setIsListening(false);
+      // Clean up on error
+      recognitionRef.current = null;
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      // Clean up when recognition ends - releases mic
+      recognitionRef.current = null;
+    };
+
+    recognitionRef.current = recognition;
+    finalTranscriptRef.current = "";
+    setTranscript("");
+    
+    try {
+      recognition.start();
       setIsListening(true);
+    } catch (error) {
+      console.error("Failed to start speech recognition:", error);
+      recognitionRef.current = null;
     }
   }, [isListening]);
 
   const stopListening = useCallback(() => {
-    if (recognitionRef.current && isListening) {
+    if (recognitionRef.current) {
       recognitionRef.current.stop();
-      setIsListening(false);
+      // The onend handler will clean up and set isListening to false
     }
-  }, [isListening]);
+  }, []);
 
   const resetTranscript = useCallback(() => {
     finalTranscriptRef.current = "";
