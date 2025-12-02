@@ -102,7 +102,7 @@ export const ConversationList = ({
           fixed md:relative z-50 md:z-auto
           h-full border-r border-border flex flex-col bg-card
           transition-all duration-300 ease-in-out
-          ${isOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full md:w-0 md:translate-x-0'}
+          ${isOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full md:w-0 md:translate-x-0 pointer-events-none'}
         `}
       >
         <div className={`${isOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200 flex flex-col h-full min-w-64`}>
