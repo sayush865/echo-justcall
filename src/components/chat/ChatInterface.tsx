@@ -229,9 +229,9 @@ export const ChatInterface = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-screen min-w-0">
+    <div className="flex-1 flex flex-col h-screen min-w-0 bg-background">
       {messages.length === 0 && !conversationId ? (
-        <div className="flex-1 flex flex-col items-center justify-center px-4 pt-12 md:pt-0 relative overflow-hidden">
+        <div className="flex-1 flex flex-col items-center justify-center px-4 pt-12 md:pt-0 relative overflow-hidden bg-background">
           {/* Subtle gradient background */}
           <div className="absolute inset-0 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.05)_0%,hsl(256_100%_68%/0.08)_50%,hsl(195_100%_65%/0.05)_100%)]" />
           <div className="absolute top-1/4 -left-1/4 w-1/2 h-1/2 bg-primary/5 rounded-full blur-3xl" />
