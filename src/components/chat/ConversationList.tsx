@@ -99,12 +99,13 @@ export const ConversationList = ({
   return (
     <>
       {/* Mobile overlay */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 md:hidden"
-          onClick={onToggle}
-        />
-      )}
+      <div 
+        className={`
+          fixed inset-0 z-40 md:hidden transition-all duration-300 ease-out
+          ${isOpen ? 'bg-background/80 backdrop-blur-sm opacity-100' : 'bg-transparent backdrop-blur-0 opacity-0 pointer-events-none'}
+        `}
+        onClick={onToggle}
+      />
       
       {/* Sidebar */}
       <div 
