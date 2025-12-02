@@ -100,12 +100,42 @@ export default {
             boxShadow: "0 0 40px hsl(var(--primary) / 0.5)",
           },
         },
+        "typewriter": {
+          from: {
+            width: "0",
+          },
+          to: {
+            width: "100%",
+          },
+        },
+        "blink": {
+          "0%, 100%": {
+            borderColor: "transparent",
+          },
+          "50%": {
+            borderColor: "hsl(var(--primary))",
+          },
+        },
+        "gradient-shift": {
+          "0%": {
+            backgroundPosition: "0% 50%",
+          },
+          "50%": {
+            backgroundPosition: "100% 50%",
+          },
+          "100%": {
+            backgroundPosition: "0% 50%",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.6s ease-out",
         "glow": "glow 3s ease-in-out infinite",
+        "typewriter": "typewriter 2s steps(20) forwards",
+        "blink": "blink 1s step-end infinite",
+        "gradient-shift": "gradient-shift 3s ease infinite",
       },
     },
   },
