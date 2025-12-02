@@ -13,6 +13,12 @@ interface Message {
   created_at: string;
 }
 
+interface StreamingMessage {
+  role: "assistant";
+  content: string;
+  isStreaming: boolean;
+}
+
 interface ChatInterfaceProps {
   conversationId: string | null;
   onConversationCreated: (id: string) => void;
@@ -25,6 +31,7 @@ export const ChatInterface = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [streamingMessage, setStreamingMessage] = useState<StreamingMessage | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -57,7 +64,7 @@ export const ChatInterface = ({
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, streamingMessage]);
 
   const loadMessages = async () => {
     if (!conversationId) return;
@@ -112,12 +119,29 @@ export const ChatInterface = ({
 
       if (error) throw error;
 
+      const fullResponse = data.response;
+      
+      // Stream the response character by character
+      setStreamingMessage({ role: "assistant", content: "", isStreaming: true });
+      
+      for (let i = 0; i <= fullResponse.length; i++) {
+        await new Promise(resolve => setTimeout(resolve, 8));
+        setStreamingMessage({ 
+          role: "assistant", 
+          content: fullResponse.slice(0, i), 
+          isStreaming: i < fullResponse.length 
+        });
+      }
+      
+      setStreamingMessage(null);
+
       await supabase.from("messages").insert({
         conversation_id: currentConversationId,
         role: "assistant",
-        content: data.response,
+        content: fullResponse,
       });
     } catch (error: any) {
+      setStreamingMessage(null);
       toast.error(error.message || "Failed to send message");
     } finally {
       setLoading(false);
@@ -163,7 +187,14 @@ export const ChatInterface = ({
                 </div>
               </div>
             ))}
-            {loading && (
+            {streamingMessage && (
+              <div className="flex justify-start">
+                <div className="max-w-[80%] rounded-lg p-4 bg-card border border-border">
+                  <p className="whitespace-pre-wrap">{streamingMessage.content}<span className="animate-pulse">▋</span></p>
+                </div>
+              </div>
+            )}
+            {loading && !streamingMessage && (
               <div className="flex justify-start">
                 <div className="bg-card border border-border rounded-lg p-4">
                   <Loader2 className="w-5 h-5 animate-spin" />
