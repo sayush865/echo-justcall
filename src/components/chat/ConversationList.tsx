@@ -64,9 +64,11 @@ export const ConversationList = ({
 
     setConversations(data || []);
     
-    // Auto-select the most recent conversation on first load only
-    if (data && data.length > 0 && !selectedConversation && !hasLoadedOnce) {
+    // Auto-select the most recent conversation on first load only (desktop only)
+    if (data && data.length > 0 && !selectedConversation && !hasLoadedOnce && window.innerWidth >= 768) {
       onSelectConversation(data[0].id);
+      setHasLoadedOnce(true);
+    } else {
       setHasLoadedOnce(true);
     }
   };
