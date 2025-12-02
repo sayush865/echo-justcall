@@ -7,8 +7,17 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreVertical, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreVertical, Trash2, Pencil, Pin, PinOff } from "lucide-react";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/hooks/useHapticFeedback";
 
@@ -17,6 +26,7 @@ interface Conversation {
   title: string;
   updated_at: string;
   status: string;
+  pinned: boolean;
 }
 
 interface ConversationListProps {
@@ -34,6 +44,9 @@ export const ConversationList = ({
 }: ConversationListProps) => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renameConversationId, setRenameConversationId] = useState<string | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
 
   useEffect(() => {
     loadConversations();
@@ -63,6 +76,7 @@ export const ConversationList = ({
       .from("conversations")
       .select("*")
       .eq("status", "active")
+      .order("pinned", { ascending: false })
       .order("updated_at", { ascending: false });
 
     if (error) {
@@ -96,12 +110,56 @@ export const ConversationList = ({
       return;
     }
 
-    // If deleting the selected conversation, clear selection
     if (selectedConversation === id) {
       onSelectConversation(null);
     }
     
     toast.success("Conversation deleted");
+  };
+
+  const handleRenameConversation = async () => {
+    if (!renameConversationId || !renameTitle.trim()) return;
+    
+    const { error } = await supabase
+      .from("conversations")
+      .update({ title: renameTitle.trim() })
+      .eq("id", renameConversationId);
+
+    if (error) {
+      toast.error("Failed to rename conversation");
+      return;
+    }
+
+    setRenameDialogOpen(false);
+    setRenameConversationId(null);
+    setRenameTitle("");
+    toast.success("Conversation renamed");
+  };
+
+  const openRenameDialog = (e: React.MouseEvent | Event, conv: Conversation) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setRenameConversationId(conv.id);
+    setRenameTitle(conv.title);
+    setRenameDialogOpen(true);
+  };
+
+  const handleTogglePin = async (e: React.MouseEvent | Event, conv: Conversation) => {
+    e.stopPropagation();
+    e.preventDefault();
+    triggerHaptic("light");
+    
+    const { error } = await supabase
+      .from("conversations")
+      .update({ pinned: !conv.pinned })
+      .eq("id", conv.id);
+
+    if (error) {
+      toast.error("Failed to update pin status");
+      return;
+    }
+
+    toast.success(conv.pinned ? "Unpinned" : "Pinned");
   };
 
   const handleNewChat = () => {
@@ -164,30 +222,52 @@ export const ConversationList = ({
             </Button>
           </div>
 
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 overflow-hidden">
             <div className="p-2 space-y-1">
               {conversations.map((conv) => (
                 <div
                   key={conv.id}
                   onClick={() => handleSelectConversation(conv.id)}
-                  className={`group w-full text-left p-3 rounded-lg transition-colors flex items-center gap-2 cursor-pointer ${
+                  className={`group w-full text-left p-3 rounded-lg transition-colors flex items-center gap-2 cursor-pointer overflow-hidden ${
                     selectedConversation === conv.id
                       ? "bg-primary/10 text-primary"
                       : "hover:bg-accent text-foreground"
                   }`}
                 >
-                  <MessageSquare className="w-4 h-4 shrink-0" />
+                  {conv.pinned ? (
+                    <Pin className="w-4 h-4 shrink-0 text-primary" />
+                  ) : (
+                    <MessageSquare className="w-4 h-4 shrink-0" />
+                  )}
                   <span className="truncate text-sm flex-1 min-w-0">{conv.title}</span>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                       <button
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-accent rounded transition-all shrink-0"
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-all shrink-0"
                         aria-label="More options"
                       >
                         <MoreVertical className="w-4 h-4" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-32">
+                    <DropdownMenuContent align="end" className="w-36">
+                      <DropdownMenuItem onClick={(e) => openRenameDialog(e, conv)}>
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={(e) => handleTogglePin(e, conv)}>
+                        {conv.pinned ? (
+                          <>
+                            <PinOff className="w-4 h-4 mr-2" />
+                            Unpin
+                          </>
+                        ) : (
+                          <>
+                            <Pin className="w-4 h-4 mr-2" />
+                            Pin
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={(e) => handleDeleteConversation(e, conv.id)}
                         className="text-destructive focus:text-destructive"
@@ -215,6 +295,27 @@ export const ConversationList = ({
           <PanelLeft className="h-4 w-4" />
         </Button>
       )}
+
+      {/* Rename Dialog */}
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rename conversation</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={renameTitle}
+            onChange={(e) => setRenameTitle(e.target.value)}
+            placeholder="Enter new title"
+            onKeyDown={(e) => e.key === "Enter" && handleRenameConversation()}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRenameConversation}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
