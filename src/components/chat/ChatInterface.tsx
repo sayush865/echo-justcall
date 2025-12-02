@@ -62,10 +62,17 @@ export const ChatInterface = ({
   
   const { isListening, transcript, startListening, stopListening, resetTranscript, isSupported } = useVoiceInput();
 
-  // Update input with transcript when voice input is active
+  // Update input with transcript when voice input is active and auto-resize textarea
   useEffect(() => {
     if (transcript) {
       setInput(transcript);
+      // Auto-resize textareas for voice input
+      [textareaRef, textareaRef2].forEach(ref => {
+        if (ref.current) {
+          ref.current.style.height = 'auto';
+          ref.current.style.height = `${Math.min(ref.current.scrollHeight, 200)}px`;
+        }
+      });
     }
   }, [transcript]);
 
