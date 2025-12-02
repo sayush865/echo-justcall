@@ -294,17 +294,17 @@ export const ChatInterface = ({
   return (
     <div className="flex-1 flex flex-col h-screen min-w-0 bg-background">
       {messages.length === 0 && !conversationId ? (
-        <div className="flex-1 flex flex-col items-center justify-center px-4 pt-12 md:pt-0 relative overflow-hidden bg-background">
+        <div className="flex-1 flex flex-col items-center justify-center px-5 md:px-6 pt-14 md:pt-0 relative overflow-hidden bg-background">
           {/* Subtle gradient background */}
           <div className="absolute inset-0 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.03)_0%,hsl(256_100%_68%/0.04)_50%,hsl(195_100%_65%/0.03)_100%)]" />
           <div className="absolute top-1/4 -left-1/4 w-1/2 h-1/2 bg-primary/3 rounded-full blur-3xl" />
           <div className="absolute bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-aqua/3 rounded-full blur-3xl" />
-          <h1 className="relative z-10 text-2xl md:text-3xl font-bold mb-2 text-center animate-fade-in">Echo — Bringing the Voice of Customers Back to You</h1>
-          <p className="relative z-10 text-muted-foreground mb-8 text-center animate-fade-in [animation-delay:100ms] opacity-0 [animation-fill-mode:forwards]">Our customers are talking. Echo remembers.</p>
-          <div className="relative z-10 w-full max-w-2xl px-2">
+          <h1 className="relative z-10 text-2xl md:text-3xl lg:text-4xl font-bold mb-3 text-center animate-fade-in px-2">Echo — Bringing the Voice of Customers Back to You</h1>
+          <p className="relative z-10 text-muted-foreground mb-10 text-center text-sm md:text-base animate-fade-in [animation-delay:100ms] opacity-0 [animation-fill-mode:forwards]">Our customers are talking. Echo remembers.</p>
+          <div className="relative z-10 w-full max-w-2xl px-3">
             {/* Gradient glow behind input */}
-            <div className="absolute -inset-1 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.3)_0%,hsl(256_100%_68%/0.2)_50%,hsl(195_100%_65%/0.3)_100%)] rounded-[2rem] blur-xl opacity-60" />
-            <div className={`relative flex items-center gap-2 md:gap-3 bg-background/80 backdrop-blur-sm border rounded-3xl px-3 md:px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
+            <div className="absolute -inset-1.5 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.25)_0%,hsl(256_100%_68%/0.15)_50%,hsl(195_100%_65%/0.25)_100%)] rounded-[2rem] blur-xl opacity-50" />
+            <div className={`relative flex items-center gap-3 bg-background/90 backdrop-blur-sm border rounded-3xl px-4 md:px-5 py-3.5 transition-all shadow-sm ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border/80'}`}>
                 <div className="flex-1 relative">
                   <textarea
                     ref={textareaRef}
@@ -312,7 +312,7 @@ export const ChatInterface = ({
                     onChange={(e) => handleInputChange(e, textareaRef)}
                     onKeyDown={handleKeyDown}
                     placeholder={isListening ? "Listening..." : ""}
-                    className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[24px] max-h-[200px] py-0"
+                    className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[26px] max-h-[200px] py-0 text-[15px]"
                     rows={1}
                   />
                   {!input && !isListening && (
@@ -321,11 +321,11 @@ export const ChatInterface = ({
                     </div>
                   )}
                 </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 {isSupported && (
                   <button 
                     onClick={handleVoiceToggle}
-                    className={`transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`transition-colors p-1 ${isListening ? 'text-red-500 animate-pulse' : 'text-muted-foreground hover:text-foreground'}`}
                     title={isListening ? "Stop listening" : "Start voice input"}
                   >
                     {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
@@ -334,7 +334,7 @@ export const ChatInterface = ({
                 <button 
                   onClick={handleSend}
                   disabled={!input.trim() || loading}
-                  className="bg-foreground text-background rounded-full p-2 hover:opacity-80 transition-opacity disabled:opacity-50"
+                  className="bg-foreground text-background rounded-full p-2.5 hover:opacity-80 transition-all disabled:opacity-50"
                 >
                   {loading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -345,7 +345,7 @@ export const ChatInterface = ({
               </div>
             </div>
             {isListening && (
-              <p className="text-center text-sm text-muted-foreground mt-3 animate-pulse">
+              <p className="text-center text-sm text-muted-foreground mt-4 animate-pulse">
                 Speak now... Click the mic to stop.
               </p>
             )}
@@ -358,8 +358,8 @@ export const ChatInterface = ({
           <div className="absolute top-1/4 -left-1/4 w-1/2 h-1/2 bg-primary/3 rounded-full blur-3xl" />
           <div className="absolute bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-aqua/3 rounded-full blur-3xl" />
           
-          <ScrollArea className="flex-1 p-2 md:p-4 pt-12 md:pt-4 relative z-10">
-            <div className="space-y-4 max-w-3xl mx-auto pb-4 px-1 md:px-0">
+          <ScrollArea className="flex-1 px-3 md:px-6 py-4 pt-14 md:pt-6 relative z-10">
+            <div className="space-y-6 max-w-3xl mx-auto pb-6">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -368,8 +368,8 @@ export const ChatInterface = ({
                   }`}
                 >
                   {msg.role === "user" ? (
-                    <div className="max-w-[90%] md:max-w-[80%] rounded-2xl px-4 py-2.5 bg-muted text-foreground">
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    <div className="max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 bg-muted text-foreground shadow-sm">
+                      <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                     </div>
                   ) : (
                     <div className="w-full">
@@ -380,14 +380,14 @@ export const ChatInterface = ({
               ))}
               {streamingMessage && (
                 <div className="flex justify-start">
-                  <div className="w-full space-y-2">
+                  <div className="w-full space-y-3">
                     {/* Intermediate steps */}
                     {streamingMessage.steps && streamingMessage.steps.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-2">
+                      <div className="flex flex-wrap gap-2 mb-3">
                         {streamingMessage.steps.map((step, idx) => (
                           <span 
                             key={idx} 
-                            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 animate-fade-in"
+                            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 animate-fade-in"
                           >
                             <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
                             {step}
@@ -400,12 +400,12 @@ export const ChatInterface = ({
                 </div>
               )}
               {loading && !streamingMessage && (
-                <div className="flex justify-start">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                      <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                      <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"></span>
+                <div className="flex justify-start py-2">
+                  <div className="flex items-center gap-2 text-muted-foreground px-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce"></span>
                     </div>
                   </div>
                 </div>
@@ -414,11 +414,11 @@ export const ChatInterface = ({
             </div>
           </ScrollArea>
 
-          <div className="p-2 md:p-4 bg-transparent relative z-10">
+          <div className="p-3 md:p-5 bg-transparent relative z-10">
             <div className="max-w-3xl mx-auto relative">
               {/* Gradient glow behind input */}
-              <div className="absolute -inset-1 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.3)_0%,hsl(256_100%_68%/0.2)_50%,hsl(195_100%_65%/0.3)_100%)] rounded-[2rem] blur-xl opacity-60" />
-              <div className={`relative flex items-center gap-2 md:gap-3 bg-background/80 backdrop-blur-sm border rounded-3xl px-3 md:px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
+              <div className="absolute -inset-1.5 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.25)_0%,hsl(256_100%_68%/0.15)_50%,hsl(195_100%_65%/0.25)_100%)] rounded-[2rem] blur-xl opacity-50" />
+              <div className={`relative flex items-center gap-3 bg-background/90 backdrop-blur-sm border rounded-3xl px-4 md:px-5 py-3.5 transition-all shadow-sm ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border/80'}`}>
                 <div className="flex-1 relative">
                   <textarea
                     ref={textareaRef2}
@@ -426,7 +426,7 @@ export const ChatInterface = ({
                     onChange={(e) => handleInputChange(e, textareaRef2)}
                     onKeyDown={handleKeyDown}
                     placeholder={isListening ? "Listening..." : ""}
-                    className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[24px] max-h-[200px] py-0"
+                    className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[26px] max-h-[200px] py-0 text-[15px]"
                     rows={1}
                   />
                   {!input && !isListening && (
@@ -435,11 +435,11 @@ export const ChatInterface = ({
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   {isSupported && (
                     <button 
                       onClick={handleVoiceToggle}
-                      className={`transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-muted-foreground hover:text-foreground'}`}
+                      className={`transition-colors p-1 ${isListening ? 'text-red-500 animate-pulse' : 'text-muted-foreground hover:text-foreground'}`}
                       title={isListening ? "Stop listening" : "Start voice input"}
                     >
                       {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
@@ -448,7 +448,7 @@ export const ChatInterface = ({
                   <button 
                     onClick={handleSend}
                     disabled={!input.trim() || loading}
-                    className="bg-foreground text-background rounded-full p-2 hover:opacity-80 transition-opacity disabled:opacity-50"
+                    className="bg-foreground text-background rounded-full p-2.5 hover:opacity-80 transition-all disabled:opacity-50"
                   >
                     {loading ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -459,7 +459,7 @@ export const ChatInterface = ({
                 </div>
               </div>
               {isListening && (
-                <p className="text-center text-sm text-muted-foreground mt-3 animate-pulse">
+                <p className="text-center text-sm text-muted-foreground mt-4 animate-pulse">
                   Speak now... Click the mic to stop.
                 </p>
               )}
