@@ -277,63 +277,62 @@ export const ConversationList = ({
                   <p className="text-sm text-muted-foreground text-center py-4">No conversations found</p>
                 ) : (
                   filteredConversations.map((conv) => (
-                    <div
-                      key={conv.id}
-                      onClick={() => handleSelectConversation(conv.id)}
-                      className={`group w-full text-left p-2 rounded-lg transition-colors flex items-center cursor-pointer ${
-                        selectedConversation === conv.id
-                          ? "bg-primary/10 text-primary"
-                          : "hover:bg-accent text-foreground"
-                      }`}
-                    >
-                    {conv.pinned ? (
-                      <Pin className="w-4 h-4 mr-2 flex-shrink-0 text-primary" />
-                    ) : (
-                      <MessageSquare className="w-4 h-4 mr-2 flex-shrink-0" />
-                    )}
-                    <Tooltip>
+                    <Tooltip key={conv.id}>
                       <TooltipTrigger asChild>
-                        <span className="text-sm truncate flex-1 max-w-[140px]">{conv.title}</span>
+                        <div
+                          onClick={() => handleSelectConversation(conv.id)}
+                          className={`group w-full text-left p-2 rounded-lg transition-colors flex items-center cursor-pointer ${
+                            selectedConversation === conv.id
+                              ? "bg-primary/10 text-primary"
+                              : "hover:bg-accent text-foreground"
+                          }`}
+                        >
+                          {conv.pinned ? (
+                            <Pin className="w-4 h-4 mr-2 flex-shrink-0 text-primary" />
+                          ) : (
+                            <MessageSquare className="w-4 h-4 mr-2 flex-shrink-0" />
+                          )}
+                          <span className="text-sm truncate flex-1 max-w-[140px]">{conv.title}</span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto flex-shrink-0">
+                                <MoreVertical className="w-3 h-3" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-36 z-[100]">
+                              <DropdownMenuItem onClick={(e) => openRenameDialog(e, conv)}>
+                                <Pencil className="w-4 h-4 mr-2" />
+                                Rename
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => handleTogglePin(e, conv)}>
+                                {conv.pinned ? (
+                                  <>
+                                    <PinOff className="w-4 h-4 mr-2" />
+                                    Unpin
+                                  </>
+                                ) : (
+                                  <>
+                                    <Pin className="w-4 h-4 mr-2" />
+                                    Pin
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={(e) => handleDeleteConversation(e, conv.id)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </TooltipTrigger>
                       <TooltipContent side="right" className="max-w-[250px]">
                         {conv.title}
                       </TooltipContent>
                     </Tooltip>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto flex-shrink-0">
-                          <MoreVertical className="w-3 h-3" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-36 z-[100]">
-                        <DropdownMenuItem onClick={(e) => openRenameDialog(e, conv)}>
-                          <Pencil className="w-4 h-4 mr-2" />
-                          Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => handleTogglePin(e, conv)}>
-                          {conv.pinned ? (
-                            <>
-                              <PinOff className="w-4 h-4 mr-2" />
-                              Unpin
-                            </>
-                          ) : (
-                            <>
-                              <Pin className="w-4 h-4 mr-2" />
-                              Pin
-                            </>
-                          )}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={(e) => handleDeleteConversation(e, conv.id)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
                   ))
                 )}
               </div>
