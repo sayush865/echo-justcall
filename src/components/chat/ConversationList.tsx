@@ -114,6 +114,8 @@ export const ConversationList = ({
       onSelectConversation(null);
     }
     
+    // Manually refresh the list since realtime might not be enabled
+    await loadConversations();
     toast.success("Conversation deleted");
   };
 
@@ -133,6 +135,7 @@ export const ConversationList = ({
     setRenameDialogOpen(false);
     setRenameConversationId(null);
     setRenameTitle("");
+    await loadConversations();
     toast.success("Conversation renamed");
   };
 
@@ -159,6 +162,7 @@ export const ConversationList = ({
       return;
     }
 
+    await loadConversations();
     toast.success(conv.pinned ? "Unpinned" : "Pinned");
   };
 
