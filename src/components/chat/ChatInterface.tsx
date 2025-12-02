@@ -301,7 +301,7 @@ export const ChatInterface = ({
           <div className="absolute bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-aqua/3 rounded-full blur-3xl" />
           <h1 className="relative z-10 text-2xl md:text-3xl lg:text-4xl font-bold mb-3 text-center animate-fade-in px-2">Echo — Bringing the Voice of Customers Back to You</h1>
           <p className="relative z-10 text-muted-foreground mb-10 text-center text-sm md:text-base animate-fade-in [animation-delay:100ms] opacity-0 [animation-fill-mode:forwards]">Our customers are talking. Echo remembers.</p>
-          <div className="relative z-10 w-full max-w-2xl px-3">
+          <div className="relative z-10 w-full max-w-2xl px-4">
             {/* Gradient glow behind input */}
             <div className="absolute -inset-1.5 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.25)_0%,hsl(256_100%_68%/0.15)_50%,hsl(195_100%_65%/0.25)_100%)] rounded-[2rem] blur-xl opacity-50" />
             <div className={`relative flex items-center gap-3 bg-background/90 backdrop-blur-sm border rounded-3xl px-4 md:px-5 py-3.5 transition-all shadow-sm ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border/80'}`}>
@@ -358,8 +358,8 @@ export const ChatInterface = ({
           <div className="absolute top-1/4 -left-1/4 w-1/2 h-1/2 bg-primary/3 rounded-full blur-3xl" />
           <div className="absolute bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-aqua/3 rounded-full blur-3xl" />
           
-          <ScrollArea className="flex-1 px-3 md:px-6 py-4 pt-14 md:pt-6 relative z-10">
-            <div className="space-y-6 max-w-3xl mx-auto pb-6">
+          <ScrollArea className="flex-1 px-4 md:px-6 py-5 pt-14 md:pt-8 relative z-10">
+            <div className="space-y-6 max-w-3xl mx-auto pb-8">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -414,8 +414,8 @@ export const ChatInterface = ({
             </div>
           </ScrollArea>
 
-          <div className="p-3 md:p-5 bg-transparent relative z-10">
-            <div className="max-w-3xl mx-auto relative">
+          <div className="p-4 md:p-6 pb-5 md:pb-7 bg-transparent relative z-10">
+            <div className="max-w-3xl mx-auto relative px-1">
               {/* Gradient glow behind input */}
               <div className="absolute -inset-1.5 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.25)_0%,hsl(256_100%_68%/0.15)_50%,hsl(195_100%_65%/0.25)_100%)] rounded-[2rem] blur-xl opacity-50" />
               <div className={`relative flex items-center gap-3 bg-background/90 backdrop-blur-sm border rounded-3xl px-4 md:px-5 py-3.5 transition-all shadow-sm ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border/80'}`}>
