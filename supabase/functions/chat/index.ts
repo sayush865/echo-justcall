@@ -73,8 +73,13 @@ serve(async (req) => {
     }
 
     const data = await response.json();
+    console.log("Webhook response data:", JSON.stringify(data));
 
-    return new Response(JSON.stringify({ response: data.response || data.message || "No response" }), {
+    // n8n returns the output in the 'output' field
+    const assistantResponse = data.output || data.response || data.message || "No response";
+    console.log("Extracted response:", assistantResponse);
+
+    return new Response(JSON.stringify({ response: assistantResponse }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
