@@ -2,7 +2,13 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, MessageSquare, PanelLeftClose, PanelLeft, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreVertical, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/hooks/useHapticFeedback";
 
@@ -75,8 +81,9 @@ export const ConversationList = ({
     }
   };
 
-  const handleDeleteConversation = async (e: React.MouseEvent, id: string) => {
+  const handleDeleteConversation = async (e: React.MouseEvent | Event, id: string) => {
     e.stopPropagation();
+    e.preventDefault();
     triggerHaptic("medium");
     
     const { error } = await supabase
@@ -160,25 +167,37 @@ export const ConversationList = ({
           <ScrollArea className="flex-1">
             <div className="p-2 space-y-1">
               {conversations.map((conv) => (
-                <button
+                <div
                   key={conv.id}
                   onClick={() => handleSelectConversation(conv.id)}
-                  className={`group w-full text-left p-3 rounded-lg transition-colors flex items-center gap-2 ${
+                  className={`group w-full text-left p-3 rounded-lg transition-colors flex items-center gap-2 cursor-pointer ${
                     selectedConversation === conv.id
                       ? "bg-primary/10 text-primary"
                       : "hover:bg-accent text-foreground"
                   }`}
                 >
                   <MessageSquare className="w-4 h-4 shrink-0" />
-                  <span className="truncate text-sm flex-1">{conv.title}</span>
-                  <button
-                    onClick={(e) => handleDeleteConversation(e, conv.id)}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 hover:text-destructive rounded transition-all"
-                    aria-label="Delete conversation"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </button>
+                  <span className="truncate text-sm flex-1 min-w-0">{conv.title}</span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-accent rounded transition-all shrink-0"
+                        aria-label="More options"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-32">
+                      <DropdownMenuItem
+                        onClick={(e) => handleDeleteConversation(e, conv.id)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               ))}
             </div>
           </ScrollArea>
