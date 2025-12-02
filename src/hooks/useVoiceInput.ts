@@ -71,7 +71,8 @@ export const useVoiceInput = (): UseVoiceInputReturn => {
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = "en-US";
+      // Use browser language for multilingual support, fallback to English
+      recognition.lang = navigator.language || "en-US";
 
       recognition.onresult = (event) => {
         let interimTranscript = "";
