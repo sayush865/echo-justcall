@@ -240,7 +240,7 @@ export const ChatInterface = ({
           <p className="relative z-10 text-muted-foreground mb-8 text-center animate-fade-in [animation-delay:100ms] opacity-0 [animation-fill-mode:forwards]">Our customers are talking. Echo remembers.</p>
           <div className="relative z-10 w-full max-w-2xl px-2">
             {/* Gradient glow behind input */}
-            <div className="absolute -inset-1 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.3)_0%,hsl(256_100%_68%/0.2)_50%,hsl(195_100%_65%/0.3)_100%)] rounded-[2rem] blur-xl opacity-60" />
+            <div className="absolute -inset-2 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.15)_0%,hsl(256_100%_68%/0.12)_50%,hsl(195_100%_65%/0.15)_100%)] rounded-[2.5rem] blur-2xl" />
             <div className={`relative flex items-center gap-2 md:gap-3 bg-background/40 backdrop-blur-md border rounded-3xl px-3 md:px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border/50'}`}>
                 <textarea
                   ref={textareaRef}
@@ -328,7 +328,7 @@ export const ChatInterface = ({
           <div className="p-2 md:p-4 bg-background/80 backdrop-blur-sm">
             <div className="max-w-3xl mx-auto relative">
               {/* Gradient glow behind input */}
-              <div className="absolute -inset-1 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.3)_0%,hsl(256_100%_68%/0.2)_50%,hsl(195_100%_65%/0.3)_100%)] rounded-[2rem] blur-xl opacity-60" />
+              <div className="absolute -inset-2 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.15)_0%,hsl(256_100%_68%/0.12)_50%,hsl(195_100%_65%/0.15)_100%)] rounded-[2.5rem] blur-2xl" />
               <div className={`relative flex items-center gap-2 md:gap-3 bg-background/40 backdrop-blur-md border rounded-3xl px-3 md:px-4 py-3 transition-colors ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border/50'}`}>
                 <textarea
                   ref={textareaRef2}
