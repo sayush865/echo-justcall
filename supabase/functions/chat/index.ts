@@ -12,6 +12,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+  let fullResponse = "";
+
   try {
     const { message, conversationId } = await req.json();
 
@@ -20,10 +23,13 @@ serve(async (req) => {
       throw new Error("WEBHOOK_URL is not configured");
     }
 
-    // Initialize Supabase client to fetch conversation history
+    // Initialize Supabase clients
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // Fetch full conversation history
     const { data: messages, error: messagesError } = await supabase
@@ -47,8 +53,25 @@ serve(async (req) => {
       console.error("Error fetching conversation:", conversationError);
     }
 
+    const userId = conversation?.user_id;
+    const userAgent = req.headers.get("user-agent") || "";
+    const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "";
+
+    // Log user message
+    await supabaseAdmin.from("audit_logs").insert({
+      user_id: userId,
+      conversation_id: conversationId,
+      event_type: "user_message",
+      message_content: message,
+      metadata: {
+        message_count: messages?.length || 0,
+        conversation_title: conversation?.title || "",
+      },
+      ip_address: ipAddress,
+      user_agent: userAgent,
+    });
+
     // Use GET with minimal params to avoid URL length limits (431 errors)
-    // Only send essential data - webhook should fetch full history if needed
     const url = new URL(WEBHOOK_URL);
     url.searchParams.set("message", message);
     url.searchParams.set("conversationId", conversationId);
@@ -69,6 +92,21 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Webhook error response:", errorText);
+      
+      // Log error
+      await supabaseAdmin.from("audit_logs").insert({
+        user_id: userId,
+        conversation_id: conversationId,
+        event_type: "webhook_error",
+        metadata: {
+          status: response.status,
+          error: errorText,
+          latency_ms: Date.now() - startTime,
+        },
+        ip_address: ipAddress,
+        user_agent: userAgent,
+      });
+      
       throw new Error(`Webhook returned ${response.status}: ${errorText}`);
     }
 
@@ -87,12 +125,43 @@ serve(async (req) => {
           while (true) {
             const { done, value } = await reader.read();
             if (done) {
+              // Log AI response when streaming is complete
+              await supabaseAdmin.from("audit_logs").insert({
+                user_id: userId,
+                conversation_id: conversationId,
+                event_type: "ai_response",
+                ai_response: fullResponse,
+                metadata: {
+                  latency_ms: Date.now() - startTime,
+                  response_length: fullResponse.length,
+                },
+                ip_address: ipAddress,
+                user_agent: userAgent,
+              });
+              
               controller.close();
               break;
             }
             
-            // Pass through the chunk
+            // Pass through the chunk and accumulate response
             const chunk = decoder.decode(value, { stream: true });
+            
+            // Try to extract content from NDJSON chunks
+            const lines = chunk.split('\n').filter(line => line.trim());
+            for (const line of lines) {
+              try {
+                const parsed = JSON.parse(line);
+                if (parsed.type === "item" && parsed.content) {
+                  fullResponse += parsed.content;
+                }
+              } catch {
+                // Not JSON, might be plain text
+                if (line.trim()) {
+                  fullResponse += line;
+                }
+              }
+            }
+            
             console.log("Streaming chunk:", chunk.substring(0, 100));
             controller.enqueue(new TextEncoder().encode(chunk));
           }

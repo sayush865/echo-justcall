@@ -170,6 +170,14 @@ export const ChatInterface = ({
         if (convError) throw convError;
         currentConversationId = newConv.id;
         onConversationCreated(currentConversationId);
+        
+        // Log conversation creation
+        await supabase.from("audit_logs").insert({
+          user_id: user?.id,
+          conversation_id: currentConversationId,
+          event_type: "conversation_created",
+          metadata: { title: messageToSend.slice(0, 50) },
+        });
       }
 
       const { error: msgError } = await supabase.from("messages").insert({
