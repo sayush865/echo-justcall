@@ -10,6 +10,7 @@ import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { triggerHaptic } from "@/hooks/useHapticFeedback";
 import { AnimatedPlaceholder } from "./AnimatedPlaceholder";
 import { useAuth } from "@/hooks/useAuth";
+import { AuthModal } from "@/components/auth/AuthModal";
 
 interface Message {
   id: string;
@@ -38,6 +39,8 @@ export const ChatInterface = ({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState<StreamingMessage | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef2 = useRef<HTMLTextAreaElement>(null);
@@ -129,11 +132,18 @@ export const ChatInterface = ({
     setMessages(data || []);
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
+  const handleSend = async (messageOverride?: string) => {
+    const messageToSend = messageOverride || input.trim();
+    if (!messageToSend || loading) return;
+    
+    // Check auth - if not logged in, show modal and save message
+    if (!user) {
+      setPendingMessage(messageToSend);
+      setShowAuthModal(true);
+      return;
+    }
     
     triggerHaptic("medium");
-    const userMessage = input.trim();
     setInput("");
     resetTranscript();
     setLoading(true);
@@ -143,7 +153,7 @@ export const ChatInterface = ({
     setMessages(prev => [...prev, {
       id: tempUserMsgId,
       role: "user",
-      content: userMessage,
+      content: messageToSend,
       created_at: new Date().toISOString()
     }]);
 
@@ -153,7 +163,7 @@ export const ChatInterface = ({
       if (!currentConversationId) {
         const { data: newConv, error: convError } = await supabase
           .from("conversations")
-          .insert({ title: userMessage.slice(0, 50), user_id: user?.id })
+          .insert({ title: messageToSend.slice(0, 50), user_id: user?.id })
           .select()
           .single();
 
@@ -165,7 +175,7 @@ export const ChatInterface = ({
       const { error: msgError } = await supabase.from("messages").insert({
         conversation_id: currentConversationId,
         role: "user",
-        content: userMessage,
+        content: messageToSend,
       });
 
       if (msgError) throw msgError;
@@ -180,7 +190,7 @@ export const ChatInterface = ({
           "Content-Type": "application/json",
           "Authorization": `Bearer ${supabaseKey}`,
         },
-        body: JSON.stringify({ message: userMessage, conversationId: currentConversationId }),
+        body: JSON.stringify({ message: messageToSend, conversationId: currentConversationId }),
       });
 
       if (!response.ok) {
@@ -293,8 +303,27 @@ export const ChatInterface = ({
     }
   };
 
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false);
+    if (pendingMessage) {
+      // Small delay to ensure auth state is updated
+      setTimeout(() => {
+        handleSend(pendingMessage);
+        setPendingMessage(null);
+      }, 100);
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col h-screen min-w-0 bg-background">
+      <AuthModal 
+        isOpen={showAuthModal} 
+        onClose={() => {
+          setShowAuthModal(false);
+          setPendingMessage(null);
+        }} 
+        onSuccess={handleAuthSuccess} 
+      />
       {messages.length === 0 && !conversationId ? (
         <div className="flex-1 flex flex-col items-center justify-center px-5 md:px-6 pt-14 md:pt-0 relative overflow-hidden bg-background">
           {/* Subtle gradient background */}
@@ -334,7 +363,7 @@ export const ChatInterface = ({
                   </button>
                 )}
                 <button 
-                  onClick={handleSend}
+                  onClick={() => handleSend()}
                   disabled={!input.trim() || loading}
                   className="bg-foreground text-background rounded-full p-2.5 hover:opacity-80 transition-all disabled:opacity-50"
                 >
@@ -448,7 +477,7 @@ export const ChatInterface = ({
                     </button>
                   )}
                   <button 
-                    onClick={handleSend}
+                    onClick={() => handleSend()}
                     disabled={!input.trim() || loading}
                     className="bg-foreground text-background rounded-full p-2.5 hover:opacity-80 transition-all disabled:opacity-50"
                   >
