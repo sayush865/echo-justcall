@@ -15,11 +15,11 @@ interface FollowUpPillsProps {
 export const FollowUpPills = ({ suggestions, onSelect, loading }: FollowUpPillsProps) => {
   if (loading) {
     return (
-      <div className="flex flex-wrap gap-2 mt-4">
+      <div className="flex flex-wrap justify-center gap-2">
         {[1, 2, 3].map((i) => (
           <Skeleton 
             key={i} 
-            className="h-8 w-28 rounded-full"
+            className="h-7 w-24 rounded-full"
             style={{ animationDelay: `${i * 100}ms` }}
           />
         ))}
@@ -32,23 +32,23 @@ export const FollowUpPills = ({ suggestions, onSelect, loading }: FollowUpPillsP
   }
 
   return (
-    <div className="flex flex-wrap gap-2 mt-4">
+    <div className="flex flex-wrap justify-center gap-2">
       {suggestions.map((suggestion, index) => (
         <button
           key={index}
           onClick={() => onSelect(suggestion.prompt)}
           className="
-            inline-flex items-center gap-1.5 px-3 py-1.5 text-sm
-            rounded-full border border-border/60 bg-background/80
+            inline-flex items-center gap-1 px-3 py-1.5 text-xs
+            rounded-full border border-border/50 bg-muted/50
             text-muted-foreground hover:text-foreground hover:border-primary/40
-            hover:bg-primary/5 transition-all duration-200
+            hover:bg-primary/10 transition-all duration-200
             animate-fade-in
           "
           style={{ animationDelay: `${index * 50}ms` }}
           title={suggestion.prompt}
         >
-          <span className="truncate max-w-[180px]">{suggestion.label}</span>
-          <ArrowRight className="w-3 h-3 flex-shrink-0 opacity-60" />
+          <span className="truncate max-w-[150px]">{suggestion.label}</span>
+          <ArrowRight className="w-3 h-3 flex-shrink-0 opacity-50" />
         </button>
       ))}
     </div>
