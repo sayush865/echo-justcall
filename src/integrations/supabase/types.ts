@@ -182,6 +182,7 @@ export type Database = {
           content: string
           conversation_id: string
           created_at: string
+          follow_up_suggestions: Json | null
           id: string
           role: string
           user_email: string | null
@@ -191,6 +192,7 @@ export type Database = {
           content: string
           conversation_id: string
           created_at?: string
+          follow_up_suggestions?: Json | null
           id?: string
           role: string
           user_email?: string | null
@@ -200,6 +202,7 @@ export type Database = {
           content?: string
           conversation_id?: string
           created_at?: string
+          follow_up_suggestions?: Json | null
           id?: string
           role?: string
           user_email?: string | null
