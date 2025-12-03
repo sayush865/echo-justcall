@@ -119,34 +119,50 @@ serve(async (req) => {
 
     console.log(`Found ${activeUserIds.length} active users for personalization`);
 
-    for (const userId of activeUserIds.slice(0, 20)) { // Limit to 20 users
-      const userMsgs = userMessages[userId].map(m => m.content);
+    // Process up to 50 users in parallel batches of 10
+    const usersToProcess = activeUserIds.slice(0, 50);
+    const BATCH_SIZE = 10;
+    let processedCount = 0;
+
+    for (let i = 0; i < usersToProcess.length; i += BATCH_SIZE) {
+      const batch = usersToProcess.slice(i, i + BATCH_SIZE);
       
-      try {
-        const personalSuggestions = await generateSuggestions(
-          lovableApiKey,
-          userMsgs.slice(0, 20),
-          2,
-          'personal'
-        );
+      const batchPromises = batch.map(async (userId) => {
+        const userMsgs = userMessages[userId].map(m => m.content);
+        
+        try {
+          const personalSuggestions = await generateSuggestions(
+            lovableApiKey,
+            userMsgs.slice(0, 20),
+            2,
+            'personal'
+          );
 
-        for (const suggestion of personalSuggestions) {
-          await supabase.from('dynamic_suggestions').insert({
-            user_id: userId,
-            label: suggestion.label,
-            prompt: suggestion.prompt,
-            category: suggestion.category,
-            icon: suggestion.icon,
-            priority: suggestion.priority,
-            is_active: true,
-            expires_at: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
-          });
+          // Insert suggestions in parallel
+          await Promise.all(personalSuggestions.map(suggestion =>
+            supabase.from('dynamic_suggestions').insert({
+              user_id: userId,
+              label: suggestion.label,
+              prompt: suggestion.prompt,
+              category: suggestion.category,
+              icon: suggestion.icon,
+              priority: suggestion.priority,
+              is_active: true,
+              expires_at: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+            })
+          ));
+
+          console.log(`Generated ${personalSuggestions.length} personal suggestions for user ${userId}`);
+          return true;
+        } catch (e) {
+          console.error(`Failed to generate suggestions for user ${userId}:`, e);
+          return false;
         }
+      });
 
-        console.log(`Generated ${personalSuggestions.length} personal suggestions for user ${userId}`);
-      } catch (e) {
-        console.error(`Failed to generate suggestions for user ${userId}:`, e);
-      }
+      const results = await Promise.all(batchPromises);
+      processedCount += results.filter(Boolean).length;
+      console.log(`Processed batch ${Math.floor(i / BATCH_SIZE) + 1}, total users: ${processedCount}`);
     }
 
     return new Response(JSON.stringify({ 
