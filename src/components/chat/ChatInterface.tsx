@@ -16,6 +16,7 @@ import { AuthModal } from "@/components/auth/AuthModal";
 import { EchoLogo } from "./EchoLogo";
 import { ExportDialog } from "./ExportDialog";
 import { DynamicSuggestionPills } from "./DynamicSuggestionPills";
+import { FollowUpPills } from "./FollowUpPills";
 
 // Helper to get user initials
 const getUserInitials = (displayName?: string | null): string => {
@@ -67,6 +68,8 @@ export const ChatInterface = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isUserNearBottom, setIsUserNearBottom] = useState(true);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [followUpSuggestions, setFollowUpSuggestions] = useState<{label: string; prompt: string}[]>([]);
+  const [followUpLoading, setFollowUpLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -194,6 +197,7 @@ export const ChatInterface = ({
     resetTranscript();
     setLoading(true);
     setIsUserNearBottom(true); // Resume auto-scroll when user sends message
+    setFollowUpSuggestions([]); // Clear follow-up suggestions when sending new message
 
     // Optimistically add user message to UI immediately
     const tempUserMsgId = `temp-user-${Date.now()}`;
@@ -342,6 +346,22 @@ export const ChatInterface = ({
         user_id: user?.id,
         user_email: user?.email,
       });
+
+      // Generate follow-up suggestions (fire and forget)
+      setFollowUpLoading(true);
+      supabase.functions.invoke('generate-followups', {
+        body: { 
+          lastUserMessage: messageToSend, 
+          lastAIResponse: fullContent.substring(0, 1500),
+        }
+      }).then(({ data }) => {
+        setFollowUpSuggestions(data?.suggestions || []);
+      }).catch((err) => {
+        console.warn("Failed to generate follow-ups:", err);
+        setFollowUpSuggestions([]);
+      }).finally(() => {
+        setFollowUpLoading(false);
+      });
     } catch (error: any) {
       setStreamingMessage(null);
       toast.error(error.message || "Failed to send message");
@@ -395,6 +415,7 @@ export const ChatInterface = ({
     resetTranscript();
     setLoading(true);
     setIsUserNearBottom(true); // Resume auto-scroll when user sends message
+    setFollowUpSuggestions([]); // Clear follow-up suggestions when sending new message
 
     // Optimistically add user message to UI immediately
     const tempUserMsgId = `temp-user-${Date.now()}`;
@@ -533,6 +554,22 @@ export const ChatInterface = ({
         content: fullContent,
         user_id: authUser.id,
         user_email: authUser.email,
+      });
+
+      // Generate follow-up suggestions (fire and forget)
+      setFollowUpLoading(true);
+      supabase.functions.invoke('generate-followups', {
+        body: { 
+          lastUserMessage: messageToSend, 
+          lastAIResponse: fullContent.substring(0, 1500),
+        }
+      }).then(({ data }) => {
+        setFollowUpSuggestions(data?.suggestions || []);
+      }).catch((err) => {
+        console.warn("Failed to generate follow-ups:", err);
+        setFollowUpSuggestions([]);
+      }).finally(() => {
+        setFollowUpLoading(false);
       });
     } catch (error: any) {
       setStreamingMessage(null);
@@ -736,6 +773,20 @@ export const ChatInterface = ({
                       <span className="w-2 h-2 bg-muted-foreground/70 rounded-full animate-bounce"></span>
                     </div>
                   </div>
+                </div>
+              )}
+              {/* Follow-up suggestion pills */}
+              {!loading && !streamingMessage && (followUpSuggestions.length > 0 || followUpLoading) && (
+                <div className="flex justify-start gap-3">
+                  <div className="w-8 flex-shrink-0" /> {/* Spacer to align with messages */}
+                  <FollowUpPills 
+                    suggestions={followUpSuggestions} 
+                    onSelect={(prompt) => {
+                      setFollowUpSuggestions([]);
+                      handleSend(prompt);
+                    }} 
+                    loading={followUpLoading}
+                  />
                 </div>
               )}
               <div ref={scrollRef} />
