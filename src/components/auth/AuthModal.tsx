@@ -42,6 +42,12 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
       });
       if (error) throw error;
       
+      // Update last_sign_in in profiles
+      await supabase
+        .from("profiles")
+        .update({ last_sign_in: new Date().toISOString() })
+        .eq("user_id", data.user?.id);
+      
       // Log sign in event
       await supabase.from("audit_logs").insert({
         user_id: data.user?.id,
