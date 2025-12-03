@@ -34,7 +34,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `Generate exactly 2 follow-up questions for a customer intelligence conversation. Return them using the generate_followups function.`,
+            content: `Generate exactly 3 follow-up questions for a customer intelligence conversation. Return them using the generate_followups function.`,
           },
           {
             role: "user",
@@ -42,7 +42,7 @@ serve(async (req) => {
 
 AI responded with insights about: "${truncatedResponse.substring(0, 500)}"
 
-Generate 2 natural follow-up questions. Each should have:
+Generate 3 natural follow-up questions. Each should have:
 - label: 2-4 word short label
 - prompt: Full detailed question`,
           },
@@ -52,7 +52,7 @@ Generate 2 natural follow-up questions. Each should have:
             type: "function",
             function: {
               name: "generate_followups",
-              description: "Return exactly 2 follow-up question suggestions",
+              description: "Return exactly 3 follow-up question suggestions",
               parameters: {
                 type: "object",
                 properties: {
@@ -66,8 +66,8 @@ Generate 2 natural follow-up questions. Each should have:
                       },
                       required: ["label", "prompt"],
                     },
-                    minItems: 2,
-                    maxItems: 2,
+                    minItems: 3,
+                    maxItems: 3,
                   },
                 },
                 required: ["suggestions"],
@@ -130,6 +130,7 @@ Generate 2 natural follow-up questions. Each should have:
     return new Response(JSON.stringify({ 
       suggestions: [
         { label: "More details", prompt: "Can you provide more details on this?" },
+        { label: "Related trends", prompt: "What related trends do you see in the data?" },
         { label: "Action items", prompt: "What actionable next steps do you recommend?" },
       ],
       error: errorMessage 
@@ -148,6 +149,7 @@ function getDefaultSuggestions(userMessage: string): Array<{label: string, promp
     return [
       { label: "Top concerns", prompt: "What are the top 3 concerns customers mentioned?" },
       { label: "Sentiment trends", prompt: "How has customer sentiment changed over time?" },
+      { label: "Action items", prompt: "What actions should we take based on this feedback?" },
     ];
   }
   
@@ -155,6 +157,7 @@ function getDefaultSuggestions(userMessage: string): Array<{label: string, promp
     return [
       { label: "Priority ranking", prompt: "Which feature requests should we prioritize?" },
       { label: "Customer impact", prompt: "Which customers would benefit most from these features?" },
+      { label: "Competitor comparison", prompt: "How do competitors handle these feature requests?" },
     ];
   }
   
@@ -162,12 +165,14 @@ function getDefaultSuggestions(userMessage: string): Array<{label: string, promp
     return [
       { label: "Risk factors", prompt: "What are the main churn risk factors?" },
       { label: "Prevention steps", prompt: "What steps can we take to prevent churn?" },
+      { label: "Success patterns", prompt: "What patterns do we see in retained customers?" },
     ];
   }
   
   // Generic fallback
   return [
     { label: "Dig deeper", prompt: "Can you provide more specific details on this?" },
+    { label: "Related insights", prompt: "What related insights can you share?" },
     { label: "Next steps", prompt: "What actionable next steps do you recommend?" },
   ];
 }
