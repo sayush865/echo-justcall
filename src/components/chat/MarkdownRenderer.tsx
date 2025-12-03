@@ -70,6 +70,33 @@ export const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
         </td>
       );
     },
+    del({ children }) {
+      return <del className="text-muted-foreground line-through">{children}</del>;
+    },
+    input({ type, checked, ...props }) {
+      if (type === "checkbox") {
+        return (
+          <input
+            type="checkbox"
+            checked={checked}
+            readOnly
+            className="mr-2 h-4 w-4 rounded border-border accent-primary"
+            {...props}
+          />
+        );
+      }
+      return <input type={type} {...props} />;
+    },
+    li({ children, node }) {
+      const hasCheckbox = node?.children?.some(
+        (child: any) => child.tagName === "input" && child.properties?.type === "checkbox"
+      );
+      return (
+        <li className={hasCheckbox ? "list-none flex items-start" : ""}>
+          {children}
+        </li>
+      );
+    },
   };
 
   return (
