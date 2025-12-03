@@ -656,7 +656,7 @@ export const ChatInterface = ({
               </p>
             )}
             {/* Dynamic suggestion pills */}
-            <DynamicSuggestionPills onSelect={(prompt) => handleSend(prompt)} />
+            <DynamicSuggestionPills onSelect={(prompt) => setInput(prompt)} />
           </div>
         </div>
       ) : (
@@ -809,7 +809,7 @@ export const ChatInterface = ({
                     suggestions={followUpSuggestions} 
                     onSelect={(prompt) => {
                       setFollowUpSuggestions([]);
-                      handleSend(prompt);
+                      setInput(prompt);
                     }} 
                     loading={followUpLoading}
                   />
