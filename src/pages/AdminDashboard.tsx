@@ -753,23 +753,30 @@ export default function AdminDashboard() {
               <CardContent>
                 <ScrollArea className="h-[500px]">
                   <div className="space-y-2">
-                    {messages.slice(0, 100).map((msg) => (
-                      <div key={msg.id} className="p-3 rounded-lg border border-border">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                            msg.role === "user" 
-                              ? "bg-primary/10 text-primary" 
-                              : "bg-violet/10 text-violet"
-                          }`}>
-                            {msg.role}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {msg.user_email || "Unknown"} • {new Date(msg.created_at).toLocaleString()}
-                          </span>
+                    {messages.slice(0, 100).map((msg) => {
+                      // Get user email from message, or look up from conversation's user
+                      const conversation = conversations.find(c => c.id === msg.conversation_id);
+                      const userProfile = conversation ? profiles.find(p => p.user_id === conversation.user_id) : null;
+                      const displayEmail = msg.user_email || userProfile?.email || "Unknown";
+                      
+                      return (
+                        <div key={msg.id} className="p-3 rounded-lg border border-border">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                              msg.role === "user" 
+                                ? "bg-primary/10 text-primary" 
+                                : "bg-violet/10 text-violet"
+                            }`}>
+                              {msg.role}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {displayEmail} • {new Date(msg.created_at).toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="text-sm line-clamp-3">{msg.content}</p>
                         </div>
-                        <p className="text-sm line-clamp-3">{msg.content}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </ScrollArea>
               </CardContent>
