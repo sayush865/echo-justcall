@@ -23,6 +23,7 @@ import { EchoLogo } from "./EchoLogo";
 import { ExportDialog } from "./ExportDialog";
 import { DynamicSuggestionPills } from "./DynamicSuggestionPills";
 import { FollowUpPills } from "./FollowUpPills";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Helper to get user initials
 const getUserInitials = (displayName?: string | null): string => {
@@ -716,13 +717,21 @@ export const ChatInterface = ({
         <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
           {/* Export button - only in chat view */}
           {conversationId && (
-            <button
-              onClick={() => setExportDialogOpen(true)}
-              className="flex items-center justify-center h-9 w-9 rounded-full hover:bg-accent transition-colors bg-card border border-border shadow-sm"
-              title="Export conversation"
-            >
-              <Download className="w-4 h-4" />
-            </button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setExportDialogOpen(true)}
+                    className="flex items-center justify-center h-9 w-9 rounded-full hover:bg-accent transition-colors bg-card border border-border shadow-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Export conversation</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
           {/* Profile dropdown */}
           <DropdownMenu>
@@ -827,14 +836,14 @@ export const ChatInterface = ({
           
           {/* Conversation Header - title only */}
           {conversationId && (
-            <div className="absolute top-0 left-0 right-0 z-20 px-4 py-3 bg-background/80 backdrop-blur-sm border-b border-border">
-              <div className="max-w-3xl mx-auto flex items-center">
+            <div className="absolute top-0 left-0 right-0 z-20 px-4 h-12 flex items-center bg-background/80 backdrop-blur-sm border-b border-border">
+              <div className="max-w-3xl mx-auto w-full">
                 <h2 className="font-medium text-sm truncate pr-24">{conversationTitle || "Conversation"}</h2>
               </div>
             </div>
           )}
           
-          <ScrollArea className="flex-1 px-4 md:px-6 py-5 pt-16 md:pt-16 relative z-10" viewportRef={scrollContainerRef} onScrollCapture={handleScroll}>
+          <ScrollArea className={`flex-1 px-4 md:px-6 py-5 ${conversationId ? 'pt-14' : 'pt-5'} relative z-10`} viewportRef={scrollContainerRef} onScrollCapture={handleScroll}>
             <div className="space-y-6 max-w-3xl mx-auto pb-8">
               {messages.map((msg) => (
                 <div
