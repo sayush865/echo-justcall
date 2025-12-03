@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Mic, MicOff, Send, Loader2, Copy, Check, ArrowDown, Share2 } from "lucide-react";
+import { Mic, MicOff, Send, Loader2, Copy, Check, ArrowDown, Download } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { MarkdownRenderer } from "./MarkdownRenderer";
@@ -14,7 +14,7 @@ import { AnimatedPlaceholder } from "./AnimatedPlaceholder";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { EchoLogo } from "./EchoLogo";
-import { ShareDialog } from "./ShareDialog";
+import { ExportDialog } from "./ExportDialog";
 
 // Helper to get user initials
 const getUserInitials = (displayName?: string | null): string => {
@@ -65,7 +65,7 @@ export const ChatInterface = ({
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isUserNearBottom, setIsUserNearBottom] = useState(true);
-  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -619,11 +619,11 @@ export const ChatInterface = ({
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={() => setShareDialogOpen(true)}
+                  onClick={() => setExportDialogOpen(true)}
                   className="shrink-0 gap-2"
                 >
-                  <Share2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">Share</span>
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Export</span>
                 </Button>
               </div>
             </div>
@@ -799,15 +799,13 @@ export const ChatInterface = ({
         </div>
       )}
       
-      {/* Share Dialog */}
-      {conversationId && (
-        <ShareDialog
-          open={shareDialogOpen}
-          onOpenChange={setShareDialogOpen}
-          conversationId={conversationId}
-          conversationTitle={conversationTitle || "Conversation"}
-        />
-      )}
+      {/* Export Dialog */}
+      <ExportDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        conversationTitle={conversationTitle || "Conversation"}
+        messages={messages}
+      />
     </div>
   );
 };
