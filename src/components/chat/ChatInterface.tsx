@@ -610,7 +610,7 @@ export const ChatInterface = ({
                           </span>
                           <button
                             onClick={() => handleCopy(msg.content, msg.id)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground"
+                            className="p-1 text-muted-foreground hover:text-foreground transition-colors"
                             title="Copy message"
                           >
                             {copiedId === msg.id ? (
@@ -638,7 +638,7 @@ export const ChatInterface = ({
                           </span>
                           <button
                             onClick={() => handleCopy(msg.content, msg.id)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground"
+                            className="p-1 text-muted-foreground hover:text-foreground transition-colors"
                             title="Copy response"
                           >
                             {copiedId === msg.id ? (
