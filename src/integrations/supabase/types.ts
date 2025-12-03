@@ -132,6 +132,51 @@ export type Database = {
         }
         Relationships: []
       }
+      dynamic_suggestions: {
+        Row: {
+          category: string
+          created_at: string
+          expires_at: string | null
+          generated_at: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          label: string
+          metadata: Json | null
+          priority: number
+          prompt: string
+          user_id: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          expires_at?: string | null
+          generated_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          metadata?: Json | null
+          priority?: number
+          prompt: string
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          expires_at?: string | null
+          generated_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          metadata?: Json | null
+          priority?: number
+          prompt?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
