@@ -220,10 +220,6 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
                 </form>
               </TabsContent>
             </Tabs>
-
-            <p className="text-xs text-muted-foreground text-center mt-6 animate-fade-in [animation-delay:200ms] opacity-0 [animation-fill-mode:forwards]">
-              By continuing, you agree to Echo's Terms of Service
-            </p>
           </div>
         </div>
       </DialogContent>
