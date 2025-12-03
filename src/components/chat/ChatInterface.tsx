@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Mic, MicOff, Send, Loader2, Copy, Check, ArrowDown } from "lucide-react";
+import { Mic, MicOff, Send, Loader2, Copy, Check, ArrowDown, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { MarkdownRenderer } from "./MarkdownRenderer";
@@ -14,6 +14,7 @@ import { AnimatedPlaceholder } from "./AnimatedPlaceholder";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { EchoLogo } from "./EchoLogo";
+import { ShareDialog } from "./ShareDialog";
 
 // Helper to get user initials
 const getUserInitials = (displayName?: string | null): string => {
@@ -47,11 +48,13 @@ interface StreamingMessage {
 
 interface ChatInterfaceProps {
   conversationId: string | null;
+  conversationTitle?: string;
   onConversationCreated: (id: string) => void;
 }
 
 export const ChatInterface = ({
   conversationId,
+  conversationTitle = "",
   onConversationCreated,
 }: ChatInterfaceProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -62,6 +65,7 @@ export const ChatInterface = ({
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isUserNearBottom, setIsUserNearBottom] = useState(true);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -607,7 +611,25 @@ export const ChatInterface = ({
           <div className="absolute top-1/4 -left-1/4 w-1/2 h-1/2 bg-primary/3 rounded-full blur-3xl" />
           <div className="absolute bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-aqua/3 rounded-full blur-3xl" />
           
-          <ScrollArea className="flex-1 px-4 md:px-6 py-5 pt-14 md:pt-8 relative z-10" viewportRef={scrollContainerRef} onScrollCapture={handleScroll}>
+          {/* Conversation Header with Share Button */}
+          {conversationId && (
+            <div className="absolute top-0 left-0 right-0 z-20 px-4 py-3 bg-background/80 backdrop-blur-sm border-b border-border">
+              <div className="max-w-3xl mx-auto flex items-center justify-between">
+                <h2 className="font-medium text-sm truncate flex-1 mr-3">{conversationTitle || "Conversation"}</h2>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShareDialogOpen(true)}
+                  className="shrink-0 gap-2"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Share</span>
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          <ScrollArea className="flex-1 px-4 md:px-6 py-5 pt-16 md:pt-16 relative z-10" viewportRef={scrollContainerRef} onScrollCapture={handleScroll}>
             <div className="space-y-6 max-w-3xl mx-auto pb-8">
               {messages.map((msg) => (
                 <div
@@ -775,6 +797,16 @@ export const ChatInterface = ({
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Share Dialog */}
+      {conversationId && (
+        <ShareDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          conversationId={conversationId}
+          conversationTitle={conversationTitle || "Conversation"}
+        />
       )}
     </div>
   );
