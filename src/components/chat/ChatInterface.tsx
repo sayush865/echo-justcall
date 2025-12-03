@@ -656,7 +656,10 @@ export const ChatInterface = ({
               </p>
             )}
             {/* Dynamic suggestion pills */}
-            <DynamicSuggestionPills onSelect={(prompt) => setInput(prompt)} />
+            <DynamicSuggestionPills onSelect={(prompt) => {
+              setInput(prompt);
+              setTimeout(() => textareaRef2.current?.focus(), 0);
+            }} />
           </div>
         </div>
       ) : (
@@ -810,6 +813,7 @@ export const ChatInterface = ({
                     onSelect={(prompt) => {
                       setFollowUpSuggestions([]);
                       setInput(prompt);
+                      setTimeout(() => textareaRef.current?.focus(), 0);
                     }} 
                     loading={followUpLoading}
                   />
