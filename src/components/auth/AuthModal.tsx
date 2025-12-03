@@ -42,10 +42,19 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
       });
       if (error) throw error;
       
-      // Update last_sign_in in profiles
+      // Update last_sign_in and increment login_count in profiles
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("login_count")
+        .eq("user_id", data.user?.id)
+        .single();
+      
       await supabase
         .from("profiles")
-        .update({ last_sign_in: new Date().toISOString() })
+        .update({ 
+          last_sign_in: new Date().toISOString(),
+          login_count: (profile?.login_count || 0) + 1
+        })
         .eq("user_id", data.user?.id);
       
       // Log sign in event

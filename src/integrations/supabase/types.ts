@@ -178,6 +178,7 @@ export type Database = {
           email: string | null
           id: string
           last_sign_in: string | null
+          login_count: number | null
           updated_at: string
           user_id: string
         }
@@ -188,6 +189,7 @@ export type Database = {
           email?: string | null
           id?: string
           last_sign_in?: string | null
+          login_count?: number | null
           updated_at?: string
           user_id: string
         }
@@ -198,6 +200,7 @@ export type Database = {
           email?: string | null
           id?: string
           last_sign_in?: string | null
+          login_count?: number | null
           updated_at?: string
           user_id?: string
         }
