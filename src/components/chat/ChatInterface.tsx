@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -712,9 +711,20 @@ export const ChatInterface = ({
         }} 
         onSuccess={handleAuthSuccess} 
       />
-      {/* Profile dropdown - top right of main content, offset when header visible */}
+      {/* Top right controls - Export (chat only) + Profile */}
       {user && (
-        <div className={`absolute z-30 ${conversationId ? 'top-3 right-20 md:right-28' : 'top-4 right-4'}`}>
+        <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
+          {/* Export button - only in chat view */}
+          {conversationId && (
+            <button
+              onClick={() => setExportDialogOpen(true)}
+              className="flex items-center justify-center h-9 w-9 rounded-full hover:bg-accent transition-colors bg-card border border-border shadow-sm"
+              title="Export conversation"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          )}
+          {/* Profile dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center justify-center h-9 w-9 rounded-full hover:bg-accent transition-colors bg-card border border-border shadow-sm">
@@ -815,20 +825,11 @@ export const ChatInterface = ({
           <div className="absolute top-1/4 -left-1/4 w-1/2 h-1/2 bg-primary/3 rounded-full blur-3xl" />
           <div className="absolute bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-aqua/3 rounded-full blur-3xl" />
           
-          {/* Conversation Header with Share Button */}
+          {/* Conversation Header - title only */}
           {conversationId && (
             <div className="absolute top-0 left-0 right-0 z-20 px-4 py-3 bg-background/80 backdrop-blur-sm border-b border-border">
-              <div className="max-w-3xl mx-auto flex items-center justify-between">
-                <h2 className="font-medium text-sm truncate flex-1 mr-3">{conversationTitle || "Conversation"}</h2>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setExportDialogOpen(true)}
-                  className="shrink-0 gap-2"
-                >
-                  <Download className="w-4 h-4" />
-                  <span className="hidden sm:inline">Export</span>
-                </Button>
+              <div className="max-w-3xl mx-auto flex items-center">
+                <h2 className="font-medium text-sm truncate pr-24">{conversationTitle || "Conversation"}</h2>
               </div>
             </div>
           )}
