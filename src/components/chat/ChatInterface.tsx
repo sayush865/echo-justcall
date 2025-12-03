@@ -100,16 +100,16 @@ export const ChatInterface = ({
     }
   };
 
-  // Reset textarea height when input is cleared
+  // Auto-resize textarea when input changes (including from suggestions)
   useEffect(() => {
-    if (!input) {
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
+    [textareaRef, textareaRef2].forEach(ref => {
+      if (ref.current) {
+        ref.current.style.height = 'auto';
+        if (input) {
+          ref.current.style.height = `${Math.min(ref.current.scrollHeight, 200)}px`;
+        }
       }
-      if (textareaRef2.current) {
-        textareaRef2.current.style.height = 'auto';
-      }
-    }
+    });
   }, [input]);
   
   const { isListening, transcript, startListening, stopListening, resetTranscript, isSupported } = useVoiceInput();
