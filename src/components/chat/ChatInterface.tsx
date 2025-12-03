@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Mic, MicOff, Send, Loader2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { MarkdownRenderer } from "./MarkdownRenderer";
@@ -11,6 +12,17 @@ import { triggerHaptic } from "@/hooks/useHapticFeedback";
 import { AnimatedPlaceholder } from "./AnimatedPlaceholder";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { EchoLogo } from "./EchoLogo";
+
+// Helper to get user initials
+const getUserInitials = (displayName?: string | null): string => {
+  if (!displayName) return "U";
+  const parts = displayName.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return displayName.slice(0, 2).toUpperCase();
+};
 
 interface Message {
   id: string;
@@ -575,52 +587,63 @@ export const ChatInterface = ({
               {messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex ${
+                  className={`flex gap-3 ${
                     msg.role === "user" ? "justify-end" : "justify-start"
                   }`}
                 >
                   {msg.role === "user" ? (
-                    <div className="group max-w-[85%] md:max-w-[75%]">
-                      <div className="rounded-2xl px-4 py-3 bg-muted text-foreground shadow-sm">
-                        <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                    <>
+                      <div className="group max-w-[85%] md:max-w-[75%]">
+                        <div className="rounded-2xl px-4 py-3 bg-muted text-foreground shadow-sm">
+                          <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                        </div>
+                        <div className="flex justify-end mt-1">
+                          <button
+                            onClick={() => handleCopy(msg.content, msg.id)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground"
+                            title="Copy message"
+                          >
+                            {copiedId === msg.id ? (
+                              <Check className="w-3.5 h-3.5 text-green-500" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex justify-end mt-1">
-                        <button
-                          onClick={() => handleCopy(msg.content, msg.id)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground"
-                          title="Copy message"
-                        >
-                          {copiedId === msg.id ? (
-                            <Check className="w-3.5 h-3.5 text-green-500" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
+                      <Avatar className="w-8 h-8 flex-shrink-0">
+                        <AvatarFallback className="bg-muted text-xs font-medium">
+                          {getUserInitials(user?.user_metadata?.display_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </>
                   ) : (
-                    <div className="w-full group">
-                      <MarkdownRenderer content={msg.content} />
-                      <div className="flex justify-start mt-1">
-                        <button
-                          onClick={() => handleCopy(msg.content, msg.id)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground"
-                          title="Copy response"
-                        >
-                          {copiedId === msg.id ? (
-                            <Check className="w-3.5 h-3.5 text-green-500" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5" />
-                          )}
-                        </button>
+                    <>
+                      <EchoLogo size="md" className="mt-0.5" />
+                      <div className="flex-1 group min-w-0">
+                        <MarkdownRenderer content={msg.content} />
+                        <div className="flex justify-start mt-1">
+                          <button
+                            onClick={() => handleCopy(msg.content, msg.id)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground"
+                            title="Copy response"
+                          >
+                            {copiedId === msg.id ? (
+                              <Check className="w-3.5 h-3.5 text-green-500" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    </>
                   )}
                 </div>
               ))}
               {streamingMessage && (
-                <div className="flex justify-start">
-                  <div className="w-full space-y-3">
+                <div className="flex justify-start gap-3">
+                  <EchoLogo size="md" className="mt-0.5" />
+                  <div className="flex-1 space-y-3 min-w-0">
                     {/* Intermediate steps */}
                     {streamingMessage.steps && streamingMessage.steps.length > 0 && (
                       <div className="flex flex-wrap gap-2 mb-3">
@@ -640,8 +663,9 @@ export const ChatInterface = ({
                 </div>
               )}
               {loading && !streamingMessage && (
-                <div className="flex justify-start py-2">
-                  <div className="flex items-center gap-2 text-muted-foreground px-1">
+                <div className="flex justify-start gap-3 py-2">
+                  <EchoLogo size="md" />
+                  <div className="flex items-center gap-2 text-muted-foreground">
                     <div className="flex items-center gap-1.5">
                       <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>
                       <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
