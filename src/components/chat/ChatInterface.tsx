@@ -211,6 +211,7 @@ export const ChatInterface = ({
       const decoder = new TextDecoder();
       let fullContent = "";
       const steps: string[] = [];
+      let buffer = ""; // Buffer for incomplete JSON lines
       
       setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
 
@@ -220,9 +221,22 @@ export const ChatInterface = ({
         if (done) break;
 
         const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(line => line.trim());
+        // Prepend any buffered content from previous chunk
+        const text = buffer + chunk;
+        buffer = "";
+        
+        const lines = text.split('\n');
 
-        for (const line of lines) {
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          // If this is the last line and chunk doesn't end with newline, buffer it
+          if (i === lines.length - 1 && !text.endsWith('\n')) {
+            buffer = line;
+            continue;
+          }
+
           try {
             const parsed = JSON.parse(line);
             
@@ -252,16 +266,8 @@ export const ChatInterface = ({
               } : null);
             }
           } catch {
-            // Not JSON, might be plain text content
-            if (line.trim()) {
-              fullContent += line;
-              setStreamingMessage({ 
-                role: "assistant", 
-                content: fullContent, 
-                isStreaming: true,
-                steps 
-              });
-            }
+            // JSON parse failed - don't add raw content, just log for debugging
+            console.warn("Failed to parse NDJSON line:", line.substring(0, 50));
           }
         }
       }
