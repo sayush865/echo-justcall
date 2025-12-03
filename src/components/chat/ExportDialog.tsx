@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Download, FileText, Loader2, CheckCircle } from "lucide-react";
+import { Download, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import { format } from "date-fns";
@@ -38,33 +38,46 @@ export const ExportDialog = ({
   const [isExporting, setIsExporting] = useState(false);
 
   const stripMarkdown = (text: string): string => {
-    // Remove code blocks
-    let result = text.replace(/```[\s\S]*?```/g, (match) => {
-      const code = match.replace(/```\w*\n?/g, "").replace(/```/g, "");
-      return `[Code]\n${code}\n[/Code]`;
+    let result = text;
+    
+    // Handle code blocks - preserve content with markers
+    result = result.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+      return `\n━━━ Code${lang ? ` (${lang})` : ""} ━━━\n${code.trim()}\n━━━━━━━━━━━━\n`;
     });
-    // Remove inline code
+    
+    // Remove inline code backticks
     result = result.replace(/`([^`]+)`/g, "$1");
-    // Remove bold/italic
+    
+    // Convert headers to bold-like text
+    result = result.replace(/^#{1,6}\s+(.+)$/gm, "\n$1\n");
+    
+    // Remove bold/italic markers
     result = result.replace(/\*\*([^*]+)\*\*/g, "$1");
     result = result.replace(/\*([^*]+)\*/g, "$1");
     result = result.replace(/__([^_]+)__/g, "$1");
     result = result.replace(/_([^_]+)_/g, "$1");
-    // Remove headers
-    result = result.replace(/^#{1,6}\s+/gm, "");
-    // Remove links but keep text
-    result = result.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+    
+    // Convert links to text with URL
+    result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)");
+    
     // Remove images
-    result = result.replace(/!\[([^\]]*)\]\([^)]+\)/g, "");
-    // Remove blockquotes
-    result = result.replace(/^>\s+/gm, "");
+    result = result.replace(/!\[([^\]]*)\]\([^)]+\)/g, "[Image: $1]");
+    
+    // Convert blockquotes
+    result = result.replace(/^>\s+(.+)$/gm, "│ $1");
+    
     // Remove horizontal rules
-    result = result.replace(/^[-*_]{3,}$/gm, "");
-    // Remove list markers
-    result = result.replace(/^[\s]*[-*+]\s+/gm, "• ");
-    result = result.replace(/^[\s]*\d+\.\s+/gm, "");
-    // Clean up citation markers like [[1]]
+    result = result.replace(/^[-*_]{3,}$/gm, "────────────────");
+    
+    // Convert list markers
+    result = result.replace(/^[\s]*[-*+]\s+/gm, "  • ");
+    result = result.replace(/^[\s]*(\d+)\.\s+/gm, "  $1. ");
+    
+    // Clean up citation markers
     result = result.replace(/\[\[\d+\]\]/g, "");
+    
+    // Clean up excessive newlines
+    result = result.replace(/\n{3,}/g, "\n\n");
     
     return result.trim();
   };
@@ -86,142 +99,221 @@ export const ExportDialog = ({
 
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 20;
-      const contentWidth = pageWidth - margin * 2;
-      let yPos = margin;
+      const marginLeft = 15;
+      const marginRight = 15;
+      const marginTop = 15;
+      const marginBottom = 20;
+      const contentWidth = pageWidth - marginLeft - marginRight;
+      const lineHeight = 5;
+      const paragraphSpacing = 3;
+      
+      let yPos = marginTop;
+      let currentPage = 1;
 
       const addNewPage = () => {
         pdf.addPage();
-        yPos = margin;
-        if (includeBranding) {
-          addPageFooter();
-        }
+        currentPage++;
+        yPos = marginTop;
       };
 
-      const addPageFooter = () => {
-        const pageCount = pdf.getNumberOfPages();
-        pdf.setFontSize(9);
-        pdf.setTextColor(150);
-        pdf.text(
-          `Page ${pageCount}`,
-          pageWidth / 2,
-          pageHeight - 10,
-          { align: "center" }
-        );
-      };
-
-      const checkPageBreak = (height: number) => {
-        if (yPos + height > pageHeight - 25) {
+      const checkPageBreak = (neededHeight: number): boolean => {
+        if (yPos + neededHeight > pageHeight - marginBottom) {
           addNewPage();
           return true;
         }
         return false;
       };
 
-      // Header with branding
+      const addFooters = () => {
+        const totalPages = pdf.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+          pdf.setPage(i);
+          pdf.setFontSize(8);
+          pdf.setTextColor(140, 140, 140);
+          pdf.text(
+            `Page ${i} of ${totalPages}`,
+            pageWidth / 2,
+            pageHeight - 8,
+            { align: "center" }
+          );
+          if (includeBranding) {
+            pdf.text("Echo — Customer Intelligence", marginLeft, pageHeight - 8);
+          }
+        }
+      };
+
+      // === HEADER ===
       if (includeBranding) {
-        // Echo branding header
-        pdf.setFillColor(58, 96, 248); // Echo Blue
-        pdf.rect(0, 0, pageWidth, 35, "F");
+        // Blue header bar
+        pdf.setFillColor(58, 96, 248);
+        pdf.rect(0, 0, pageWidth, 28, "F");
         
-        pdf.setTextColor(255);
-        pdf.setFontSize(20);
+        // Logo text
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(18);
         pdf.setFont("helvetica", "bold");
-        pdf.text("Echo", margin, 20);
+        pdf.text("Echo", marginLeft, 14);
         
-        pdf.setFontSize(10);
+        // Subtitle
+        pdf.setFontSize(9);
         pdf.setFont("helvetica", "normal");
-        pdf.text("Conversation Export", margin, 28);
+        pdf.text("Conversation Export", marginLeft, 21);
         
-        yPos = 45;
+        // Date on right
+        pdf.setFontSize(9);
+        pdf.text(
+          format(new Date(), "MMM d, yyyy"),
+          pageWidth - marginRight,
+          14,
+          { align: "right" }
+        );
+        
+        yPos = 38;
       }
 
-      // Title
-      pdf.setTextColor(30);
-      pdf.setFontSize(16);
+      // === TITLE SECTION ===
+      pdf.setTextColor(30, 30, 30);
+      pdf.setFontSize(14);
       pdf.setFont("helvetica", "bold");
-      const titleLines = pdf.splitTextToSize(conversationTitle, contentWidth);
-      pdf.text(titleLines, margin, yPos);
-      yPos += titleLines.length * 7 + 3;
-
-      // Export date
-      pdf.setFontSize(10);
-      pdf.setTextColor(100);
-      pdf.setFont("helvetica", "normal");
-      pdf.text(`Exported on ${format(new Date(), "MMMM d, yyyy 'at' h:mm a")}`, margin, yPos);
-      yPos += 5;
       
-      // Message count
-      pdf.text(`${messages.length} messages`, margin, yPos);
-      yPos += 12;
+      const titleLines = pdf.splitTextToSize(conversationTitle, contentWidth);
+      for (const line of titleLines) {
+        checkPageBreak(7);
+        pdf.text(line, marginLeft, yPos);
+        yPos += 6;
+      }
+      yPos += 2;
 
-      // Separator line
-      pdf.setDrawColor(220);
-      pdf.line(margin, yPos, pageWidth - margin, yPos);
+      // Message count subtitle
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`${messages.length} messages`, marginLeft, yPos);
       yPos += 10;
 
-      // Messages
-      for (const msg of messages) {
+      // Divider line
+      pdf.setDrawColor(220, 220, 220);
+      pdf.setLineWidth(0.3);
+      pdf.line(marginLeft, yPos, pageWidth - marginRight, yPos);
+      yPos += 8;
+
+      // === MESSAGES ===
+      for (let msgIndex = 0; msgIndex < messages.length; msgIndex++) {
+        const msg = messages[msgIndex];
         const isUser = msg.role === "user";
         const roleLabel = isUser ? "You" : "Echo";
         const cleanContent = stripMarkdown(msg.content);
         
-        // Role label
-        pdf.setFontSize(11);
-        pdf.setFont("helvetica", "bold");
-        pdf.setTextColor(isUser ? 58 : 100, isUser ? 96 : 100, isUser ? 248 : 100); // Echo Blue for user
+        // Estimate message height for page break check
+        const contentLines = pdf.splitTextToSize(cleanContent, contentWidth - 10);
+        const estimatedHeight = 12 + (contentLines.length * lineHeight);
         
-        checkPageBreak(20);
-        pdf.text(roleLabel, margin, yPos);
+        // Check if we need a new page before starting message
+        if (yPos + Math.min(estimatedHeight, 40) > pageHeight - marginBottom) {
+          addNewPage();
+        }
+
+        // Message container background
+        const bgStartY = yPos - 3;
+        
+        // Role label with colored indicator
+        pdf.setFontSize(10);
+        pdf.setFont("helvetica", "bold");
+        
+        if (isUser) {
+          pdf.setTextColor(58, 96, 248); // Echo Blue
+        } else {
+          pdf.setTextColor(80, 80, 80);
+        }
+        
+        // Draw role indicator dot
+        pdf.setFillColor(isUser ? 58 : 120, isUser ? 96 : 120, isUser ? 248 : 120);
+        pdf.circle(marginLeft + 2, yPos - 1.5, 1.2, "F");
+        
+        pdf.text(roleLabel, marginLeft + 6, yPos);
         
         // Timestamp
         if (includeTimestamps) {
-          pdf.setFontSize(9);
+          pdf.setFontSize(8);
           pdf.setFont("helvetica", "normal");
-          pdf.setTextColor(150);
-          const timestamp = format(new Date(msg.created_at), "MMM d, h:mm a");
-          pdf.text(timestamp, margin + 25, yPos);
+          pdf.setTextColor(140, 140, 140);
+          try {
+            const timestamp = format(new Date(msg.created_at), "MMM d, h:mm a");
+            pdf.text(timestamp, marginLeft + 20, yPos);
+          } catch {
+            // Skip invalid timestamps
+          }
         }
+        
         yPos += 6;
 
         // Message content
         pdf.setFontSize(10);
         pdf.setFont("helvetica", "normal");
-        pdf.setTextColor(50);
+        pdf.setTextColor(40, 40, 40);
         
-        const lines = pdf.splitTextToSize(cleanContent, contentWidth);
+        // Process content line by line for proper wrapping
+        const paragraphs = cleanContent.split("\n");
         
-        for (let i = 0; i < lines.length; i++) {
-          checkPageBreak(5);
-          pdf.text(lines[i], margin, yPos);
-          yPos += 5;
+        for (const paragraph of paragraphs) {
+          if (!paragraph.trim()) {
+            yPos += paragraphSpacing;
+            continue;
+          }
+          
+          // Check for code block markers
+          const isCodeMarker = paragraph.includes("━━━");
+          if (isCodeMarker) {
+            pdf.setFont("courier", "normal");
+            pdf.setFontSize(8);
+            pdf.setTextColor(100, 100, 100);
+          }
+          
+          const lines = pdf.splitTextToSize(paragraph.trim(), contentWidth - 8);
+          
+          for (const line of lines) {
+            checkPageBreak(lineHeight);
+            pdf.text(line, marginLeft + 4, yPos);
+            yPos += lineHeight;
+          }
+          
+          // Reset font after code
+          if (isCodeMarker) {
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(10);
+            pdf.setTextColor(40, 40, 40);
+          }
         }
         
-        yPos += 8; // Space between messages
+        // Draw subtle background for message
+        const bgEndY = yPos + 2;
+        const bgHeight = bgEndY - bgStartY;
+        
+        pdf.setPage(pdf.getNumberOfPages()); // Ensure we're on current page
+        pdf.setFillColor(isUser ? 245 : 250, isUser ? 247 : 250, isUser ? 255 : 250);
+        pdf.roundedRect(marginLeft - 2, bgStartY, contentWidth + 4, bgHeight, 2, 2, "F");
+        
+        // Re-render text on top of background (jsPDF limitation)
+        // Skip re-render for simplicity - background will be behind
+
+        yPos += 10; // Space between messages
+        
+        // Add separator line between messages (except last)
+        if (msgIndex < messages.length - 1) {
+          pdf.setDrawColor(235, 235, 235);
+          pdf.setLineWidth(0.2);
+          checkPageBreak(5);
+          pdf.line(marginLeft + 10, yPos - 5, pageWidth - marginRight - 10, yPos - 5);
+        }
       }
 
-      // Add footer to last page
-      if (includeBranding) {
-        addPageFooter();
-        
-        // Also add footer to all previous pages
-        const totalPages = pdf.getNumberOfPages();
-        for (let i = 1; i < totalPages; i++) {
-          pdf.setPage(i);
-          pdf.setFontSize(9);
-          pdf.setTextColor(150);
-          pdf.text(
-            `Page ${i}`,
-            pageWidth / 2,
-            pageHeight - 10,
-            { align: "center" }
-          );
-        }
-      }
+      // Add footers to all pages
+      addFooters();
 
       // Generate filename
       const safeTitle = conversationTitle
         .replace(/[^a-z0-9]/gi, "_")
+        .replace(/_+/g, "_")
         .substring(0, 30);
       const filename = `Echo_${safeTitle}_${format(new Date(), "yyyy-MM-dd")}.pdf`;
 
