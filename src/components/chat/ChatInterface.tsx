@@ -680,9 +680,9 @@ export const ChatInterface = ({
                   <EchoLogo size="md" />
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce"></span>
+                      <span className="w-2 h-2 bg-muted-foreground/70 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                      <span className="w-2 h-2 bg-muted-foreground/70 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                      <span className="w-2 h-2 bg-muted-foreground/70 rounded-full animate-bounce"></span>
                     </div>
                   </div>
                 </div>
