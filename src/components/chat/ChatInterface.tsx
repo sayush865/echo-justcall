@@ -804,7 +804,7 @@ export const ChatInterface = ({
             <div className="max-w-3xl mx-auto relative px-1">
               {/* Follow-up suggestion pills - above input */}
               {!loading && !streamingMessage && (followUpSuggestions.length > 0 || followUpLoading) && (
-                <div className="mb-3">
+                <div className="mb-3 relative z-20">
                   <FollowUpPills 
                     suggestions={followUpSuggestions} 
                     onSelect={(prompt) => {
@@ -816,8 +816,8 @@ export const ChatInterface = ({
                 </div>
               )}
               {/* Gradient glow behind input */}
-              <div className="absolute -inset-1.5 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.25)_0%,hsl(256_100%_68%/0.15)_50%,hsl(195_100%_65%/0.25)_100%)] rounded-[2rem] blur-xl opacity-50" />
-              <div className={`relative flex items-center gap-3 bg-background/90 backdrop-blur-sm border rounded-3xl px-4 md:px-5 py-3.5 transition-all shadow-sm ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border/80'}`}>
+              <div className="absolute -inset-1.5 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.25)_0%,hsl(256_100%_68%/0.15)_50%,hsl(195_100%_65%/0.25)_100%)] rounded-[2rem] blur-xl opacity-50 pointer-events-none" />
+              <div className={`relative z-10 flex items-center gap-3 bg-background/90 backdrop-blur-sm border rounded-3xl px-4 md:px-5 py-3.5 transition-all shadow-sm ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border/80'}`}>
                 <div className="flex-1 relative min-h-[26px] flex items-center">
                   <textarea
                     ref={textareaRef2}
