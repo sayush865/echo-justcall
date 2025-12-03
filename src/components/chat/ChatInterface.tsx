@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Mic, MicOff, Send, Loader2 } from "lucide-react";
+import { Mic, MicOff, Send, Loader2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
@@ -41,10 +41,18 @@ export const ChatInterface = ({
   const [streamingMessage, setStreamingMessage] = useState<StreamingMessage | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef2 = useRef<HTMLTextAreaElement>(null);
   const { user } = useAuth();
+
+  const handleCopy = async (content: string, id: string) => {
+    await navigator.clipboard.writeText(content);
+    setCopiedId(id);
+    toast.success("Copied to clipboard");
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   // Auto-resize textarea
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>, ref: React.RefObject<HTMLTextAreaElement>) => {
@@ -140,6 +148,7 @@ export const ChatInterface = ({
     if (!user && !skipAuthCheck) {
       setPendingMessage(messageToSend);
       setShowAuthModal(true);
+      toast.info("Sign in to send your message", { description: "Your message is queued and will be sent after you sign in." });
       return;
     }
     
@@ -571,12 +580,40 @@ export const ChatInterface = ({
                   }`}
                 >
                   {msg.role === "user" ? (
-                    <div className="max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 bg-muted text-foreground shadow-sm">
-                      <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                    <div className="group max-w-[85%] md:max-w-[75%]">
+                      <div className="rounded-2xl px-4 py-3 bg-muted text-foreground shadow-sm">
+                        <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      </div>
+                      <div className="flex justify-end mt-1">
+                        <button
+                          onClick={() => handleCopy(msg.content, msg.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground"
+                          title="Copy message"
+                        >
+                          {copiedId === msg.id ? (
+                            <Check className="w-3.5 h-3.5 text-green-500" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   ) : (
-                    <div className="w-full">
+                    <div className="w-full group">
                       <MarkdownRenderer content={msg.content} />
+                      <div className="flex justify-start mt-1">
+                        <button
+                          onClick={() => handleCopy(msg.content, msg.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground"
+                          title="Copy response"
+                        >
+                          {copiedId === msg.id ? (
+                            <Check className="w-3.5 h-3.5 text-green-500" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
