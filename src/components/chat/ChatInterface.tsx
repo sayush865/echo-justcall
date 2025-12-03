@@ -889,7 +889,7 @@ export const ChatInterface = ({
                 <div className="mb-3 relative z-20">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="flex-1 h-px bg-border/50" />
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-medium">Continue exploring</span>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-medium">Ask Follow-Up</span>
                     <div className="flex-1 h-px bg-border/50" />
                   </div>
                   <FollowUpPills 
