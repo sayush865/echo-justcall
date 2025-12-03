@@ -1,9 +1,11 @@
 import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { CodeBlock } from "./CodeBlock";
 import { CitationBadges } from "./CitationBadges";
 import { parseCitations } from "@/lib/citationParser";
 import type { Components } from "react-markdown";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 interface MarkdownRendererProps {
   content: string;
@@ -31,12 +33,51 @@ export const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
         </CodeBlock>
       );
     },
+    table({ children }) {
+      return (
+        <ScrollArea className="w-full whitespace-nowrap rounded-lg border border-border my-4">
+          <table className="w-full text-sm">
+            {children}
+          </table>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
+      );
+    },
+    thead({ children }) {
+      return (
+        <thead className="bg-muted/50 border-b border-border">
+          {children}
+        </thead>
+      );
+    },
+    tbody({ children }) {
+      return <tbody className="divide-y divide-border">{children}</tbody>;
+    },
+    tr({ children }) {
+      return <tr className="hover:bg-muted/30 transition-colors">{children}</tr>;
+    },
+    th({ children }) {
+      return (
+        <th className="px-4 py-3 text-left font-semibold text-foreground whitespace-normal">
+          {children}
+        </th>
+      );
+    },
+    td({ children }) {
+      return (
+        <td className="px-4 py-3 text-muted-foreground whitespace-normal min-w-[150px] max-w-[400px]">
+          {children}
+        </td>
+      );
+    },
   };
 
   return (
     <div>
       <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-pre:p-0 prose-pre:bg-transparent">
-        <ReactMarkdown components={components}>{cleanContent}</ReactMarkdown>
+        <ReactMarkdown components={components} remarkPlugins={[remarkGfm]}>
+          {cleanContent}
+        </ReactMarkdown>
       </div>
       <CitationBadges citations={citations} />
     </div>
