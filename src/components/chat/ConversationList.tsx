@@ -254,9 +254,42 @@ export const ConversationList = ({
               <h2 className="text-xl font-bold bg-[linear-gradient(135deg,hsl(227_93%_60%)_0%,hsl(256_100%_68%)_50%,hsl(195_100%_65%)_100%)] bg-clip-text text-transparent">
                 Echo
               </h2>
-              <Button variant="ghost" size="icon" onClick={handleToggle} className="h-8 w-8">
-                <PanelLeftClose className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-1">
+                {user && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex items-center justify-center h-8 w-8 rounded-full hover:bg-accent transition-colors">
+                        <Avatar className="h-7 w-7">
+                          <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                            {user?.email?.charAt(0).toUpperCase() || "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <div className="px-2 py-1.5">
+                        <p className="text-sm font-medium">
+                          {user?.user_metadata?.display_name || user?.email?.split("@")[0] || "User"}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                      </div>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem disabled className="text-muted-foreground">
+                        <User className="w-4 h-4 mr-2" />
+                        Profile
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => signOut()} className="text-destructive focus:text-destructive">
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Sign Out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                <Button variant="ghost" size="icon" onClick={handleToggle} className="h-8 w-8">
+                  <PanelLeftClose className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <Button onClick={handleNewChat} className="w-full" size="sm">
               <Plus className="w-4 h-4 mr-2" />
@@ -349,38 +382,6 @@ export const ConversationList = ({
               </div>
             </TooltipProvider>
           </ScrollArea>
-          
-          {/* User Profile Section */}
-          <div className="p-3 border-t border-border">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 w-full p-2 rounded-lg hover:bg-accent transition-colors">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                      {user?.email?.charAt(0).toUpperCase() || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0 text-left">
-                    <p className="text-sm font-medium truncate">
-                      {user?.user_metadata?.display_name || user?.email?.split("@")[0] || "User"}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-                  </div>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem disabled className="text-muted-foreground">
-                  <User className="w-4 h-4 mr-2" />
-                  Profile
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => signOut()} className="text-destructive focus:text-destructive">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
         </div>
       </div>
 
