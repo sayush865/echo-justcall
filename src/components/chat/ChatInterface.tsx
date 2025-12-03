@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Mic, MicOff, Send, Loader2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { triggerHaptic } from "@/hooks/useHapticFeedback";
@@ -22,6 +23,12 @@ const getUserInitials = (displayName?: string | null): string => {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
   return displayName.slice(0, 2).toUpperCase();
+};
+
+// Helper to format message timestamp
+const formatMessageTime = (dateString: string): string => {
+  const date = new Date(dateString);
+  return format(date, "d MMM, h:mm a"); // e.g., "21 Oct, 10:34 AM"
 };
 
 interface Message {
@@ -597,7 +604,10 @@ export const ChatInterface = ({
                         <div className="rounded-2xl px-4 py-3 bg-muted text-foreground shadow-sm">
                           <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                         </div>
-                        <div className="flex justify-end mt-1">
+                        <div className="flex justify-end items-center gap-2 mt-1">
+                          <span className="text-xs text-muted-foreground">
+                            {formatMessageTime(msg.created_at)}
+                          </span>
                           <button
                             onClick={() => handleCopy(msg.content, msg.id)}
                             className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground"
@@ -622,7 +632,10 @@ export const ChatInterface = ({
                       <EchoLogo size="md" className="mt-0.5" />
                       <div className="flex-1 group min-w-0">
                         <MarkdownRenderer content={msg.content} />
-                        <div className="flex justify-start mt-1">
+                        <div className="flex justify-start items-center gap-2 mt-1">
+                          <span className="text-xs text-muted-foreground">
+                            {formatMessageTime(msg.created_at)}
+                          </span>
                           <button
                             onClick={() => handleCopy(msg.content, msg.id)}
                             className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground"
