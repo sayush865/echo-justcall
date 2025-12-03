@@ -198,6 +198,16 @@ export const ChatInterface = ({
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true });
 
+    if (!error && data) {
+      setMessages(data);
+      // Load follow-up suggestions from the last assistant message
+      const lastAssistantMsg = [...data].reverse().find(m => m.role === "assistant");
+      if (lastAssistantMsg?.follow_up_suggestions && Array.isArray(lastAssistantMsg.follow_up_suggestions)) {
+        setFollowUpSuggestions(lastAssistantMsg.follow_up_suggestions as {label: string; prompt: string}[]);
+      } else {
+        setFollowUpSuggestions([]);
+      }
+    }
     if (error) {
       toast.error("Failed to load messages");
       return;
@@ -617,7 +627,7 @@ export const ChatInterface = ({
         user_email: authUser.email,
       });
 
-      // Generate follow-up suggestions (fire and forget)
+      // Generate follow-up suggestions and persist them
       console.log("Generating follow-ups (auth):", { messageToSend: messageToSend.substring(0, 50), responseLength: fullContent.length });
       setFollowUpLoading(true);
       supabase.functions.invoke('generate-followups', {
@@ -625,9 +635,29 @@ export const ChatInterface = ({
           lastUserMessage: messageToSend, 
           lastAIResponse: fullContent.substring(0, 1500),
         }
-      }).then(({ data, error }) => {
+      }).then(async ({ data, error }) => {
         console.log("Follow-ups response (auth):", { data, error });
-        setFollowUpSuggestions(data?.suggestions || []);
+        const suggestions = data?.suggestions || [];
+        setFollowUpSuggestions(suggestions);
+        
+        // Persist follow-ups to the assistant message
+        if (suggestions.length > 0 && currentConversationId) {
+          const { data: lastMsg } = await supabase
+            .from("messages")
+            .select("id")
+            .eq("conversation_id", currentConversationId)
+            .eq("role", "assistant")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .single();
+          
+          if (lastMsg) {
+            await supabase
+              .from("messages")
+              .update({ follow_up_suggestions: suggestions })
+              .eq("id", lastMsg.id);
+          }
+        }
       }).catch((err) => {
         console.error("Failed to generate follow-ups:", err);
         setFollowUpSuggestions([]);
@@ -682,9 +712,9 @@ export const ChatInterface = ({
         }} 
         onSuccess={handleAuthSuccess} 
       />
-      {/* Profile dropdown - top right of main content */}
+      {/* Profile dropdown - top right of main content, offset when header visible */}
       {user && (
-        <div className="absolute top-4 right-4 z-30">
+        <div className={`absolute z-30 ${conversationId ? 'top-3 right-20 md:right-28' : 'top-4 right-4'}`}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center justify-center h-9 w-9 rounded-full hover:bg-accent transition-colors bg-card border border-border shadow-sm">
