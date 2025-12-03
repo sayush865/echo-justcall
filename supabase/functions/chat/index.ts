@@ -110,102 +110,73 @@ serve(async (req) => {
       throw new Error(`Webhook returned ${response.status}: ${errorText}`);
     }
 
-    // Check content type to determine response format
-    const contentType = response.headers.get("content-type") || "";
-    const responseText = await response.text();
-    
-    console.log("Webhook response (first 200 chars):", responseText.substring(0, 200));
-
-    // Try to parse as JSON with {answer, suggestions} format
-    let answerContent = "";
-    let suggestions: string[] = [];
-    let isJsonFormat = false;
-
-    try {
-      const jsonResponse = JSON.parse(responseText);
-      if (jsonResponse.answer) {
-        isJsonFormat = true;
-        answerContent = jsonResponse.answer;
-        suggestions = jsonResponse.suggestions || [];
-        fullResponse = answerContent;
-        console.log("Detected JSON format with answer and suggestions");
-      }
-    } catch {
-      // Not a single JSON object, might be NDJSON or plain text
-      console.log("Response is not single JSON, treating as NDJSON/text stream");
+    // Stream the response back to the client
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error("No response body from webhook");
     }
 
-    // If it's JSON format, convert to NDJSON for the client
-    if (isJsonFormat) {
-      const ndjsonLines: string[] = [];
-      
-      // Send the answer as content item
-      ndjsonLines.push(JSON.stringify({ type: "item", content: answerContent }));
-      
-      // Send suggestions if present
-      if (suggestions.length > 0) {
-        ndjsonLines.push(JSON.stringify({ type: "suggestions", suggestions }));
-      }
-      
-      const ndjsonResponse = ndjsonLines.join('\n') + '\n';
-      
-      // Log AI response
-      await supabaseAdmin.from("audit_logs").insert({
-        user_id: userId,
-        conversation_id: conversationId,
-        event_type: "ai_response",
-        ai_response: fullResponse,
-        metadata: {
-          latency_ms: Date.now() - startTime,
-          response_length: fullResponse.length,
-          suggestions_count: suggestions.length,
-        },
-        ip_address: ipAddress,
-        user_agent: userAgent,
-      });
-
-      return new Response(ndjsonResponse, {
-        headers: { 
-          ...corsHeaders, 
-          "Content-Type": "text/plain; charset=utf-8",
-        },
-      });
-    }
-
-    // Otherwise, pass through as-is (NDJSON streaming from webhook)
-    // Extract content for logging
-    const lines = responseText.split('\n').filter(line => line.trim());
-    for (const line of lines) {
-      try {
-        const parsed = JSON.parse(line);
-        if (parsed.type === "item" && parsed.content) {
-          fullResponse += parsed.content;
-        }
-      } catch {
-        if (line.trim()) {
-          fullResponse += line;
+    // Create a TransformStream to pass through the chunks
+    const stream = new ReadableStream({
+      async start(controller) {
+        const decoder = new TextDecoder();
+        
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              // Log AI response when streaming is complete
+              await supabaseAdmin.from("audit_logs").insert({
+                user_id: userId,
+                conversation_id: conversationId,
+                event_type: "ai_response",
+                ai_response: fullResponse,
+                metadata: {
+                  latency_ms: Date.now() - startTime,
+                  response_length: fullResponse.length,
+                },
+                ip_address: ipAddress,
+                user_agent: userAgent,
+              });
+              
+              controller.close();
+              break;
+            }
+            
+            // Pass through the chunk and accumulate response
+            const chunk = decoder.decode(value, { stream: true });
+            
+            // Try to extract content from NDJSON chunks
+            const lines = chunk.split('\n').filter(line => line.trim());
+            for (const line of lines) {
+              try {
+                const parsed = JSON.parse(line);
+                if (parsed.type === "item" && parsed.content) {
+                  fullResponse += parsed.content;
+                }
+              } catch {
+                // Not JSON, might be plain text
+                if (line.trim()) {
+                  fullResponse += line;
+                }
+              }
+            }
+            
+            console.log("Streaming chunk:", chunk.substring(0, 100));
+            controller.enqueue(new TextEncoder().encode(chunk));
+          }
+        } catch (error) {
+          console.error("Stream error:", error);
+          controller.error(error);
         }
       }
-    }
-
-    // Log AI response
-    await supabaseAdmin.from("audit_logs").insert({
-      user_id: userId,
-      conversation_id: conversationId,
-      event_type: "ai_response",
-      ai_response: fullResponse,
-      metadata: {
-        latency_ms: Date.now() - startTime,
-        response_length: fullResponse.length,
-      },
-      ip_address: ipAddress,
-      user_agent: userAgent,
     });
 
-    return new Response(responseText, {
+    return new Response(stream, {
       headers: { 
         ...corsHeaders, 
         "Content-Type": "text/plain; charset=utf-8",
+        "Transfer-Encoding": "chunked"
       },
     });
   } catch (error) {

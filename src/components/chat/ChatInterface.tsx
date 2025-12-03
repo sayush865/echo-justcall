@@ -11,14 +11,6 @@ import { triggerHaptic } from "@/hooks/useHapticFeedback";
 import { AnimatedPlaceholder } from "./AnimatedPlaceholder";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "@/components/auth/AuthModal";
-import { SuggestionPills } from "./SuggestionPills";
-
-const DEFAULT_SUGGESTIONS = [
-  "What are customers saying about pricing?",
-  "Show me recent support trends",
-  "Summarize last week's sales calls",
-  "What features are customers requesting?"
-];
 
 interface Message {
   id: string;
@@ -50,7 +42,6 @@ export const ChatInterface = ({
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<string[]>(DEFAULT_SUGGESTIONS);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef2 = useRef<HTMLTextAreaElement>(null);
@@ -165,7 +156,6 @@ export const ChatInterface = ({
     setInput("");
     resetTranscript();
     setLoading(true);
-    setSuggestions([]); // Clear suggestions when sending
 
     // Optimistically add user message to UI immediately
     const tempUserMsgId = `temp-user-${Date.now()}`;
@@ -283,9 +273,6 @@ export const ChatInterface = ({
                 ...prev, 
                 steps: [...(prev.steps || []), parsed.text] 
               } : null);
-            } else if (parsed.type === "suggestions" && Array.isArray(parsed.suggestions)) {
-              // Dynamic suggestions from AI
-              setSuggestions(parsed.suggestions);
             }
           } catch {
             // JSON parse failed - don't add raw content, just log for debugging
@@ -365,7 +352,6 @@ export const ChatInterface = ({
     setInput("");
     resetTranscript();
     setLoading(true);
-    setSuggestions([]); // Clear suggestions when sending
 
     // Optimistically add user message to UI immediately
     const tempUserMsgId = `temp-user-${Date.now()}`;
@@ -477,9 +463,6 @@ export const ChatInterface = ({
                 ...prev, 
                 steps: [...(prev.steps || []), parsed.text] 
               } : null);
-            } else if (parsed.type === "suggestions" && Array.isArray(parsed.suggestions)) {
-              // Dynamic suggestions from AI
-              setSuggestions(parsed.suggestions);
             }
           } catch {
             console.warn("Failed to parse NDJSON line:", line.substring(0, 50));
@@ -529,20 +512,7 @@ export const ChatInterface = ({
           <div className="absolute top-1/4 -left-1/4 w-1/2 h-1/2 bg-primary/3 rounded-full blur-3xl" />
           <div className="absolute bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-aqua/3 rounded-full blur-3xl" />
           <h1 className="relative z-10 text-2xl md:text-3xl lg:text-4xl font-bold mb-3 text-center animate-fade-in px-2">Echo — Bringing the Voice of Customers Back to You</h1>
-          <p className="relative z-10 text-muted-foreground mb-8 text-center text-sm md:text-base animate-fade-in [animation-delay:100ms] opacity-0 [animation-fill-mode:forwards]">Our customers are talking. Echo remembers.</p>
-          
-          {/* Suggestion Pills for Welcome Screen */}
-          <div className="relative z-10 w-full max-w-2xl px-4 mb-6">
-            <SuggestionPills 
-              suggestions={suggestions}
-              onSelect={(suggestion) => {
-                setInput(suggestion);
-                handleSend(suggestion);
-              }}
-              loading={loading}
-            />
-          </div>
-          
+          <p className="relative z-10 text-muted-foreground mb-10 text-center text-sm md:text-base animate-fade-in [animation-delay:100ms] opacity-0 [animation-fill-mode:forwards]">Our customers are talking. Echo remembers.</p>
           <div className="relative z-10 w-full max-w-2xl px-4">
             {/* Gradient glow behind input */}
             <div className="absolute -inset-1.5 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.25)_0%,hsl(256_100%_68%/0.15)_50%,hsl(195_100%_65%/0.25)_100%)] rounded-[2rem] blur-xl opacity-50" />
@@ -686,19 +656,6 @@ export const ChatInterface = ({
 
           <div className="p-4 md:p-6 pb-5 md:pb-7 bg-transparent relative z-10">
             <div className="max-w-3xl mx-auto relative px-1">
-              {/* Suggestion Pills */}
-              {suggestions.length > 0 && !loading && (
-                <div className="mb-3">
-                  <SuggestionPills 
-                    suggestions={suggestions}
-                    onSelect={(suggestion) => {
-                      setInput(suggestion);
-                      handleSend(suggestion);
-                    }}
-                    loading={loading}
-                  />
-                </div>
-              )}
               {/* Gradient glow behind input */}
               <div className="absolute -inset-1.5 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.25)_0%,hsl(256_100%_68%/0.15)_50%,hsl(195_100%_65%/0.25)_100%)] rounded-[2rem] blur-xl opacity-50" />
               <div className={`relative flex items-center gap-3 bg-background/90 backdrop-blur-sm border rounded-3xl px-4 md:px-5 py-3.5 transition-all shadow-sm ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border/80'}`}>
