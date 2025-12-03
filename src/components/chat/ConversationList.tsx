@@ -74,6 +74,12 @@ export const ConversationList = ({
   );
 
   useEffect(() => {
+    // Only load conversations when user is authenticated
+    if (!user) {
+      setConversations([]);
+      return;
+    }
+    
     loadConversations();
 
     const channel = supabase
@@ -94,9 +100,11 @@ export const ConversationList = ({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [user]);
 
   const loadConversations = async () => {
+    if (!user) return;
+    
     const { data, error } = await supabase
       .from("conversations")
       .select("*")
@@ -105,7 +113,7 @@ export const ConversationList = ({
       .order("updated_at", { ascending: false });
 
     if (error) {
-      toast.error("Failed to load conversations");
+      console.error("Failed to load conversations:", error);
       return;
     }
 
