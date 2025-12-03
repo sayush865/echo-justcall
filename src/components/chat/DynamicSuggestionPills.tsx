@@ -146,32 +146,41 @@ export const DynamicSuggestionPills = ({ onSelect }: DynamicSuggestionPillsProps
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 mt-6">
-      {suggestions.map((suggestion, index) => {
-        const Icon = iconMap[suggestion.icon || "Lightbulb"] || Lightbulb;
-        const colorClass = categoryColors[suggestion.category] || categoryColors.general;
-        const isPersonal = suggestion.user_id !== null;
+    <div className="mt-8">
+      {/* Divider with label */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex-1 h-px bg-border/60" />
+        <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Try asking</span>
+        <div className="flex-1 h-px bg-border/60" />
+      </div>
+      
+      <div className="grid grid-cols-2 gap-3">
+        {suggestions.map((suggestion, index) => {
+          const Icon = iconMap[suggestion.icon || "Lightbulb"] || Lightbulb;
+          const colorClass = categoryColors[suggestion.category] || categoryColors.general;
+          const isPersonal = suggestion.user_id !== null;
 
-        return (
-          <button
-            key={suggestion.id}
-            onClick={() => onSelect(suggestion.prompt)}
-            className={`
-              relative group flex items-center gap-2.5 px-4 py-3 rounded-xl border
-              transition-all duration-200 text-left
-              ${colorClass}
-              animate-fade-in
-            `}
-            style={{ animationDelay: `${index * 100}ms` }}
-          >
-            <Icon className="w-4 h-4 flex-shrink-0" />
-            <span className="text-sm font-medium truncate">{suggestion.label}</span>
-            {isPersonal && (
-              <Sparkles className="w-3 h-3 absolute top-1.5 right-1.5 text-primary/60" />
-            )}
-          </button>
-        );
-      })}
+          return (
+            <button
+              key={suggestion.id}
+              onClick={() => onSelect(suggestion.prompt)}
+              className={`
+                relative group flex items-center gap-2.5 px-4 py-3 rounded-xl border
+                transition-all duration-200 text-left
+                ${colorClass}
+                animate-fade-in
+              `}
+              style={{ animationDelay: `${index * 100}ms` }}
+            >
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              <span className="text-sm font-medium truncate">{suggestion.label}</span>
+              {isPersonal && (
+                <Sparkles className="w-3 h-3 absolute top-1.5 right-1.5 text-primary/60" />
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 };
