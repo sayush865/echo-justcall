@@ -4,7 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Mic, MicOff, Send, Loader2, Copy, Check, ArrowDown, Download } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Mic, MicOff, Send, Loader2, Copy, Check, ArrowDown, Download, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { MarkdownRenderer } from "./MarkdownRenderer";
@@ -93,7 +100,7 @@ export const ChatInterface = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef2 = useRef<HTMLTextAreaElement>(null);
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   // Scroll handler to detect if user has scrolled up
   const handleScroll = () => {
@@ -675,6 +682,36 @@ export const ChatInterface = ({
         }} 
         onSuccess={handleAuthSuccess} 
       />
+      {/* Profile dropdown - top right of main content */}
+      {user && (
+        <div className="absolute top-4 right-4 z-30">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center justify-center h-9 w-9 rounded-full hover:bg-accent transition-colors bg-card border border-border shadow-sm">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                    {user?.email?.charAt(0).toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <div className="px-2 py-1.5">
+                <p className="text-sm font-medium">
+                  {user?.user_metadata?.display_name || user?.email?.split("@")[0] || "User"}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => signOut()} className="text-destructive focus:text-destructive">
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+
       {messages.length === 0 && !conversationId ? (
         <div className="flex-1 flex flex-col items-center justify-center px-5 md:px-6 pt-14 md:pt-0 relative overflow-hidden bg-background">
           {/* Subtle gradient background */}

@@ -33,8 +33,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreVertical, Trash2, Pencil, Pin, PinOff, Search, X, LogOut } from "lucide-react";
+import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreVertical, Trash2, Pencil, Pin, PinOff, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/hooks/useHapticFeedback";
 import { useAuth } from "@/hooks/useAuth";
@@ -68,7 +67,7 @@ export const ConversationList = ({
   const [renameTitle, setRenameTitle] = useState("");
   const [deleteConversationId, setDeleteConversationId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
 
   const filteredConversations = conversations.filter((conv) =>
     conv.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -258,37 +257,9 @@ export const ConversationList = ({
                   Echo
                 </h2>
               </div>
-              <div className="flex items-center gap-1">
-                {user && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="flex items-center justify-center h-8 w-8 rounded-full hover:bg-accent transition-colors">
-                        <Avatar className="h-7 w-7">
-                          <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                            {user?.email?.charAt(0).toUpperCase() || "U"}
-                          </AvatarFallback>
-                        </Avatar>
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <div className="px-2 py-1.5">
-                        <p className="text-sm font-medium">
-                          {user?.user_metadata?.display_name || user?.email?.split("@")[0] || "User"}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-                      </div>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => signOut()} className="text-destructive focus:text-destructive">
-                        <LogOut className="w-4 h-4 mr-2" />
-                        Sign Out
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-                <Button variant="ghost" size="icon" onClick={handleToggle} className="h-8 w-8">
-                  <PanelLeftClose className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button variant="ghost" size="icon" onClick={handleToggle} className="h-8 w-8">
+                <PanelLeftClose className="h-4 w-4" />
+              </Button>
             </div>
             <Button onClick={handleNewChat} className="w-full" size="sm">
               <Plus className="w-4 h-4 mr-2" />
