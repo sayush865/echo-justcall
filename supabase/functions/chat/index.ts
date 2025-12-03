@@ -116,67 +116,71 @@ serve(async (req) => {
       throw new Error("No response body from webhook");
     }
 
-    // Create a TransformStream to pass through the chunks
-    const stream = new ReadableStream({
-      async start(controller) {
-        const decoder = new TextDecoder();
-        
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) {
-              // Log AI response when streaming is complete
-              await supabaseAdmin.from("audit_logs").insert({
-                user_id: userId,
-                conversation_id: conversationId,
-                event_type: "ai_response",
-                ai_response: fullResponse,
-                metadata: {
-                  latency_ms: Date.now() - startTime,
-                  response_length: fullResponse.length,
-                },
-                ip_address: ipAddress,
-                user_agent: userAgent,
-              });
-              
-              controller.close();
-              break;
-            }
+    // Create a TransformStream to pass through the chunks with proper flushing
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    // Process stream in background
+    (async () => {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            // Log AI response when streaming is complete
+            await supabaseAdmin.from("audit_logs").insert({
+              user_id: userId,
+              conversation_id: conversationId,
+              event_type: "ai_response",
+              ai_response: fullResponse,
+              metadata: {
+                latency_ms: Date.now() - startTime,
+                response_length: fullResponse.length,
+              },
+              ip_address: ipAddress,
+              user_agent: userAgent,
+            });
             
-            // Pass through the chunk and accumulate response
-            const chunk = decoder.decode(value, { stream: true });
-            
-            // Try to extract content from NDJSON chunks
-            const lines = chunk.split('\n').filter(line => line.trim());
-            for (const line of lines) {
-              try {
-                const parsed = JSON.parse(line);
-                if (parsed.type === "item" && parsed.content) {
-                  fullResponse += parsed.content;
-                }
-              } catch {
-                // Not JSON, might be plain text
-                if (line.trim()) {
-                  fullResponse += line;
-                }
+            await writer.close();
+            break;
+          }
+          
+          // Pass through the chunk and accumulate response
+          const chunk = decoder.decode(value, { stream: true });
+          
+          // Try to extract content from NDJSON chunks
+          const lines = chunk.split('\n').filter(line => line.trim());
+          for (const line of lines) {
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.type === "item" && parsed.content) {
+                fullResponse += parsed.content;
+              }
+            } catch {
+              // Not JSON, might be plain text
+              if (line.trim()) {
+                fullResponse += line;
               }
             }
-            
-            console.log("Streaming chunk:", chunk.substring(0, 100));
-            controller.enqueue(new TextEncoder().encode(chunk));
           }
-        } catch (error) {
-          console.error("Stream error:", error);
-          controller.error(error);
+          
+          console.log("Streaming chunk:", chunk.substring(0, 100));
+          // Write chunk immediately to ensure it's flushed
+          await writer.write(encoder.encode(chunk));
         }
+      } catch (error) {
+        console.error("Stream error:", error);
+        await writer.abort(error);
       }
-    });
+    })();
 
-    return new Response(stream, {
+    return new Response(readable, {
       headers: { 
         ...corsHeaders, 
-        "Content-Type": "text/plain; charset=utf-8",
-        "Transfer-Encoding": "chunked"
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
       },
     });
   } catch (error) {
