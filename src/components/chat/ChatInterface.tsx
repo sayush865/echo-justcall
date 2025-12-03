@@ -9,6 +9,7 @@ import { MarkdownRenderer } from "./MarkdownRenderer";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { triggerHaptic } from "@/hooks/useHapticFeedback";
 import { AnimatedPlaceholder } from "./AnimatedPlaceholder";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Message {
   id: string;
@@ -40,6 +41,7 @@ export const ChatInterface = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef2 = useRef<HTMLTextAreaElement>(null);
+  const { user } = useAuth();
 
   // Auto-resize textarea
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>, ref: React.RefObject<HTMLTextAreaElement>) => {
@@ -151,7 +153,7 @@ export const ChatInterface = ({
       if (!currentConversationId) {
         const { data: newConv, error: convError } = await supabase
           .from("conversations")
-          .insert({ title: userMessage.slice(0, 50) })
+          .insert({ title: userMessage.slice(0, 50), user_id: user?.id })
           .select()
           .single();
 
