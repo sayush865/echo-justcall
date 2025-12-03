@@ -38,6 +38,7 @@ import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreVertical, Trash2, P
 import { toast } from "sonner";
 import { triggerHaptic } from "@/hooks/useHapticFeedback";
 import { useAuth } from "@/hooks/useAuth";
+import { EchoLogo } from "./EchoLogo";
 
 interface Conversation {
   id: string;
@@ -251,9 +252,12 @@ export const ConversationList = ({
         <div className={`${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'} transition-opacity duration-200 ease-out flex flex-col h-full w-64`}>
           <div className="p-4 border-b border-border space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold bg-[linear-gradient(135deg,hsl(227_93%_60%)_0%,hsl(256_100%_68%)_50%,hsl(195_100%_65%)_100%)] bg-clip-text text-transparent">
-                Echo
-              </h2>
+              <div className="flex items-center gap-2">
+                <EchoLogo size="sm" />
+                <h2 className="text-xl font-bold bg-[linear-gradient(135deg,hsl(227_93%_60%)_0%,hsl(256_100%_68%)_50%,hsl(195_100%_65%)_100%)] bg-clip-text text-transparent">
+                  Echo
+                </h2>
+              </div>
               <div className="flex items-center gap-1">
                 {user && (
                   <DropdownMenu>
