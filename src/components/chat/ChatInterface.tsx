@@ -230,6 +230,8 @@ export const ChatInterface = ({
         conversation_id: currentConversationId,
         role: "user",
         content: messageToSend,
+        user_id: user?.id,
+        user_email: user?.email,
       });
 
       if (msgError) throw msgError;
@@ -336,6 +338,8 @@ export const ChatInterface = ({
         conversation_id: currentConversationId,
         role: "assistant",
         content: fullContent,
+        user_id: user?.id,
+        user_email: user?.email,
       });
     } catch (error: any) {
       setStreamingMessage(null);
@@ -382,7 +386,7 @@ export const ChatInterface = ({
     }
   };
 
-  const handleSendWithUser = async (messageToSend: string, authUser: { id: string }) => {
+  const handleSendWithUser = async (messageToSend: string, authUser: { id: string; email?: string }) => {
     if (!messageToSend || loading) return;
     
     triggerHaptic("medium");
@@ -427,6 +431,8 @@ export const ChatInterface = ({
         conversation_id: currentConversationId,
         role: "user",
         content: messageToSend,
+        user_id: authUser.id,
+        user_email: authUser.email,
       });
 
       if (msgError) throw msgError;
@@ -524,6 +530,8 @@ export const ChatInterface = ({
         conversation_id: currentConversationId,
         role: "assistant",
         content: fullContent,
+        user_id: authUser.id,
+        user_email: authUser.email,
       });
     } catch (error: any) {
       setStreamingMessage(null);

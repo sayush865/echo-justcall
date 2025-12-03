@@ -139,6 +139,8 @@ export type Database = {
           created_at: string
           id: string
           role: string
+          user_email: string | null
+          user_id: string | null
         }
         Insert: {
           content: string
@@ -146,6 +148,8 @@ export type Database = {
           created_at?: string
           id?: string
           role: string
+          user_email?: string | null
+          user_id?: string | null
         }
         Update: {
           content?: string
@@ -153,6 +157,8 @@ export type Database = {
           created_at?: string
           id?: string
           role?: string
+          user_email?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
