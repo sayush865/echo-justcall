@@ -61,10 +61,20 @@ export const ChatInterface = ({
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isUserNearBottom, setIsUserNearBottom] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef2 = useRef<HTMLTextAreaElement>(null);
   const { user } = useAuth();
+
+  // Scroll handler to detect if user has scrolled up
+  const handleScroll = () => {
+    if (!scrollContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    setIsUserNearBottom(distanceFromBottom < 100);
+  };
 
   const handleCopy = async (content: string, id: string) => {
     await navigator.clipboard.writeText(content);
@@ -138,9 +148,12 @@ export const ChatInterface = ({
     }
   }, [conversationId]);
 
+  // Only auto-scroll if user is near the bottom
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamingMessage]);
+    if (isUserNearBottom) {
+      scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, streamingMessage, isUserNearBottom]);
 
   const loadMessages = async () => {
     if (!conversationId) return;
@@ -175,6 +188,7 @@ export const ChatInterface = ({
     setInput("");
     resetTranscript();
     setLoading(true);
+    setIsUserNearBottom(true); // Resume auto-scroll when user sends message
 
     // Optimistically add user message to UI immediately
     const tempUserMsgId = `temp-user-${Date.now()}`;
@@ -371,6 +385,7 @@ export const ChatInterface = ({
     setInput("");
     resetTranscript();
     setLoading(true);
+    setIsUserNearBottom(true); // Resume auto-scroll when user sends message
 
     // Optimistically add user message to UI immediately
     const tempUserMsgId = `temp-user-${Date.now()}`;
@@ -589,7 +604,7 @@ export const ChatInterface = ({
           <div className="absolute top-1/4 -left-1/4 w-1/2 h-1/2 bg-primary/3 rounded-full blur-3xl" />
           <div className="absolute bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-aqua/3 rounded-full blur-3xl" />
           
-          <ScrollArea className="flex-1 px-4 md:px-6 py-5 pt-14 md:pt-8 relative z-10">
+          <ScrollArea className="flex-1 px-4 md:px-6 py-5 pt-14 md:pt-8 relative z-10" viewportRef={scrollContainerRef} onScrollCapture={handleScroll}>
             <div className="space-y-6 max-w-3xl mx-auto pb-8">
               {messages.map((msg) => (
                 <div
