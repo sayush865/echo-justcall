@@ -33,9 +33,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
-import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreVertical, Trash2, Pencil, Pin, PinOff, Search, X } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreVertical, Trash2, Pencil, Pin, PinOff, Search, X, LogOut, User } from "lucide-react";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/hooks/useHapticFeedback";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Conversation {
   id: string;
@@ -65,6 +67,7 @@ export const ConversationList = ({
   const [renameTitle, setRenameTitle] = useState("");
   const [deleteConversationId, setDeleteConversationId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const { user, signOut } = useAuth();
 
   const filteredConversations = conversations.filter((conv) =>
     conv.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -338,6 +341,38 @@ export const ConversationList = ({
               </div>
             </TooltipProvider>
           </ScrollArea>
+          
+          {/* User Profile Section */}
+          <div className="p-3 border-t border-border">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 w-full p-2 rounded-lg hover:bg-accent transition-colors">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                      {user?.email?.charAt(0).toUpperCase() || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="text-sm font-medium truncate">
+                      {user?.user_metadata?.display_name || user?.email?.split("@")[0] || "User"}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                  </div>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem disabled className="text-muted-foreground">
+                  <User className="w-4 h-4 mr-2" />
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => signOut()} className="text-destructive focus:text-destructive">
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
 
