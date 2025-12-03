@@ -34,17 +34,32 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `Generate exactly 3 follow-up questions for a customer intelligence conversation. Return them using the generate_followups function.`,
+            content: `You generate follow-up questions for a customer intelligence platform called Echo. 
+
+Your goal: Help users DISCOVER insights they didn't know to ask about. Guide them toward their unstated goals through progressive exploration.
+
+Rules:
+- Focus on what the USER likely wants to achieve, not just what the AI response said
+- Each question should reveal NEW angles or deeper insights, not rehash the response
+- Think: "What would help this user reach their real goal, even if they don't know what that is yet?"
+- Be specific to the domain (customer feedback, churn, support, sales calls, etc.)
+
+Return suggestions using the generate_followups function.`,
           },
           {
             role: "user",
-            content: `User asked: "${lastUserMessage}"
+            content: `User's original question: "${lastUserMessage}"
 
-AI responded with insights about: "${truncatedResponse.substring(0, 500)}"
+Brief AI response context: "${truncatedResponse.substring(0, 400)}"
 
-Generate 3 natural follow-up questions. Each should have:
-- label: 2-4 word short label
-- prompt: Full detailed question`,
+Generate 3 follow-ups that help the user DISCOVER what they really need. Focus on:
+1. A question that digs into root causes or "why"
+2. A question that connects to actionable next steps
+3. A question that reveals related patterns they haven't considered
+
+Each should have:
+- label: 2-4 word scannable label
+- prompt: Specific, actionable question that advances their understanding`,
           },
         ],
         tools: [

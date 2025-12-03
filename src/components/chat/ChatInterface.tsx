@@ -54,6 +54,23 @@ interface ChatInterfaceProps {
   onConversationCreated: (id: string) => void;
 }
 
+// Retry configuration
+const MAX_RETRIES = 3;
+const INITIAL_DELAY = 1000; // 1 second
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const getErrorMessage = (error: any, status?: number): string => {
+  if (status === 401) return "Authentication required. Please sign in again.";
+  if (status === 403) return "You don't have permission to perform this action.";
+  if (status === 429) return "Too many requests. Please wait a moment.";
+  if (status === 500) return "Server error. Our team has been notified.";
+  if (status === 503) return "Service temporarily unavailable. Please try again.";
+  if (error?.message?.includes("RLS")) return "Permission denied. Please sign in again.";
+  if (error?.message?.includes("network")) return "Network error. Check your connection.";
+  return error?.message || "Something went wrong. Please try again.";
+};
+
 export const ChatInterface = ({
   conversationId,
   conversationTitle = "",
@@ -70,6 +87,8 @@ export const ChatInterface = ({
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [followUpSuggestions, setFollowUpSuggestions] = useState<{label: string; prompt: string}[]>([]);
   const [followUpLoading, setFollowUpLoading] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -369,9 +388,39 @@ export const ChatInterface = ({
       });
     } catch (error: any) {
       setStreamingMessage(null);
-      toast.error(error.message || "Failed to send message");
+      const errorMsg = getErrorMessage(error, error?.status);
+      
+      // Handle retry logic
+      if (retryCount < MAX_RETRIES && !error?.message?.includes("RLS") && !error?.message?.includes("401")) {
+        const delay = INITIAL_DELAY * Math.pow(2, retryCount);
+        setRetryCount(prev => prev + 1);
+        setLastFailedMessage(messageToSend);
+        toast.error(errorMsg, {
+          description: `Retrying in ${delay / 1000}s... (${retryCount + 1}/${MAX_RETRIES})`,
+          duration: delay,
+        });
+        await sleep(delay);
+        handleSend(messageToSend, true);
+        return;
+      }
+      
+      // Final failure after retries
+      setLastFailedMessage(messageToSend);
+      toast.error(errorMsg, {
+        description: retryCount > 0 ? "All retry attempts failed." : "Click retry to try again.",
+        action: {
+          label: "Retry",
+          onClick: () => {
+            setRetryCount(0);
+            handleSend(messageToSend, true);
+          },
+        },
+        duration: 10000,
+      });
+      console.error("Message send failed:", { error, retryCount, messageToSend: messageToSend.substring(0, 50) });
     } finally {
       setLoading(false);
+      if (!lastFailedMessage) setRetryCount(0);
     }
   };
 
@@ -580,9 +629,39 @@ export const ChatInterface = ({
       });
     } catch (error: any) {
       setStreamingMessage(null);
-      toast.error(error.message || "Failed to send message");
+      const errorMsg = getErrorMessage(error, error?.status);
+      
+      // Handle retry logic
+      if (retryCount < MAX_RETRIES && !error?.message?.includes("RLS") && !error?.message?.includes("401")) {
+        const delay = INITIAL_DELAY * Math.pow(2, retryCount);
+        setRetryCount(prev => prev + 1);
+        setLastFailedMessage(messageToSend);
+        toast.error(errorMsg, {
+          description: `Retrying in ${delay / 1000}s... (${retryCount + 1}/${MAX_RETRIES})`,
+          duration: delay,
+        });
+        await sleep(delay);
+        handleSendWithUser(messageToSend, authUser);
+        return;
+      }
+      
+      // Final failure after retries
+      setLastFailedMessage(messageToSend);
+      toast.error(errorMsg, {
+        description: retryCount > 0 ? "All retry attempts failed." : "Click retry to try again.",
+        action: {
+          label: "Retry",
+          onClick: () => {
+            setRetryCount(0);
+            handleSendWithUser(messageToSend, authUser);
+          },
+        },
+        duration: 10000,
+      });
+      console.error("Message send failed (auth):", { error, retryCount, messageToSend: messageToSend.substring(0, 50) });
     } finally {
       setLoading(false);
+      if (!lastFailedMessage) setRetryCount(0);
     }
   };
 
@@ -805,9 +884,14 @@ export const ChatInterface = ({
 
           <div className="p-4 md:p-6 pb-5 md:pb-7 bg-transparent relative z-10">
             <div className="max-w-3xl mx-auto relative px-1">
-              {/* Follow-up suggestion pills - above input */}
+              {/* Follow-up suggestion pills - above input with divider */}
               {!loading && !streamingMessage && (followUpSuggestions.length > 0 || followUpLoading) && (
                 <div className="mb-3 relative z-20">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="flex-1 h-px bg-border/50" />
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-medium">Continue exploring</span>
+                    <div className="flex-1 h-px bg-border/50" />
+                  </div>
                   <FollowUpPills 
                     suggestions={followUpSuggestions} 
                     onSelect={(prompt) => {
