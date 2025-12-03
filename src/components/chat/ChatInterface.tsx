@@ -132,12 +132,12 @@ export const ChatInterface = ({
     setMessages(data || []);
   };
 
-  const handleSend = async (messageOverride?: string) => {
+  const handleSend = async (messageOverride?: string, skipAuthCheck?: boolean) => {
     const messageToSend = messageOverride || input.trim();
     if (!messageToSend || loading) return;
     
     // Check auth - if not logged in, show modal and save message
-    if (!user) {
+    if (!user && !skipAuthCheck) {
       setPendingMessage(messageToSend);
       setShowAuthModal(true);
       return;
@@ -314,9 +314,9 @@ export const ChatInterface = ({
   const handleAuthSuccess = () => {
     setShowAuthModal(false);
     if (pendingMessage) {
-      // Small delay to ensure auth state is updated
+      // Small delay to ensure auth state is updated, skip auth check since we just authenticated
       setTimeout(() => {
-        handleSend(pendingMessage);
+        handleSend(pendingMessage, true);
         setPendingMessage(null);
       }, 100);
     }
