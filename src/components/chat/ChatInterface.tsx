@@ -325,6 +325,8 @@ export const ChatInterface = ({
         }
       }
 
+      console.log("Streaming complete, fullContent length:", fullContent.length);
+      
       // Finalize streaming
       setStreamingMessage({ role: "assistant", content: fullContent, isStreaming: false, steps });
       
@@ -339,6 +341,7 @@ export const ChatInterface = ({
       
       setStreamingMessage(null);
 
+      console.log("Inserting message to DB for conversation:", currentConversationId);
       await supabase.from("messages").insert({
         conversation_id: currentConversationId,
         role: "assistant",
