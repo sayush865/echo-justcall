@@ -317,14 +317,172 @@ export const ChatInterface = ({
     }
   };
 
-  const handleAuthSuccess = () => {
+  const handleAuthSuccess = async () => {
     setShowAuthModal(false);
     if (pendingMessage) {
-      // Small delay to ensure auth state is updated, skip auth check since we just authenticated
-      setTimeout(() => {
-        handleSend(pendingMessage, true);
-        setPendingMessage(null);
-      }, 100);
+      // Wait for auth state to be fully updated before sending
+      const checkAndSend = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          // Pass user directly to avoid stale state
+          handleSendWithUser(pendingMessage, session.user);
+          setPendingMessage(null);
+        } else {
+          // Retry after a short delay if session not ready
+          setTimeout(checkAndSend, 100);
+        }
+      };
+      checkAndSend();
+    }
+  };
+
+  const handleSendWithUser = async (messageToSend: string, authUser: { id: string }) => {
+    if (!messageToSend || loading) return;
+    
+    triggerHaptic("medium");
+    setInput("");
+    resetTranscript();
+    setLoading(true);
+
+    // Optimistically add user message to UI immediately
+    const tempUserMsgId = `temp-user-${Date.now()}`;
+    setMessages(prev => [...prev, {
+      id: tempUserMsgId,
+      role: "user",
+      content: messageToSend,
+      created_at: new Date().toISOString()
+    }]);
+
+    try {
+      let currentConversationId = conversationId;
+
+      if (!currentConversationId) {
+        const { data: newConv, error: convError } = await supabase
+          .from("conversations")
+          .insert({ title: messageToSend.slice(0, 50), user_id: authUser.id })
+          .select()
+          .single();
+
+        if (convError) throw convError;
+        currentConversationId = newConv.id;
+        onConversationCreated(currentConversationId);
+        
+        // Log conversation creation
+        await supabase.from("audit_logs").insert({
+          user_id: authUser.id,
+          conversation_id: currentConversationId,
+          event_type: "conversation_created",
+          metadata: { title: messageToSend.slice(0, 50) },
+        });
+      }
+
+      const { error: msgError } = await supabase.from("messages").insert({
+        conversation_id: currentConversationId,
+        role: "user",
+        content: messageToSend,
+      });
+
+      if (msgError) throw msgError;
+
+      // Use fetch for true streaming
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({ message: messageToSend, conversationId: currentConversationId }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Request failed: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No response body");
+
+      const decoder = new TextDecoder();
+      let fullContent = "";
+      const steps: string[] = [];
+      let buffer = "";
+      
+      setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const text = buffer + chunk;
+        buffer = "";
+        
+        const lines = text.split('\n');
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          if (i === lines.length - 1 && !text.endsWith('\n')) {
+            buffer = line;
+            continue;
+          }
+
+          try {
+            const parsed = JSON.parse(line);
+            
+            if (parsed.type === "item" && parsed.content) {
+              fullContent += parsed.content;
+              setStreamingMessage({ 
+                role: "assistant", 
+                content: fullContent, 
+                isStreaming: true,
+                steps 
+              });
+            } else if (parsed.type === "step" || parsed.type === "tool" || parsed.type === "thinking") {
+              const stepText = parsed.text || parsed.name || parsed.content || JSON.stringify(parsed);
+              steps.push(stepText);
+              setStreamingMessage(prev => prev ? { 
+                ...prev, 
+                steps: [...(prev.steps || []), stepText] 
+              } : null);
+            } else if (parsed.type === "agent" && parsed.text) {
+              steps.push(parsed.text);
+              setStreamingMessage(prev => prev ? { 
+                ...prev, 
+                steps: [...(prev.steps || []), parsed.text] 
+              } : null);
+            }
+          } catch {
+            console.warn("Failed to parse NDJSON line:", line.substring(0, 50));
+          }
+        }
+      }
+
+      setStreamingMessage({ role: "assistant", content: fullContent, isStreaming: false, steps });
+      
+      const tempId = `temp-${Date.now()}`;
+      setMessages(prev => [...prev, {
+        id: tempId,
+        role: "assistant",
+        content: fullContent,
+        created_at: new Date().toISOString()
+      }]);
+      
+      setStreamingMessage(null);
+
+      await supabase.from("messages").insert({
+        conversation_id: currentConversationId,
+        role: "assistant",
+        content: fullContent,
+      });
+    } catch (error: any) {
+      setStreamingMessage(null);
+      toast.error(error.message || "Failed to send message");
+    } finally {
+      setLoading(false);
     }
   };
 
