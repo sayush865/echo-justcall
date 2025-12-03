@@ -348,16 +348,18 @@ export const ChatInterface = ({
       });
 
       // Generate follow-up suggestions (fire and forget)
+      console.log("Generating follow-ups for:", { messageToSend: messageToSend.substring(0, 50), responseLength: fullContent.length });
       setFollowUpLoading(true);
       supabase.functions.invoke('generate-followups', {
         body: { 
           lastUserMessage: messageToSend, 
           lastAIResponse: fullContent.substring(0, 1500),
         }
-      }).then(({ data }) => {
+      }).then(({ data, error }) => {
+        console.log("Follow-ups response:", { data, error });
         setFollowUpSuggestions(data?.suggestions || []);
       }).catch((err) => {
-        console.warn("Failed to generate follow-ups:", err);
+        console.error("Failed to generate follow-ups:", err);
         setFollowUpSuggestions([]);
       }).finally(() => {
         setFollowUpLoading(false);
@@ -557,16 +559,18 @@ export const ChatInterface = ({
       });
 
       // Generate follow-up suggestions (fire and forget)
+      console.log("Generating follow-ups (auth):", { messageToSend: messageToSend.substring(0, 50), responseLength: fullContent.length });
       setFollowUpLoading(true);
       supabase.functions.invoke('generate-followups', {
         body: { 
           lastUserMessage: messageToSend, 
           lastAIResponse: fullContent.substring(0, 1500),
         }
-      }).then(({ data }) => {
+      }).then(({ data, error }) => {
+        console.log("Follow-ups response (auth):", { data, error });
         setFollowUpSuggestions(data?.suggestions || []);
       }).catch((err) => {
-        console.warn("Failed to generate follow-ups:", err);
+        console.error("Failed to generate follow-ups:", err);
         setFollowUpSuggestions([]);
       }).finally(() => {
         setFollowUpLoading(false);
