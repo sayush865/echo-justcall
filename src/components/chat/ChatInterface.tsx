@@ -594,7 +594,7 @@ export const ChatInterface = ({
               {messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex gap-3 animate-fade-in ${
+                  className={`flex gap-3 ${
                     msg.role === "user" ? "justify-end" : "justify-start"
                   }`}
                 >
