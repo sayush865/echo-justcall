@@ -22,6 +22,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   ArrowLeft,
   Users,
   MessageSquare,
@@ -220,6 +226,7 @@ export default function AdminDashboard() {
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [newAdminEmail, setNewAdminEmail] = useState("");
@@ -691,7 +698,7 @@ export default function AdminDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle>All Conversations</CardTitle>
-                <CardDescription>View and manage all user conversations</CardDescription>
+                <CardDescription>Click on a conversation to view full chat history</CardDescription>
               </CardHeader>
               <CardContent>
                 <ScrollArea className="h-[500px]">
@@ -700,7 +707,11 @@ export default function AdminDashboard() {
                       const userProfile = profiles.find(p => p.user_id === conv.user_id);
                       const msgCount = getConversationMessages(conv.id).length;
                       return (
-                        <div key={conv.id} className="p-4 rounded-lg border border-border hover:bg-muted/50 flex items-center justify-between">
+                        <div 
+                          key={conv.id} 
+                          className="p-4 rounded-lg border border-border hover:bg-muted/50 flex items-center justify-between cursor-pointer transition-colors"
+                          onClick={() => setSelectedConversation(conv)}
+                        >
                           <div className="flex-1 min-w-0">
                             <p className="font-medium truncate">{conv.title}</p>
                             <p className="text-sm text-muted-foreground">
@@ -712,7 +723,12 @@ export default function AdminDashboard() {
                           </div>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive shrink-0">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-destructive hover:text-destructive shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </AlertDialogTrigger>
@@ -741,6 +757,53 @@ export default function AdminDashboard() {
                 </ScrollArea>
               </CardContent>
             </Card>
+
+            {/* Conversation Detail Dialog */}
+            <Dialog open={!!selectedConversation} onOpenChange={(open) => !open && setSelectedConversation(null)}>
+              <DialogContent className="max-w-3xl max-h-[80vh]">
+                <DialogHeader>
+                  <DialogTitle className="truncate pr-8">
+                    {selectedConversation?.title}
+                  </DialogTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {profiles.find(p => p.user_id === selectedConversation?.user_id)?.email || "Unknown user"} • {new Date(selectedConversation?.created_at || "").toLocaleString()}
+                  </p>
+                </DialogHeader>
+                <ScrollArea className="h-[60vh] pr-4">
+                  <div className="space-y-4">
+                    {selectedConversation && getConversationMessages(selectedConversation.id)
+                      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                      .map((msg) => (
+                        <div 
+                          key={msg.id} 
+                          className={`p-3 rounded-lg ${
+                            msg.role === "user" 
+                              ? "bg-primary/10 ml-8" 
+                              : "bg-muted mr-8"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                              msg.role === "user" 
+                                ? "bg-primary/20 text-primary" 
+                                : "bg-violet/20 text-violet"
+                            }`}>
+                              {msg.role === "user" ? "User" : "Echo"}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(msg.created_at).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        </div>
+                      ))}
+                    {selectedConversation && getConversationMessages(selectedConversation.id).length === 0 && (
+                      <p className="text-center text-muted-foreground py-8">No messages in this conversation</p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* Messages Tab */}
