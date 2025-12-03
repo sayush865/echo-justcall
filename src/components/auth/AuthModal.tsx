@@ -120,7 +120,7 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
                 </span>
               </DialogTitle>
               <DialogDescription className="text-muted-foreground animate-fade-in [animation-delay:100ms] opacity-0 [animation-fill-mode:forwards]">
-                Your AI-powered customer intelligence
+                Customer insights, instantly
               </DialogDescription>
             </DialogHeader>
 
