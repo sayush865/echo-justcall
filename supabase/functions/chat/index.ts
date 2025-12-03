@@ -31,8 +31,8 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch full conversation history
-    const { data: messages, error: messagesError } = await supabase
+    // Fetch full conversation history using admin client (bypasses RLS)
+    const { data: messages, error: messagesError } = await supabaseAdmin
       .from("messages")
       .select("*")
       .eq("conversation_id", conversationId)
@@ -42,8 +42,8 @@ serve(async (req) => {
       console.error("Error fetching messages:", messagesError);
     }
 
-    // Fetch conversation details
-    const { data: conversation, error: conversationError } = await supabase
+    // Fetch conversation details using admin client (bypasses RLS)
+    const { data: conversation, error: conversationError } = await supabaseAdmin
       .from("conversations")
       .select("*")
       .eq("id", conversationId)
