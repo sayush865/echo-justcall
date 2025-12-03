@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { EchoLogo } from "./EchoLogo";
 import { ExportDialog } from "./ExportDialog";
+import { DynamicSuggestionPills } from "./DynamicSuggestionPills";
 
 // Helper to get user initials
 const getUserInitials = (displayName?: string | null): string => {
@@ -610,6 +611,8 @@ export const ChatInterface = ({
                 Speak now... Click the mic to stop.
               </p>
             )}
+            {/* Dynamic suggestion pills */}
+            <DynamicSuggestionPills onSelect={(prompt) => handleSend(prompt)} />
           </div>
         </div>
       ) : (
