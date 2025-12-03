@@ -775,20 +775,6 @@ export const ChatInterface = ({
                   </div>
                 </div>
               )}
-              {/* Follow-up suggestion pills */}
-              {!loading && !streamingMessage && (followUpSuggestions.length > 0 || followUpLoading) && (
-                <div className="flex justify-start gap-3">
-                  <div className="w-8 flex-shrink-0" /> {/* Spacer to align with messages */}
-                  <FollowUpPills 
-                    suggestions={followUpSuggestions} 
-                    onSelect={(prompt) => {
-                      setFollowUpSuggestions([]);
-                      handleSend(prompt);
-                    }} 
-                    loading={followUpLoading}
-                  />
-                </div>
-              )}
               <div ref={scrollRef} />
             </div>
           </ScrollArea>
@@ -809,6 +795,19 @@ export const ChatInterface = ({
 
           <div className="p-4 md:p-6 pb-5 md:pb-7 bg-transparent relative z-10">
             <div className="max-w-3xl mx-auto relative px-1">
+              {/* Follow-up suggestion pills - above input */}
+              {!loading && !streamingMessage && (followUpSuggestions.length > 0 || followUpLoading) && (
+                <div className="mb-3">
+                  <FollowUpPills 
+                    suggestions={followUpSuggestions} 
+                    onSelect={(prompt) => {
+                      setFollowUpSuggestions([]);
+                      handleSend(prompt);
+                    }} 
+                    loading={followUpLoading}
+                  />
+                </div>
+              )}
               {/* Gradient glow behind input */}
               <div className="absolute -inset-1.5 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.25)_0%,hsl(256_100%_68%/0.15)_50%,hsl(195_100%_65%/0.25)_100%)] rounded-[2rem] blur-xl opacity-50" />
               <div className={`relative flex items-center gap-3 bg-background/90 backdrop-blur-sm border rounded-3xl px-4 md:px-5 py-3.5 transition-all shadow-sm ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border/80'}`}>

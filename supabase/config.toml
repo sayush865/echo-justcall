@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.analyze-suggestions]
 verify_jwt = false
+
+[functions.generate-followups]
+verify_jwt = false
