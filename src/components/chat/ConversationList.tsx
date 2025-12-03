@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreVertical, Trash2, Pencil, Pin, PinOff, Search, X, LogOut, User } from "lucide-react";
+import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreVertical, Trash2, Pencil, Pin, PinOff, Search, X, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/hooks/useHapticFeedback";
 import { useAuth } from "@/hooks/useAuth";
@@ -273,11 +273,6 @@ export const ConversationList = ({
                         </p>
                         <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                       </div>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem disabled className="text-muted-foreground">
-                        <User className="w-4 h-4 mr-2" />
-                        Profile
-                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => signOut()} className="text-destructive focus:text-destructive">
                         <LogOut className="w-4 h-4 mr-2" />
