@@ -36,11 +36,20 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       if (error) throw error;
+      
+      // Log sign in event
+      await supabase.from("audit_logs").insert({
+        user_id: data.user?.id,
+        user_email: email,
+        event_type: "auth_signin",
+        metadata: { method: "password" },
+      });
+      
       resetForm();
       onSuccess();
     } catch (error: any) {
@@ -55,7 +64,7 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -66,6 +75,15 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
         },
       });
       if (error) throw error;
+      
+      // Log sign up event
+      await supabase.from("audit_logs").insert({
+        user_id: data.user?.id,
+        user_email: email,
+        event_type: "auth_signup",
+        metadata: { display_name: displayName },
+      });
+      
       toast.success("Welcome to Echo!");
       resetForm();
       onSuccess();
