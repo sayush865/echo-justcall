@@ -204,18 +204,11 @@ export const ExportDialog = ({
         const roleLabel = isUser ? "You" : "Echo";
         const cleanContent = stripMarkdown(msg.content);
         
-        // Estimate message height for page break check
-        const contentLines = pdf.splitTextToSize(cleanContent, contentWidth - 10);
-        const estimatedHeight = 12 + (contentLines.length * lineHeight);
-        
         // Check if we need a new page before starting message
-        if (yPos + Math.min(estimatedHeight, 40) > pageHeight - marginBottom) {
+        if (yPos + 20 > pageHeight - marginBottom) {
           addNewPage();
         }
 
-        // Message container background
-        const bgStartY = yPos - 3;
-        
         // Role label with colored indicator
         pdf.setFontSize(10);
         pdf.setFont("helvetica", "bold");
@@ -245,7 +238,7 @@ export const ExportDialog = ({
           }
         }
         
-        yPos += 6;
+        yPos += 7;
 
         // Message content
         pdf.setFontSize(10);
@@ -269,7 +262,7 @@ export const ExportDialog = ({
             pdf.setTextColor(100, 100, 100);
           }
           
-          const lines = pdf.splitTextToSize(paragraph.trim(), contentWidth - 8);
+          const lines = pdf.splitTextToSize(paragraph.trim(), contentWidth - 4);
           
           for (const line of lines) {
             checkPageBreak(lineHeight);
@@ -284,26 +277,15 @@ export const ExportDialog = ({
             pdf.setTextColor(40, 40, 40);
           }
         }
-        
-        // Draw subtle background for message
-        const bgEndY = yPos + 2;
-        const bgHeight = bgEndY - bgStartY;
-        
-        pdf.setPage(pdf.getNumberOfPages()); // Ensure we're on current page
-        pdf.setFillColor(isUser ? 245 : 250, isUser ? 247 : 250, isUser ? 255 : 250);
-        pdf.roundedRect(marginLeft - 2, bgStartY, contentWidth + 4, bgHeight, 2, 2, "F");
-        
-        // Re-render text on top of background (jsPDF limitation)
-        // Skip re-render for simplicity - background will be behind
 
-        yPos += 10; // Space between messages
+        yPos += 8; // Space between messages
         
         // Add separator line between messages (except last)
         if (msgIndex < messages.length - 1) {
-          pdf.setDrawColor(235, 235, 235);
-          pdf.setLineWidth(0.2);
+          pdf.setDrawColor(220, 220, 220);
+          pdf.setLineWidth(0.3);
           checkPageBreak(5);
-          pdf.line(marginLeft + 10, yPos - 5, pageWidth - marginRight - 10, yPos - 5);
+          pdf.line(marginLeft, yPos - 4, pageWidth - marginRight, yPos - 4);
         }
       }
 
