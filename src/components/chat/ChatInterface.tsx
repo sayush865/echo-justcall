@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Mic, MicOff, Send, Loader2, Copy, Check, ArrowDown, Share2, LogOut, Square } from "lucide-react";
+import { Mic, MicOff, Send, Loader2, Copy, Check, ArrowDown, Share2, LogOut, Square, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { MarkdownRenderer } from "./MarkdownRenderer";
@@ -904,28 +904,29 @@ export const ChatInterface = ({
         }} 
         onSuccess={handleAuthSuccess} 
       />
-      {/* Top right controls - Share (chat only) + Profile */}
-      {user && (
-        <div className="absolute top-8 right-4 z-30 flex items-center gap-2">
-          {/* Share button - only in chat view */}
-          {conversationId && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setShareDialogOpen(true)}
-                    className="flex items-center justify-center h-9 w-9 rounded-full hover:bg-accent transition-colors bg-card border border-border shadow-sm"
-                  >
-                    <Share2 className="w-4 h-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Share conversation</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          {/* Profile dropdown */}
+      {/* Top right controls - Share (chat only) + Profile/Login */}
+      <div className="absolute top-8 right-4 z-30 flex items-center gap-2">
+        {/* Share button - only in chat view when logged in */}
+        {user && conversationId && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setShareDialogOpen(true)}
+                  className="flex items-center justify-center h-9 w-9 rounded-full hover:bg-accent transition-colors bg-card border border-border shadow-sm"
+                >
+                  <Share2 className="w-4 h-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Share conversation</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        
+        {/* Profile dropdown when logged in */}
+        {user ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center justify-center h-9 w-9 rounded-full hover:bg-accent transition-colors bg-card border border-border shadow-sm">
@@ -950,8 +951,26 @@ export const ChatInterface = ({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-      )}
+        ) : (
+          /* Login button when not logged in */
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="flex items-center gap-2 h-9 px-4 rounded-full hover:bg-accent transition-colors bg-card border border-border shadow-sm text-sm font-medium"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>Sign In</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Sign in to save conversations</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
 
       {messages.length === 0 && !conversationId ? (
         <div className="flex-1 flex flex-col items-center justify-center px-5 md:px-6 pt-14 md:pt-0 relative overflow-hidden bg-background">
