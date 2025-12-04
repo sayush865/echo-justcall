@@ -18,6 +18,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Chat />} />
+          <Route path="/c/:conversationId" element={<Chat />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/shared/:token" element={<SharedConversation />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

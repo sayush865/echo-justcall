@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -58,7 +59,6 @@ interface StreamingMessage {
 interface ChatInterfaceProps {
   conversationId: string | null;
   conversationTitle?: string;
-  onConversationCreated: (id: string) => void;
 }
 
 // Retry configuration
@@ -84,8 +84,8 @@ const getErrorMessage = (error: any, status?: number): { title: string; descript
 export const ChatInterface = ({
   conversationId,
   conversationTitle = "",
-  onConversationCreated,
 }: ChatInterfaceProps) => {
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -300,7 +300,7 @@ export const ChatInterface = ({
 
         if (convError) throw convError;
         currentConversationId = newConv.id;
-        onConversationCreated(currentConversationId);
+        navigate(`/c/${currentConversationId}`);
         
         // Log conversation creation
         await supabase.from("audit_logs").insert({
@@ -612,7 +612,7 @@ export const ChatInterface = ({
 
         if (convError) throw convError;
         currentConversationId = newConv.id;
-        onConversationCreated(currentConversationId);
+        navigate(`/c/${currentConversationId}`);
         
         // Log conversation creation
         await supabase.from("audit_logs").insert({
