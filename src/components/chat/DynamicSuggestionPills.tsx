@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Lightbulb, AlertTriangle, Puzzle, TrendingUp, Headset, Users, Sparkles } from "lucide-react";
+import { Lightbulb, AlertTriangle, Puzzle, TrendingUp, Headset, Users, Sparkles, RefreshCw } from "lucide-react";
 
 interface Suggestion {
   id: string;
@@ -75,14 +75,19 @@ const defaultSuggestions: Omit<Suggestion, 'id'>[] = [
 export const DynamicSuggestionPills = ({ onSelect }: DynamicSuggestionPillsProps) => {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
     fetchSuggestions();
   }, [user?.id]);
 
-  const fetchSuggestions = async () => {
-    setLoading(true);
+  const fetchSuggestions = async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     try {
       let personalSuggestions: Suggestion[] = [];
       let globalSuggestions: Suggestion[] = [];
@@ -132,6 +137,7 @@ export const DynamicSuggestionPills = ({ onSelect }: DynamicSuggestionPillsProps
       setSuggestions(defaultSuggestions.map((s, i) => ({ ...s, id: `default-${i}` })));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -147,10 +153,20 @@ export const DynamicSuggestionPills = ({ onSelect }: DynamicSuggestionPillsProps
 
   return (
     <div className="mt-8">
-      {/* Divider with label */}
+      {/* Divider with label and refresh */}
       <div className="flex items-center gap-3 mb-4">
         <div className="flex-1 h-px bg-border/60" />
-        <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Try asking</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Try asking</span>
+          <button
+            onClick={() => fetchSuggestions(true)}
+            disabled={refreshing}
+            className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            title="Refresh suggestions"
+          >
+            <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
         <div className="flex-1 h-px bg-border/60" />
       </div>
       

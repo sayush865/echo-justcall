@@ -788,7 +788,7 @@ export const ChatInterface = ({
       />
       {/* Top right controls - Share (chat only) + Profile */}
       {user && (
-        <div className="absolute top-5 right-4 z-30 flex items-center gap-2">
+        <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
           {/* Share button - only in chat view */}
           {conversationId && (
             <TooltipProvider>
