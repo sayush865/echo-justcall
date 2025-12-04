@@ -268,8 +268,12 @@ export const ChatInterface = ({
   };
 
   const handleSend = async (messageOverride?: string, skipAuthCheck?: boolean) => {
+    console.log("[handleSend] Called with:", { messageOverride: messageOverride?.substring(0, 30), input: input.substring(0, 30), loading, conversationId });
     const messageToSend = messageOverride || input.trim();
-    if (!messageToSend || loading) return;
+    if (!messageToSend || loading) {
+      console.log("[handleSend] Early return - no message or loading");
+      return;
+    }
     
     // Prevent duplicate sends - check if same message was sent within 5 seconds
     if (lastSentMessageRef.current && 
@@ -326,6 +330,7 @@ export const ChatInterface = ({
 
         if (convError) throw convError;
         currentConversationId = newConv.id;
+        console.log("[handleSend] Creating new conversation, navigating to:", `/c/${currentConversationId}`);
         navigate(`/c/${currentConversationId}`);
         
         // Log conversation creation
