@@ -30,7 +30,69 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('Starting suggestion analysis...');
+    // Check for single-user refresh request
+    let singleUserId: string | null = null;
+    if (req.method === 'POST') {
+      try {
+        const body = await req.json();
+        singleUserId = body.userId || null;
+      } catch {
+        // No body or invalid JSON - proceed with full analysis
+      }
+    }
+
+    // If single user refresh, only regenerate for that user
+    if (singleUserId) {
+      console.log(`Regenerating suggestions for single user: ${singleUserId}`);
+      
+      // Fetch user's recent messages
+      const cutoffDate = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+      const { data: userMessages } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('user_id', singleUserId)
+        .eq('role', 'user')
+        .gte('created_at', cutoffDate)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      // Deactivate old suggestions for this user only
+      await supabase
+        .from('dynamic_suggestions')
+        .update({ is_active: false })
+        .eq('user_id', singleUserId)
+        .eq('is_active', true);
+
+      if (userMessages && userMessages.length >= 2) {
+        const personalSuggestions = await generateSuggestions(
+          lovableApiKey,
+          userMessages.map(m => m.content),
+          2,
+          'personal'
+        );
+
+        for (const suggestion of personalSuggestions) {
+          await supabase.from('dynamic_suggestions').insert({
+            user_id: singleUserId,
+            label: suggestion.label,
+            prompt: suggestion.prompt,
+            category: suggestion.category,
+            icon: suggestion.icon,
+            priority: suggestion.priority,
+            is_active: true,
+            expires_at: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+          });
+        }
+
+        console.log(`Generated ${personalSuggestions.length} suggestions for user ${singleUserId}`);
+      }
+
+      return new Response(JSON.stringify({ success: true, userId: singleUserId }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('Starting full suggestion analysis...');
 
     // Get recent conversations and messages (last 48 hours)
     const cutoffDate = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();

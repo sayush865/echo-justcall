@@ -89,6 +89,14 @@ export const DynamicSuggestionPills = ({ onSelect }: DynamicSuggestionPillsProps
       setLoading(true);
     }
     try {
+      // If refresh is triggered by user, regenerate suggestions via edge function
+      if (isRefresh && user?.id) {
+        console.log("Regenerating suggestions for user...");
+        await supabase.functions.invoke('analyze-suggestions', {
+          body: { userId: user.id, forceRegenerate: true }
+        });
+      }
+
       let personalSuggestions: Suggestion[] = [];
       let globalSuggestions: Suggestion[] = [];
 
