@@ -633,9 +633,12 @@ export const ChatInterface = ({
 
       if (msgError) throw msgError;
 
-      // Use fetch for true streaming
+      // Use fetch for true streaming with abort support
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      // Create abort controller for stop functionality
+      abortControllerRef.current = new AbortController();
       
       const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
         method: "POST",
@@ -644,6 +647,7 @@ export const ChatInterface = ({
           "Authorization": `Bearer ${supabaseKey}`,
         },
         body: JSON.stringify({ message: messageToSend, conversationId: currentConversationId }),
+        signal: abortControllerRef.current.signal,
       });
 
       if (!response.ok) {
