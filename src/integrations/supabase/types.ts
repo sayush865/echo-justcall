@@ -106,7 +106,6 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          pending_response: boolean | null
           pinned: boolean
           status: string
           title: string
@@ -116,7 +115,6 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          pending_response?: boolean | null
           pinned?: boolean
           status?: string
           title?: string
@@ -126,7 +124,6 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
-          pending_response?: boolean | null
           pinned?: boolean
           status?: string
           title?: string

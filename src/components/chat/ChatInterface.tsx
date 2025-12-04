@@ -24,8 +24,6 @@ import { ShareDialog } from "./ShareDialog";
 import { DynamicSuggestionPills } from "./DynamicSuggestionPills";
 import { FollowUpPills } from "./FollowUpPills";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { checkRateLimit } from "@/lib/rateLimiter";
-import { validateChatMessage, getMessageLengthStatus } from "@/lib/inputValidation";
 
 // Helper to get user initials
 const getUserInitials = (displayName?: string | null): string => {
@@ -98,8 +96,6 @@ export const ChatInterface = ({
   const [followUpLoading, setFollowUpLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
-  const [pendingResponse, setPendingResponse] = useState(false); // Track if AI is processing in background
-  const activeConversationRef = useRef<string | null>(null); // Track which conversation we're streaming for
   const abortControllerRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -162,7 +158,6 @@ export const ChatInterface = ({
   useEffect(() => {
     if (conversationId) {
       loadMessages();
-      loadPendingStatus();
 
       const channel = supabase
         .channel(`messages:${conversationId}`)
@@ -178,21 +173,6 @@ export const ChatInterface = ({
             loadMessages();
           }
         )
-        .on(
-          "postgres_changes",
-          {
-            event: "UPDATE",
-            schema: "public",
-            table: "conversations",
-            filter: `id=eq.${conversationId}`,
-          },
-          (payload: any) => {
-            // Update pending_response state when conversation is updated
-            if (payload.new?.pending_response !== undefined) {
-              setPendingResponse(payload.new.pending_response);
-            }
-          }
-        )
         .subscribe();
 
       return () => {
@@ -200,28 +180,8 @@ export const ChatInterface = ({
       };
     } else {
       setMessages([]);
-      setPendingResponse(false);
-      // Reset states for new chat but DON'T abort ongoing requests
-      // Let them continue in background for the previous conversation
-      if (activeConversationRef.current && loading) {
-        console.log("Switching away from active conversation, letting it continue in background");
-      }
-      setLoading(false);
-      setStreamingMessage(null);
-      setFollowUpSuggestions([]);
-      setFollowUpLoading(false);
     }
   }, [conversationId]);
-
-  const loadPendingStatus = async () => {
-    if (!conversationId) return;
-    const { data } = await supabase
-      .from("conversations")
-      .select("pending_response")
-      .eq("id", conversationId)
-      .single();
-    setPendingResponse(data?.pending_response || false);
-  };
 
   // Only auto-scroll if user is near the bottom
   useEffect(() => {
@@ -261,23 +221,6 @@ export const ChatInterface = ({
     const messageToSend = messageOverride || input.trim();
     if (!messageToSend || loading) return;
     
-    // Validate message
-    const validation = validateChatMessage(messageToSend);
-    if (!validation.valid) {
-      toast.error(validation.error || "Invalid message");
-      return;
-    }
-    
-    // Check rate limit (client-side)
-    const rateLimitKey = user?.id || 'anonymous';
-    const rateCheck = checkRateLimit(rateLimitKey, { maxRequests: 15, windowMs: 60000 });
-    if (!rateCheck.allowed) {
-      toast.error("Slow down!", { 
-        description: `Please wait ${rateCheck.retryAfter} seconds before sending another message.` 
-      });
-      return;
-    }
-    
     // Check auth - if not logged in, show modal and save message
     if (!user && !skipAuthCheck) {
       setPendingMessage(messageToSend);
@@ -291,7 +234,7 @@ export const ChatInterface = ({
     resetTranscript();
     setLoading(true);
     setIsUserNearBottom(true); // Resume auto-scroll when user sends message
-    // Keep follow-up suggestions visible until new response arrives
+    setFollowUpSuggestions([]); // Clear follow-up suggestions when sending new message
 
     // Optimistically add user message to UI immediately
     const tempUserMsgId = `temp-user-${Date.now()}`;
@@ -335,9 +278,6 @@ export const ChatInterface = ({
 
       if (msgError) throw msgError;
 
-      // Track which conversation we're streaming for
-      activeConversationRef.current = currentConversationId;
-
       // Use fetch for true streaming instead of supabase.functions.invoke
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -366,7 +306,6 @@ export const ChatInterface = ({
       let fullContent = "";
       const steps: string[] = [];
       let buffer = ""; // Buffer for incomplete JSON lines
-      const streamingForConversation = currentConversationId; // Capture which conversation we're streaming for
       
       setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
 
@@ -398,35 +337,27 @@ export const ChatInterface = ({
             // Handle different event types from n8n
             if (parsed.type === "item" && parsed.content) {
               fullContent += parsed.content;
-              // Only update UI if we're still on the same conversation
-              // Use activeConversationRef to check current view
-              if (activeConversationRef.current === streamingForConversation) {
-                setStreamingMessage({ 
-                  role: "assistant", 
-                  content: fullContent, 
-                  isStreaming: true,
-                  steps 
-                });
-              }
+              setStreamingMessage({ 
+                role: "assistant", 
+                content: fullContent, 
+                isStreaming: true,
+                steps 
+              });
             } else if (parsed.type === "step" || parsed.type === "tool" || parsed.type === "thinking") {
               // Handle intermediate steps (tool calls, thinking, etc.)
               const stepText = parsed.text || parsed.name || parsed.content || JSON.stringify(parsed);
               steps.push(stepText);
-              if (activeConversationRef.current === streamingForConversation) {
-                setStreamingMessage(prev => prev ? { 
-                  ...prev, 
-                  steps: [...(prev.steps || []), stepText] 
-                } : null);
-              }
+              setStreamingMessage(prev => prev ? { 
+                ...prev, 
+                steps: [...(prev.steps || []), stepText] 
+              } : null);
             } else if (parsed.type === "agent" && parsed.text) {
               // Agent status updates
               steps.push(parsed.text);
-              if (activeConversationRef.current === streamingForConversation) {
-                setStreamingMessage(prev => prev ? { 
-                  ...prev, 
-                  steps: [...(prev.steps || []), parsed.text] 
-                } : null);
-              }
+              setStreamingMessage(prev => prev ? { 
+                ...prev, 
+                steps: [...(prev.steps || []), parsed.text] 
+              } : null);
             }
           } catch {
             // JSON parse failed - don't add raw content, just log for debugging
@@ -437,25 +368,19 @@ export const ChatInterface = ({
 
       console.log("Streaming complete, fullContent length:", fullContent.length);
       
-      // Only update UI if still on the same conversation
-      if (activeConversationRef.current === streamingForConversation) {
-        // Finalize streaming
-        setStreamingMessage({ role: "assistant", content: fullContent, isStreaming: false, steps });
-        
-        // Add to messages
-        const tempId = `temp-${Date.now()}`;
-        setMessages(prev => [...prev, {
-          id: tempId,
-          role: "assistant",
-          content: fullContent,
-          created_at: new Date().toISOString()
-        }]);
-        
-        setStreamingMessage(null);
-      } else {
-        // User switched away - just clear streaming state, message will arrive via realtime
-        console.log("User switched conversations, skipping UI update for:", streamingForConversation);
-      }
+      // Finalize streaming
+      setStreamingMessage({ role: "assistant", content: fullContent, isStreaming: false, steps });
+      
+      // Add to messages
+      const tempId = `temp-${Date.now()}`;
+      setMessages(prev => [...prev, {
+        id: tempId,
+        role: "assistant",
+        content: fullContent,
+        created_at: new Date().toISOString()
+      }]);
+      
+      setStreamingMessage(null);
 
       console.log("Inserting message to DB for conversation:", currentConversationId);
       const { data: insertedMsg } = await supabase.from("messages").insert({
@@ -479,10 +404,7 @@ export const ChatInterface = ({
       }).then(async ({ data, error }) => {
         console.log("Follow-ups response:", { data, error });
         const suggestions = data?.suggestions || [];
-        // Only update UI if still on the same conversation
-        if (conversationId === streamingForConversation) {
-          setFollowUpSuggestions(suggestions);
-        }
+        setFollowUpSuggestions(suggestions);
         
         // Persist follow-ups to the assistant message
         if (assistantMessageId && suggestions.length > 0) {
@@ -493,13 +415,9 @@ export const ChatInterface = ({
         }
       }).catch((err) => {
         console.error("Failed to generate follow-ups:", err);
-        if (conversationId === streamingForConversation) {
-          setFollowUpSuggestions([]);
-        }
+        setFollowUpSuggestions([]);
       }).finally(() => {
-        if (conversationId === streamingForConversation) {
-          setFollowUpLoading(false);
-        }
+        setFollowUpLoading(false);
       });
     } catch (error: any) {
       // Handle abort gracefully
@@ -544,7 +462,6 @@ export const ChatInterface = ({
     } finally {
       setLoading(false);
       abortControllerRef.current = null;
-      activeConversationRef.current = null;
       if (!lastFailedMessage) setRetryCount(0);
     }
   };
@@ -645,9 +562,6 @@ export const ChatInterface = ({
 
       if (msgError) throw msgError;
 
-      // Track which conversation we're streaming for
-      activeConversationRef.current = currentConversationId;
-
       // Use fetch for true streaming
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -672,7 +586,6 @@ export const ChatInterface = ({
       let fullContent = "";
       const steps: string[] = [];
       let buffer = "";
-      const streamingForConversation = currentConversationId; // Capture which conversation we're streaming for
       
       setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
 
@@ -713,32 +626,25 @@ export const ChatInterface = ({
             
             if (parsed.type === "item" && parsed.content) {
               fullContent += parsed.content;
-              // Only update UI if still on the same conversation
-              if (activeConversationRef.current === streamingForConversation) {
-                setStreamingMessage({ 
-                  role: "assistant", 
-                  content: fullContent, 
-                  isStreaming: true,
-                  steps 
-                });
-              }
+              setStreamingMessage({ 
+                role: "assistant", 
+                content: fullContent, 
+                isStreaming: true,
+                steps 
+              });
             } else if (parsed.type === "step" || parsed.type === "tool" || parsed.type === "thinking") {
               const stepText = parsed.text || parsed.name || parsed.content || JSON.stringify(parsed);
               steps.push(stepText);
-              if (activeConversationRef.current === streamingForConversation) {
-                setStreamingMessage(prev => prev ? { 
-                  ...prev, 
-                  steps: [...(prev.steps || []), stepText] 
-                } : null);
-              }
+              setStreamingMessage(prev => prev ? { 
+                ...prev, 
+                steps: [...(prev.steps || []), stepText] 
+              } : null);
             } else if (parsed.type === "agent" && parsed.text) {
               steps.push(parsed.text);
-              if (activeConversationRef.current === streamingForConversation) {
-                setStreamingMessage(prev => prev ? { 
-                  ...prev, 
-                  steps: [...(prev.steps || []), parsed.text] 
-                } : null);
-              }
+              setStreamingMessage(prev => prev ? { 
+                ...prev, 
+                steps: [...(prev.steps || []), parsed.text] 
+              } : null);
             }
           } catch {
             console.warn("Failed to parse NDJSON line:", line.substring(0, 50));
@@ -746,22 +652,17 @@ export const ChatInterface = ({
         }
       }
 
-      // Only update UI if still on the same conversation
-      if (activeConversationRef.current === streamingForConversation) {
-        setStreamingMessage({ role: "assistant", content: fullContent, isStreaming: false, steps });
-        
-        const tempId = `temp-${Date.now()}`;
-        setMessages(prev => [...prev, {
-          id: tempId,
-          role: "assistant",
-          content: fullContent,
-          created_at: new Date().toISOString()
-        }]);
-        
-        setStreamingMessage(null);
-      } else {
-        console.log("User switched conversations, skipping UI update for:", streamingForConversation);
-      }
+      setStreamingMessage({ role: "assistant", content: fullContent, isStreaming: false, steps });
+      
+      const tempId = `temp-${Date.now()}`;
+      setMessages(prev => [...prev, {
+        id: tempId,
+        role: "assistant",
+        content: fullContent,
+        created_at: new Date().toISOString()
+      }]);
+      
+      setStreamingMessage(null);
 
       await supabase.from("messages").insert({
         conversation_id: currentConversationId,
@@ -811,10 +712,7 @@ export const ChatInterface = ({
         fullContextPromise.then(async (result) => {
           if (result.data?.suggestions?.length > 0) {
             console.log("Full-context arrived late, updating suggestions");
-            // Only update UI if still on same conversation
-            if (activeConversationRef.current === streamingForConversation) {
-              setFollowUpSuggestions(result.data.suggestions);
-            }
+            setFollowUpSuggestions(result.data.suggestions);
             // Persist the better suggestions
             if (currentConversationId) {
               const { data: lastMsg } = await supabase
@@ -851,11 +749,8 @@ export const ChatInterface = ({
       }
 
       console.log("Follow-ups resolved:", { count: finalSuggestions.length, source: usedSource });
-      // Only update UI if still on same conversation
-      if (activeConversationRef.current === streamingForConversation) {
-        setFollowUpSuggestions(finalSuggestions);
-        setFollowUpLoading(false);
-      }
+      setFollowUpSuggestions(finalSuggestions);
+      setFollowUpLoading(false);
       
       // Persist follow-ups to the assistant message
       if (finalSuggestions.length > 0 && currentConversationId) {
@@ -1158,16 +1053,6 @@ export const ChatInterface = ({
                   </div>
                 </div>
               )}
-              {/* Pending response indicator - shown when AI is processing in background */}
-              {pendingResponse && !loading && !streamingMessage && (
-                <div className="flex justify-start gap-3 py-2">
-                  <EchoLogo size="md" />
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                    <span className="text-sm">Echo is thinking...</span>
-                  </div>
-                </div>
-              )}
               <div ref={scrollRef} />
             </div>
           </ScrollArea>
@@ -1199,9 +1084,9 @@ export const ChatInterface = ({
                   <FollowUpPills 
                     suggestions={followUpSuggestions} 
                     onSelect={(prompt) => {
-                      // Don't clear suggestions - let user switch between them
+                      setFollowUpSuggestions([]);
                       setInput(prompt);
-                      setTimeout(() => textareaRef2.current?.focus(), 0);
+                      setTimeout(() => textareaRef.current?.focus(), 0);
                     }} 
                     loading={followUpLoading}
                   />

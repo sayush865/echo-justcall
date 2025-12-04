@@ -159,17 +159,12 @@ export const DynamicSuggestionPills = ({ onSelect }: DynamicSuggestionPillsProps
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Try asking</span>
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              fetchSuggestions(true);
-            }}
+            onClick={() => fetchSuggestions(true)}
             disabled={refreshing}
-            className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 cursor-pointer"
+            className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
             title="Refresh suggestions"
-            type="button"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
         </div>
         <div className="flex-1 h-px bg-border/60" />

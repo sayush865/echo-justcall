@@ -33,7 +33,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
-import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreVertical, Trash2, Pencil, Pin, PinOff, Search, X, Loader2 } from "lucide-react";
+import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreVertical, Trash2, Pencil, Pin, PinOff, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/hooks/useHapticFeedback";
 import { useAuth } from "@/hooks/useAuth";
@@ -45,7 +45,6 @@ interface Conversation {
   updated_at: string;
   status: string;
   pinned: boolean;
-  pending_response?: boolean;
 }
 
 interface ConversationListProps {
@@ -301,9 +300,7 @@ export const ConversationList = ({
                           : "hover:bg-accent text-foreground"
                       }`}
                     >
-                      {conv.pending_response ? (
-                        <Loader2 className="w-4 h-4 mr-2 flex-shrink-0 text-primary animate-spin" />
-                      ) : conv.pinned ? (
+                      {conv.pinned ? (
                         <Pin className="w-4 h-4 mr-2 flex-shrink-0 text-primary" />
                       ) : (
                         <MessageSquare className="w-4 h-4 mr-2 flex-shrink-0" />
