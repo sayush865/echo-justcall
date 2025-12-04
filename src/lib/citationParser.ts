@@ -13,7 +13,8 @@ export interface ParsedContent {
 // Pattern for [source:N] or just [N] format
 const SOURCE_MARKER_PATTERN = /\[(?:source:)?(\d+)\]/gi;
 // Pattern for Sources section at end (handles #### Sources:, ## Sources:, Sources:, etc.)
-const SOURCES_SECTION_PATTERN = /\n*(?:#{1,4}\s*)?Sources?:\s*\n((?:\[\d+\][^\n]+\n?)+)/i;
+// Also captures any trailing content after the sources list (like explanatory notes)
+const SOURCES_SECTION_PATTERN = /\n*(?:#{1,4}\s*)?Sources?:\s*\n((?:\[\d+\][^\n]+\n?)+)[\s\S]*/i;
 // Pattern for individual source line: [1] CA123abc (Sales) or [1] CA123abc-uuid-format (Success)
 const SOURCE_LINE_PATTERN = /\[(\d+)\]\s*(CA[a-f0-9-]+)[^\n]*\(([^)]+)\)/gi;
 
