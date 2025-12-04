@@ -322,7 +322,12 @@ export const ChatInterface = ({
       const steps: string[] = [];
       let buffer = ""; // Buffer for incomplete JSON lines
       
-      setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
+      // Only show streaming UI if this is the active conversation
+      const isActiveConversation = () => activeConversationRef.current === currentConversationId;
+      
+      if (isActiveConversation()) {
+        setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
+      }
 
       // Read the stream
       while (true) {
@@ -349,30 +354,36 @@ export const ChatInterface = ({
           try {
             const parsed = JSON.parse(line);
             
-            // Handle different event types from n8n
+            // Handle different event types from n8n - accumulate content regardless, but only update UI if active
             if (parsed.type === "item" && parsed.content) {
               fullContent += parsed.content;
-              setStreamingMessage({ 
-                role: "assistant", 
-                content: fullContent, 
-                isStreaming: true,
-                steps 
-              });
+              if (isActiveConversation()) {
+                setStreamingMessage({ 
+                  role: "assistant", 
+                  content: fullContent, 
+                  isStreaming: true,
+                  steps 
+                });
+              }
             } else if (parsed.type === "step" || parsed.type === "tool" || parsed.type === "thinking") {
               // Handle intermediate steps (tool calls, thinking, etc.)
               const stepText = parsed.text || parsed.name || parsed.content || JSON.stringify(parsed);
               steps.push(stepText);
-              setStreamingMessage(prev => prev ? { 
-                ...prev, 
-                steps: [...(prev.steps || []), stepText] 
-              } : null);
+              if (isActiveConversation()) {
+                setStreamingMessage(prev => prev ? { 
+                  ...prev, 
+                  steps: [...(prev.steps || []), stepText] 
+                } : null);
+              }
             } else if (parsed.type === "agent" && parsed.text) {
               // Agent status updates
               steps.push(parsed.text);
-              setStreamingMessage(prev => prev ? { 
-                ...prev, 
-                steps: [...(prev.steps || []), parsed.text] 
-              } : null);
+              if (isActiveConversation()) {
+                setStreamingMessage(prev => prev ? { 
+                  ...prev, 
+                  steps: [...(prev.steps || []), parsed.text] 
+                } : null);
+              }
             }
           } catch {
             // JSON parse failed - don't add raw content, just log for debugging
@@ -383,19 +394,25 @@ export const ChatInterface = ({
 
       console.log("Streaming complete, fullContent length:", fullContent.length);
       
-      // Finalize streaming
-      setStreamingMessage({ role: "assistant", content: fullContent, isStreaming: false, steps });
-      
-      // Add to messages
-      const tempId = `temp-${Date.now()}`;
-      setMessages(prev => [...prev, {
-        id: tempId,
-        role: "assistant",
-        content: fullContent,
-        created_at: new Date().toISOString()
-      }]);
-      
-      setStreamingMessage(null);
+      // Only update UI if still on the same conversation
+      if (isActiveConversation()) {
+        // Finalize streaming
+        setStreamingMessage({ role: "assistant", content: fullContent, isStreaming: false, steps });
+        
+        // Add to messages
+        const tempId = `temp-${Date.now()}`;
+        setMessages(prev => [...prev, {
+          id: tempId,
+          role: "assistant",
+          content: fullContent,
+          created_at: new Date().toISOString()
+        }]);
+        
+        setStreamingMessage(null);
+      } else {
+        // User switched away - clear streaming state (response is saved to DB by edge function)
+        setStreamingMessage(null);
+      }
 
       console.log("Inserting message to DB for conversation:", currentConversationId);
       const { data: insertedMsg } = await supabase.from("messages").insert({
