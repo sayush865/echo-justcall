@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CodeBlock } from "./CodeBlock";
 import { CitationBadges } from "./CitationBadges";
+import { InlineCitationPill } from "./InlineCitationPill";
 import { parseCitations } from "@/lib/citationParser";
 import type { Components } from "react-markdown";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -12,7 +13,37 @@ interface MarkdownRendererProps {
 }
 
 export const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
-  const { cleanContent, citations } = useMemo(() => parseCitations(content), [content]);
+  const { cleanContent, citations, inlineCitations } = useMemo(() => parseCitations(content), [content]);
+
+  // Replace [source:N] markers with placeholder that we'll render as pills
+  const contentWithPlaceholders = useMemo(() => {
+    if (inlineCitations.size === 0) return cleanContent;
+    
+    // Replace [source:N] with a special marker we can detect
+    return cleanContent.replace(/\[source:(\d+)\]/gi, (_, num) => {
+      return `%%CITATION_${num}%%`;
+    });
+  }, [cleanContent, inlineCitations]);
+
+  // Render text with inline citations
+  const renderTextWithCitations = (text: string): React.ReactNode => {
+    if (inlineCitations.size === 0 || !text.includes("%%CITATION_")) {
+      return text;
+    }
+
+    const parts = text.split(/(%%CITATION_\d+%%)/g);
+    return parts.map((part, index) => {
+      const match = part.match(/%%CITATION_(\d+)%%/);
+      if (match) {
+        const sourceNum = parseInt(match[1], 10);
+        const citation = inlineCitations.get(sourceNum);
+        if (citation) {
+          return <InlineCitationPill key={index} citation={citation} />;
+        }
+      }
+      return part;
+    });
+  };
 
   const components: Components = {
     code({ node, className, children, ...props }) {
@@ -31,6 +62,43 @@ export const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
         <CodeBlock language={match?.[1]}>
           {String(children).replace(/\n$/, "")}
         </CodeBlock>
+      );
+    },
+    // Override text rendering to inject citation pills
+    p({ children }) {
+      const processChildren = (child: React.ReactNode): React.ReactNode => {
+        if (typeof child === "string") {
+          return renderTextWithCitations(child);
+        }
+        return child;
+      };
+
+      const processedChildren = Array.isArray(children)
+        ? children.map((child, i) => <span key={i}>{processChildren(child)}</span>)
+        : processChildren(children);
+
+      return <p>{processedChildren}</p>;
+    },
+    li({ children, node }) {
+      const hasCheckbox = node?.children?.some(
+        (child: any) => child.tagName === "input" && child.properties?.type === "checkbox"
+      );
+
+      const processChildren = (child: React.ReactNode): React.ReactNode => {
+        if (typeof child === "string") {
+          return renderTextWithCitations(child);
+        }
+        return child;
+      };
+
+      const processedChildren = Array.isArray(children)
+        ? children.map((child, i) => <span key={i}>{processChildren(child)}</span>)
+        : processChildren(children);
+
+      return (
+        <li className={hasCheckbox ? "list-none flex items-start" : ""}>
+          {processedChildren}
+        </li>
       );
     },
     table({ children }) {
@@ -64,9 +132,20 @@ export const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
       );
     },
     td({ children }) {
+      const processChildren = (child: React.ReactNode): React.ReactNode => {
+        if (typeof child === "string") {
+          return renderTextWithCitations(child);
+        }
+        return child;
+      };
+
+      const processedChildren = Array.isArray(children)
+        ? children.map((child, i) => <span key={i}>{processChildren(child)}</span>)
+        : processChildren(children);
+
       return (
         <td className="px-4 py-3 text-muted-foreground whitespace-normal min-w-[150px] max-w-[400px]">
-          {children}
+          {processedChildren}
         </td>
       );
     },
@@ -87,26 +166,19 @@ export const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
       }
       return <input type={type} {...props} />;
     },
-    li({ children, node }) {
-      const hasCheckbox = node?.children?.some(
-        (child: any) => child.tagName === "input" && child.properties?.type === "checkbox"
-      );
-      return (
-        <li className={hasCheckbox ? "list-none flex items-start" : ""}>
-          {children}
-        </li>
-      );
-    },
   };
 
   return (
     <div>
       <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-pre:p-0 prose-pre:bg-transparent">
         <ReactMarkdown components={components} remarkPlugins={[remarkGfm]}>
-          {cleanContent}
+          {contentWithPlaceholders}
         </ReactMarkdown>
       </div>
-      <CitationBadges citations={citations} />
+      {/* Only show bottom badges for legacy citations without inline markers */}
+      {inlineCitations.size === 0 && citations.length > 0 && (
+        <CitationBadges citations={citations} />
+      )}
     </div>
   );
 };
