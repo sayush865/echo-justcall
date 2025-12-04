@@ -15,21 +15,29 @@ interface MarkdownRendererProps {
 export const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   const { cleanContent, citations, inlineCitations } = useMemo(() => parseCitations(content), [content]);
 
-  // Replace [source:N] or [N] or [source:1,2,3] markers with placeholders
+  // Replace various citation formats with placeholders
   const contentWithPlaceholders = useMemo(() => {
     if (inlineCitations.size === 0) return cleanContent;
     
-    // Handle both single and comma-separated citations: [source:1], [1], [source:1,2,3], [1,2,3]
-    return cleanContent.replace(/\[(?:source:)?([\d,\s]+)\]/gi, (match, nums) => {
+    let processed = cleanContent;
+    
+    // Handle bracketed citations: [source:1], [1], [source:1,2,3], [1,2,3]
+    processed = processed.replace(/\[(?:source:)?([\d,\s]+)\]/gi, (match, nums) => {
       const numbers = nums.split(/[,\s]+/).map((n: string) => parseInt(n.trim(), 10)).filter((n: number) => !isNaN(n));
-      
-      // Check if at least one citation exists for these numbers
       const hasAnyCitation = numbers.some((n: number) => inlineCitations.has(n));
-      if (!hasAnyCitation) return match; // Keep original if no citations found
-      
-      // Create placeholder for each number
-      return numbers.map((n: number) => `%%CITATION_${n}%%`).join("");
+      if (!hasAnyCitation) return match;
+      return numbers.map((n: number) => `%%CITATION_${n}%%`).join(" ");
     });
+    
+    // Handle unbracketed "source X Y Z" or "source X, Y, Z" patterns
+    processed = processed.replace(/\bsource\s+([\d,\s]+)/gi, (match, nums) => {
+      const numbers = nums.split(/[,\s]+/).map((n: string) => parseInt(n.trim(), 10)).filter((n: number) => !isNaN(n));
+      const hasAnyCitation = numbers.some((n: number) => inlineCitations.has(n));
+      if (!hasAnyCitation) return match;
+      return numbers.map((n: number) => `%%CITATION_${n}%%`).join(" ");
+    });
+    
+    return processed;
   }, [cleanContent, inlineCitations]);
 
   // Render text with inline citations
