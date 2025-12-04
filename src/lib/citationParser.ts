@@ -1,22 +1,66 @@
 export interface Citation {
   id: string;
   type: "sales" | "support" | "success" | "unknown";
+  sourceNumber?: number;
 }
 
 export interface ParsedContent {
   cleanContent: string;
   citations: Citation[];
+  inlineCitations: Map<number, Citation>;
 }
 
-// Extract callsid citations from content
-const CITATION_PATTERN = /callsid:\s*(CA[a-f0-9]+)/gi;
-const GROUPED_CITATION_PATTERN = /\((?:Examples?:?\s*)?(?:sales|support|success)?\s*[–-]?\s*callsid:\s*([^)]+)\)/gi;
+// Pattern for new [source:N] format
+const SOURCE_MARKER_PATTERN = /\[source:(\d+)\]/gi;
+// Pattern for Sources section at end
+const SOURCES_SECTION_PATTERN = /\n*Sources?:\s*\n((?:\[\d+\][^\n]+\n?)+)/i;
+// Pattern for individual source line: [1] CA123abc (Sales)
+const SOURCE_LINE_PATTERN = /\[(\d+)\]\s*(CA[a-f0-9]+)[^\n]*\(([^)]+)\)/gi;
+
+// Legacy patterns for backward compatibility
+const LEGACY_CITATION_PATTERN = /callsid:\s*(CA[a-f0-9]+)/gi;
+const LEGACY_GROUPED_PATTERN = /\((?:Examples?:?\s*)?(?:sales|support|success)?\s*[–-]?\s*callsid:\s*([^)]+)\)/gi;
 
 export function parseCitations(content: string): ParsedContent {
   const citations: Citation[] = [];
+  const inlineCitations = new Map<number, Citation>();
   const seenIds = new Set<string>();
   
-  // Detect type context from surrounding text
+  // First, try to parse new [source:N] format with Sources section
+  const sourcesMatch = content.match(SOURCES_SECTION_PATTERN);
+  
+  if (sourcesMatch) {
+    // Parse the Sources section
+    const sourcesText = sourcesMatch[1];
+    let match;
+    const sourceLinePattern = new RegExp(SOURCE_LINE_PATTERN.source, "gi");
+    
+    while ((match = sourceLinePattern.exec(sourcesText)) !== null) {
+      const sourceNum = parseInt(match[1], 10);
+      const callId = match[2];
+      const typeText = match[3].toLowerCase();
+      
+      let type: Citation["type"] = "unknown";
+      if (typeText.includes("sales")) type = "sales";
+      else if (typeText.includes("support")) type = "support";
+      else if (typeText.includes("success")) type = "success";
+      
+      const citation: Citation = { id: callId, type, sourceNumber: sourceNum };
+      
+      if (!seenIds.has(callId)) {
+        seenIds.add(callId);
+        citations.push(citation);
+      }
+      inlineCitations.set(sourceNum, citation);
+    }
+    
+    // Remove Sources section from content
+    let cleanContent = content.replace(SOURCES_SECTION_PATTERN, "").trim();
+    
+    return { cleanContent, citations, inlineCitations };
+  }
+  
+  // Fallback to legacy parsing for backward compatibility
   const detectType = (text: string, position: number): Citation["type"] => {
     const lookback = text.slice(Math.max(0, position - 100), position).toLowerCase();
     if (lookback.includes("sales")) return "sales";
@@ -25,9 +69,8 @@ export function parseCitations(content: string): ParsedContent {
     return "unknown";
   };
 
-  // Extract individual callsids
   let match;
-  const pattern = new RegExp(CITATION_PATTERN.source, "gi");
+  const pattern = new RegExp(LEGACY_CITATION_PATTERN.source, "gi");
   while ((match = pattern.exec(content)) !== null) {
     const id = match[1];
     if (!seenIds.has(id)) {
@@ -39,22 +82,16 @@ export function parseCitations(content: string): ParsedContent {
     }
   }
 
-  // Clean the content - remove citation patterns
   let cleanContent = content
-    // Remove grouped citation patterns like (Examples: sales – callsid: CA123, CA456)
-    .replace(GROUPED_CITATION_PATTERN, "")
-    // Remove inline callsid references
+    .replace(LEGACY_GROUPED_PATTERN, "")
     .replace(/\(?\s*callsid:\s*CA[a-f0-9]+(?:,\s*CA[a-f0-9]+)*\s*\)?/gi, "")
-    // Remove standalone CA ids that look like citations
     .replace(/\bCA[a-f0-9]{20,}\b/gi, "")
-    // Clean up leftover artifacts
     .replace(/\(\s*Examples?:?\s*[–-]?\s*\)/gi, "")
     .replace(/\(\s*\)/g, "")
-    // Clean up extra whitespace and newlines
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
-  return { cleanContent, citations };
+  return { cleanContent, citations, inlineCitations };
 }
 
 export function groupCitationsByType(citations: Citation[]): Record<Citation["type"], Citation[]> {
