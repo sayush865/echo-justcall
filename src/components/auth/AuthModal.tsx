@@ -103,7 +103,8 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
       resetForm();
       onSuccess();
     } catch (error: any) {
-      if (error.message.includes("User already registered")) {
+      const errorMsg = error.message?.toLowerCase() || "";
+      if (errorMsg.includes("already registered") || errorMsg.includes("already exists") || errorMsg.includes("duplicate") || errorMsg.includes("already been registered")) {
         toast.error("This email is already registered. Please sign in.");
         setActiveTab("signin");
       } else {
