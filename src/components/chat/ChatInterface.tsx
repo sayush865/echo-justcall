@@ -67,15 +67,18 @@ const INITIAL_DELAY = 1000; // 1 second
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-const getErrorMessage = (error: any, status?: number): string => {
-  if (status === 401) return "Authentication required. Please sign in again.";
-  if (status === 403) return "You don't have permission to perform this action.";
-  if (status === 429) return "Too many requests. Please wait a moment.";
-  if (status === 500) return "Server error. Our team has been notified.";
-  if (status === 503) return "Service temporarily unavailable. Please try again.";
-  if (error?.message?.includes("RLS")) return "Permission denied. Please sign in again.";
-  if (error?.message?.includes("network")) return "Network error. Check your connection.";
-  return error?.message || "Something went wrong. Please try again.";
+const getErrorMessage = (error: any, status?: number): { title: string; description?: string } => {
+  if (status === 401) return { title: "Authentication required", description: "Please sign in again." };
+  if (status === 403) return { title: "Permission denied", description: "You don't have permission to perform this action." };
+  if (status === 429) return { title: "Too many requests", description: "Please wait a moment and try again." };
+  if (status === 500) return { title: "Server error", description: "Our team has been notified." };
+  if (status === 503) return { title: "Looks like Ayush is sleepy 😴", description: "The AI service is taking a nap. Give it a moment!" };
+  if (error?.message?.includes("503") || error?.message?.includes("Service Unavailable")) {
+    return { title: "Looks like Ayush is sleepy 😴", description: "The AI service is taking a nap. Give it a moment!" };
+  }
+  if (error?.message?.includes("RLS")) return { title: "Permission denied", description: "Please sign in again." };
+  if (error?.message?.includes("network")) return { title: "Network error", description: "Check your connection and try again." };
+  return { title: error?.message || "Something went wrong", description: "Please try again." };
 };
 
 export const ChatInterface = ({
@@ -504,8 +507,8 @@ export const ChatInterface = ({
         const delay = INITIAL_DELAY * Math.pow(2, retryCount);
         setRetryCount(prev => prev + 1);
         setLastFailedMessage(messageToSend);
-        toast.error(errorMsg, {
-          description: `Retrying in ${delay / 1000}s... (${retryCount + 1}/${MAX_RETRIES})`,
+        toast.error(errorMsg.title, {
+          description: `${errorMsg.description || ''} Retrying in ${delay / 1000}s... (${retryCount + 1}/${MAX_RETRIES})`,
           duration: delay,
         });
         await sleep(delay);
@@ -515,8 +518,8 @@ export const ChatInterface = ({
       
       // Final failure after retries
       setLastFailedMessage(messageToSend);
-      toast.error(errorMsg, {
-        description: retryCount > 0 ? "All retry attempts failed." : "Click retry to try again.",
+      toast.error(errorMsg.title, {
+        description: errorMsg.description || (retryCount > 0 ? "All retry attempts failed." : "Click retry to try again."),
         action: {
           label: "Retry",
           onClick: () => {
@@ -858,8 +861,8 @@ export const ChatInterface = ({
         const delay = INITIAL_DELAY * Math.pow(2, retryCount);
         setRetryCount(prev => prev + 1);
         setLastFailedMessage(messageToSend);
-        toast.error(errorMsg, {
-          description: `Retrying in ${delay / 1000}s... (${retryCount + 1}/${MAX_RETRIES})`,
+        toast.error(errorMsg.title, {
+          description: `${errorMsg.description || ''} Retrying in ${delay / 1000}s... (${retryCount + 1}/${MAX_RETRIES})`,
           duration: delay,
         });
         await sleep(delay);
@@ -869,8 +872,8 @@ export const ChatInterface = ({
       
       // Final failure after retries
       setLastFailedMessage(messageToSend);
-      toast.error(errorMsg, {
-        description: retryCount > 0 ? "All retry attempts failed." : "Click retry to try again.",
+      toast.error(errorMsg.title, {
+        description: errorMsg.description || (retryCount > 0 ? "All retry attempts failed." : "Click retry to try again."),
         action: {
           label: "Retry",
           onClick: () => {
