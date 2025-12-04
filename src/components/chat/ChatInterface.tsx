@@ -166,9 +166,12 @@ export const ChatInterface = ({
     activeConversationRef.current = conversationId;
     
     // Reset local UI state when switching conversations (but don't abort - let backend continue)
-    setLoading(false);
-    setStreamingMessage(null);
-    setFollowUpLoading(false);
+    // IMPORTANT: Don't reset if we're currently loading (mid-send) - this handles the case 
+    // where we just created a new conversation and navigated to it
+    if (!loading) {
+      setStreamingMessage(null);
+      setFollowUpLoading(false);
+    }
     setRetryCount(0);
     setLastFailedMessage(null);
     
