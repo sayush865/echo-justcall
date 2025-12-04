@@ -187,10 +187,15 @@ export const ChatInterface = ({
         setFollowUpSuggestions(cached.followUps);
         // Still refresh in background for any new messages
         loadMessages(true);
-      } else {
+      } else if (!isSendingToThisConversation) {
+        // Only clear messages if we're NOT in the middle of sending to this conversation
+        // This preserves optimistically added messages during navigation after send
         setMessages([]);
         setFollowUpSuggestions([]);
         loadMessages(false);
+      } else {
+        // We're sending to this conversation - keep existing messages and load in background
+        loadMessages(true);
       }
 
       const channel = supabase
