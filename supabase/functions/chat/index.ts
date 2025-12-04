@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
+// Declare EdgeRuntime global for Supabase Edge Functions
+declare const EdgeRuntime: {
+  waitUntil(promise: Promise<unknown>): void;
+};
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -13,10 +17,9 @@ serve(async (req) => {
   }
 
   const startTime = Date.now();
-  let fullResponse = "";
 
   try {
-    const { message, conversationId } = await req.json();
+    const { message, conversationId, backgroundMode } = await req.json();
 
     const WEBHOOK_URL = Deno.env.get("WEBHOOK_URL");
     if (!WEBHOOK_URL) {
@@ -30,6 +33,13 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Set pending_response = true at start
+    await supabaseAdmin
+      .from("conversations")
+      .update({ pending_response: true })
+      .eq("id", conversationId);
+    console.log("Set pending_response = true for conversation:", conversationId);
 
     // Fetch full conversation history using admin client (bypasses RLS)
     const { data: messages, error: messagesError } = await supabaseAdmin
@@ -54,6 +64,7 @@ serve(async (req) => {
     }
 
     const userId = conversation?.user_id;
+    const userEmail = conversation?.user_email;
     const userAgent = req.headers.get("user-agent") || "";
     const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "";
 
@@ -80,6 +91,123 @@ serve(async (req) => {
 
     console.log("Calling webhook:", url.toString());
 
+    // Background processing function - saves response to DB when complete
+    const processInBackground = async () => {
+      let fullResponse = "";
+      
+      try {
+        const response = await fetch(url.toString(), {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        console.log("Webhook response status:", response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Webhook error response:", errorText);
+          
+          // Log error
+          await supabaseAdmin.from("audit_logs").insert({
+            user_id: userId,
+            conversation_id: conversationId,
+            event_type: "webhook_error",
+            metadata: {
+              status: response.status,
+              error: errorText,
+              latency_ms: Date.now() - startTime,
+            },
+            ip_address: ipAddress,
+            user_agent: userAgent,
+          });
+          
+          throw new Error(`Webhook returned ${response.status}: ${errorText}`);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new Error("No response body from webhook");
+        }
+
+        const decoder = new TextDecoder();
+        
+        // Read the stream and accumulate response
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          
+          // Extract content from NDJSON chunks
+          const lines = chunk.split('\n').filter(line => line.trim());
+          for (const line of lines) {
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.type === "item" && parsed.content) {
+                fullResponse += parsed.content;
+              }
+            } catch {
+              // Not JSON, might be plain text
+              if (line.trim()) {
+                fullResponse += line;
+              }
+            }
+          }
+        }
+
+        console.log("Background processing complete, response length:", fullResponse.length);
+
+        // Save the AI response to messages table
+        if (fullResponse.length > 0) {
+          await supabaseAdmin.from("messages").insert({
+            conversation_id: conversationId,
+            role: "assistant",
+            content: fullResponse,
+            user_id: userId,
+            user_email: userEmail,
+          });
+          console.log("Saved AI response to messages table for conversation:", conversationId);
+        }
+
+        // Log AI response
+        await supabaseAdmin.from("audit_logs").insert({
+          user_id: userId,
+          conversation_id: conversationId,
+          event_type: "ai_response",
+          ai_response: fullResponse,
+          metadata: {
+            latency_ms: Date.now() - startTime,
+            response_length: fullResponse.length,
+            background_mode: backgroundMode || false,
+          },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+        });
+
+      } catch (error) {
+        console.error("Background processing error:", error);
+      } finally {
+        // Always set pending_response = false when done
+        await supabaseAdmin
+          .from("conversations")
+          .update({ pending_response: false })
+          .eq("id", conversationId);
+        console.log("Set pending_response = false for conversation:", conversationId);
+      }
+    };
+
+    // If backgroundMode is true, use waitUntil and return immediately
+    if (backgroundMode) {
+      EdgeRuntime.waitUntil(processInBackground());
+      return new Response(
+        JSON.stringify({ status: "processing", conversationId }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Normal streaming mode - process and stream to client
     const response = await fetch(url.toString(), {
       method: "GET",
       headers: {
@@ -107,6 +235,12 @@ serve(async (req) => {
         user_agent: userAgent,
       });
       
+      // Set pending_response = false on error
+      await supabaseAdmin
+        .from("conversations")
+        .update({ pending_response: false })
+        .eq("id", conversationId);
+      
       throw new Error(`Webhook returned ${response.status}: ${errorText}`);
     }
 
@@ -121,6 +255,7 @@ serve(async (req) => {
     const writer = writable.getWriter();
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
+    let fullResponse = "";
 
     // Process stream in background
     (async () => {
@@ -141,6 +276,13 @@ serve(async (req) => {
               ip_address: ipAddress,
               user_agent: userAgent,
             });
+            
+            // Set pending_response = false when streaming is complete
+            await supabaseAdmin
+              .from("conversations")
+              .update({ pending_response: false })
+              .eq("id", conversationId);
+            console.log("Streaming complete, set pending_response = false");
             
             await writer.close();
             break;
@@ -171,6 +313,11 @@ serve(async (req) => {
         }
       } catch (error) {
         console.error("Stream error:", error);
+        // Set pending_response = false on error
+        await supabaseAdmin
+          .from("conversations")
+          .update({ pending_response: false })
+          .eq("id", conversationId);
         await writer.abort(error);
       }
     })();
