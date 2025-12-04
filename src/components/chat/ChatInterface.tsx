@@ -268,7 +268,7 @@ export const ChatInterface = ({
   };
 
   const handleSend = async (messageOverride?: string, skipAuthCheck?: boolean) => {
-    console.log("[handleSend] Called with:", { messageOverride: messageOverride?.substring(0, 30), input: input.substring(0, 30), loading, conversationId });
+    console.log("[handleSend] Called");
     const messageToSend = messageOverride || input.trim();
     if (!messageToSend || loading) {
       console.log("[handleSend] Early return - no message or loading");
