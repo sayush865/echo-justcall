@@ -10,6 +10,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+  
   try {
     const { lastUserMessage, lastAIResponse, userMessageOnly } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -21,11 +23,17 @@ serve(async (req) => {
     // Truncate AI response for faster processing
     const truncatedResponse = lastAIResponse?.substring(0, 1000) || "";
     const isUserMessageOnly = userMessageOnly === true || !lastAIResponse;
+    const mode = isUserMessageOnly ? "user-only" : "full-context";
 
-    console.log("Generating follow-ups:", { 
-      messagePreview: lastUserMessage?.substring(0, 50),
-      mode: isUserMessageOnly ? "user-only" : "full-context"
-    });
+    console.log("=== FOLLOW-UP GENERATION START ===");
+    console.log(JSON.stringify({
+      timestamp: new Date().toISOString(),
+      mode,
+      userMessage: lastUserMessage?.substring(0, 100),
+      userMessageLength: lastUserMessage?.length || 0,
+      aiResponseLength: lastAIResponse?.length || 0,
+      truncatedResponseLength: truncatedResponse.length,
+    }));
 
     // Different prompts for user-only vs full-context
     const userContent = isUserMessageOnly
@@ -112,48 +120,78 @@ Return suggestions using the generate_followups function.`,
       }),
     });
 
+    const aiCallDuration = Date.now() - startTime;
+    
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      console.error("=== FOLLOW-UP GENERATION ERROR ===");
+      console.error(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        mode,
+        status: response.status,
+        error: errorText,
+        duration: aiCallDuration,
+      }));
       
       return new Response(JSON.stringify({ 
         suggestions: getDefaultSuggestions(lastUserMessage),
-        source: "default"
+        source: "default",
+        meta: { mode, duration: aiCallDuration, reason: "ai-error" }
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const data = await response.json();
-    console.log("AI response:", { 
-      hasToolCalls: !!data.choices?.[0]?.message?.tool_calls,
-      mode: isUserMessageOnly ? "user-only" : "full-context"
-    });
+    const totalDuration = Date.now() - startTime;
     
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall?.function?.arguments) {
       try {
         const parsed = JSON.parse(toolCall.function.arguments);
         const suggestions = parsed.suggestions || [];
-        console.log("Generated follow-ups:", suggestions.length, "mode:", isUserMessageOnly ? "user-only" : "full-context");
+        
+        console.log("=== FOLLOW-UP GENERATION SUCCESS ===");
+        console.log(JSON.stringify({
+          timestamp: new Date().toISOString(),
+          mode,
+          suggestionsCount: suggestions.length,
+          duration: totalDuration,
+          suggestions: suggestions.map((s: any) => s.label),
+        }));
         
         if (suggestions.length > 0) {
           return new Response(JSON.stringify({ 
             suggestions,
-            source: isUserMessageOnly ? "user-only" : "full-context"
+            source: mode,
+            meta: { mode, duration: totalDuration }
           }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
       } catch (e) {
-        console.error("Failed to parse tool call arguments:", e);
+        console.error("=== FOLLOW-UP PARSE ERROR ===");
+        console.error(JSON.stringify({
+          timestamp: new Date().toISOString(),
+          mode,
+          error: String(e),
+          rawArgs: toolCall.function.arguments?.substring(0, 200),
+        }));
       }
     }
 
-    console.log("Using default suggestions as fallback");
+    console.log("=== FOLLOW-UP FALLBACK ===");
+    console.log(JSON.stringify({
+      timestamp: new Date().toISOString(),
+      mode,
+      reason: "no-valid-suggestions",
+      duration: totalDuration,
+    }));
+    
     return new Response(JSON.stringify({ 
       suggestions: getDefaultSuggestions(lastUserMessage),
-      source: "default"
+      source: "default",
+      meta: { mode, duration: totalDuration, reason: "fallback" }
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
