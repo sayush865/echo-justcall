@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -49,19 +50,17 @@ interface Conversation {
 
 interface ConversationListProps {
   selectedConversation: string | null;
-  onSelectConversation: (id: string | null) => void;
   isOpen: boolean;
   onToggle: () => void;
 }
 
 export const ConversationList = ({
   selectedConversation,
-  onSelectConversation,
   isOpen,
   onToggle,
 }: ConversationListProps) => {
+  const navigate = useNavigate();
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameConversationId, setRenameConversationId] = useState<string | null>(null);
   const [renameTitle, setRenameTitle] = useState("");
@@ -120,14 +119,6 @@ export const ConversationList = ({
     }
 
     setConversations(data || []);
-    
-    // Auto-select the most recent conversation on first load only (desktop only)
-    if (data && data.length > 0 && !selectedConversation && !hasLoadedOnce && window.innerWidth >= 768) {
-      onSelectConversation(data[0].id);
-      setHasLoadedOnce(true);
-    } else {
-      setHasLoadedOnce(true);
-    }
   };
 
   const handleDeleteConversation = (e: React.MouseEvent | Event, id: string) => {
@@ -151,7 +142,7 @@ export const ConversationList = ({
     }
 
     if (selectedConversation === deleteConversationId) {
-      onSelectConversation(null);
+      navigate('/');
     }
     
     setDeleteConversationId(null);
@@ -208,7 +199,7 @@ export const ConversationList = ({
 
   const handleNewChat = () => {
     triggerHaptic("medium");
-    onSelectConversation(null);
+    navigate('/');
     // Close sidebar on mobile after selecting
     if (window.innerWidth < 768) {
       onToggle();
@@ -217,7 +208,7 @@ export const ConversationList = ({
 
   const handleSelectConversation = (id: string) => {
     triggerHaptic("light");
-    onSelectConversation(id);
+    navigate(`/c/${id}`);
     // Close sidebar on mobile after selecting
     if (window.innerWidth < 768) {
       onToggle();
