@@ -15,13 +15,18 @@ interface MarkdownRendererProps {
 export const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   const { cleanContent, citations, inlineCitations } = useMemo(() => parseCitations(content), [content]);
 
-  // Replace [source:N] markers with placeholder that we'll render as pills
+  // Replace [source:N] or [N] markers with placeholder that we'll render as pills
   const contentWithPlaceholders = useMemo(() => {
     if (inlineCitations.size === 0) return cleanContent;
     
-    // Replace [source:N] with a special marker we can detect
-    return cleanContent.replace(/\[source:(\d+)\]/gi, (_, num) => {
-      return `%%CITATION_${num}%%`;
+    // Replace [source:N] or [N] with a special marker we can detect
+    return cleanContent.replace(/\[(?:source:)?(\d+)\]/gi, (_, num) => {
+      const sourceNum = parseInt(num, 10);
+      // Only replace if we have a citation for this number
+      if (inlineCitations.has(sourceNum)) {
+        return `%%CITATION_${num}%%`;
+      }
+      return `[${num}]`; // Keep original if no citation found
     });
   }, [cleanContent, inlineCitations]);
 

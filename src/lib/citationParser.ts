@@ -10,12 +10,12 @@ export interface ParsedContent {
   inlineCitations: Map<number, Citation>;
 }
 
-// Pattern for new [source:N] format
-const SOURCE_MARKER_PATTERN = /\[source:(\d+)\]/gi;
-// Pattern for Sources section at end
-const SOURCES_SECTION_PATTERN = /\n*Sources?:\s*\n((?:\[\d+\][^\n]+\n?)+)/i;
-// Pattern for individual source line: [1] CA123abc (Sales)
-const SOURCE_LINE_PATTERN = /\[(\d+)\]\s*(CA[a-f0-9]+)[^\n]*\(([^)]+)\)/gi;
+// Pattern for [source:N] or just [N] format
+const SOURCE_MARKER_PATTERN = /\[(?:source:)?(\d+)\]/gi;
+// Pattern for Sources section at end (handles #### Sources:, ## Sources:, Sources:, etc.)
+const SOURCES_SECTION_PATTERN = /\n*(?:#{1,4}\s*)?Sources?:\s*\n((?:\[\d+\][^\n]+\n?)+)/i;
+// Pattern for individual source line: [1] CA123abc (Sales) or [1] CA123abc-uuid-format (Success)
+const SOURCE_LINE_PATTERN = /\[(\d+)\]\s*(CA[a-f0-9-]+)[^\n]*\(([^)]+)\)/gi;
 
 // Legacy patterns for backward compatibility
 const LEGACY_CITATION_PATTERN = /callsid:\s*(CA[a-f0-9]+)/gi;
