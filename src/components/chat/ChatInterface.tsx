@@ -470,6 +470,17 @@ export const ChatInterface = ({
             .eq("id", assistantMessageId);
           console.log("Follow-ups persisted to message:", assistantMessageId);
         }
+        
+        // Update cache with follow-ups so they persist when switching conversations
+        if (currentConversationId && suggestions.length > 0) {
+          const cached = messagesCacheRef.current.get(currentConversationId);
+          if (cached) {
+            messagesCacheRef.current.set(currentConversationId, {
+              ...cached,
+              followUps: suggestions
+            });
+          }
+        }
       }).catch((err) => {
         console.error("Failed to generate follow-ups:", err);
         setFollowUpSuggestions([]);
@@ -770,6 +781,11 @@ export const ChatInterface = ({
           if (result.data?.suggestions?.length > 0) {
             console.log("Full-context arrived late, updating suggestions");
             setFollowUpSuggestions(result.data.suggestions);
+            // Update cache
+            const cached = messagesCacheRef.current.get(currentConversationId);
+            if (cached) {
+              messagesCacheRef.current.set(currentConversationId, { ...cached, followUps: result.data.suggestions });
+            }
             // Persist the better suggestions
             if (currentConversationId) {
               const { data: lastMsg } = await supabase
@@ -809,8 +825,14 @@ export const ChatInterface = ({
       setFollowUpSuggestions(finalSuggestions);
       setFollowUpLoading(false);
       
-      // Persist follow-ups to the assistant message
+      // Persist follow-ups to the assistant message and update cache
       if (finalSuggestions.length > 0 && currentConversationId) {
+        // Update cache
+        const cached = messagesCacheRef.current.get(currentConversationId);
+        if (cached) {
+          messagesCacheRef.current.set(currentConversationId, { ...cached, followUps: finalSuggestions });
+        }
+        
         const { data: lastMsg } = await supabase
           .from("messages")
           .select("id")
