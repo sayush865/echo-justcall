@@ -278,6 +278,9 @@ export const ChatInterface = ({
     setLoading(true);
     setIsUserNearBottom(true); // Resume auto-scroll when user sends message
     setFollowUpSuggestions([]); // Clear follow-up suggestions when sending new message
+    
+    // Show streaming UI immediately with empty content (loading state)
+    setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
 
     // Optimistically add user message to UI immediately
     const tempUserMsgId = `temp-user-${Date.now()}`;
@@ -350,13 +353,9 @@ export const ChatInterface = ({
       const steps: string[] = [];
       let buffer = ""; // Buffer for incomplete JSON lines
       
-      // Only show streaming UI if this is the active conversation
+      // Helper to check if still on the same conversation
       const isActiveConversation = () => activeConversationRef.current === currentConversationId;
       
-      if (isActiveConversation()) {
-        setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
-      }
-
       // Read the stream
       while (true) {
         const { done, value } = await reader.read();
