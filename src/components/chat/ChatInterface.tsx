@@ -86,6 +86,7 @@ export const ChatInterface = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState<StreamingMessage | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
@@ -97,6 +98,7 @@ export const ChatInterface = ({
   const [retryCount, setRetryCount] = useState(0);
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const messagesCacheRef = useRef<Map<string, { messages: Message[]; followUps: {label: string; prompt: string}[] }>>(new Map());
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -168,7 +170,18 @@ export const ChatInterface = ({
     setLastFailedMessage(null);
     
     if (conversationId) {
-      loadMessages();
+      // Check cache first for instant display
+      const cached = messagesCacheRef.current.get(conversationId);
+      if (cached) {
+        setMessages(cached.messages);
+        setFollowUpSuggestions(cached.followUps);
+        // Still refresh in background for any new messages
+        loadMessages(true);
+      } else {
+        setMessages([]);
+        setFollowUpSuggestions([]);
+        loadMessages(false);
+      }
 
       const channel = supabase
         .channel(`messages:${conversationId}`)
@@ -183,7 +196,7 @@ export const ChatInterface = ({
           (payload) => {
             // Only update if still viewing this conversation
             if (activeConversationRef.current === conversationId) {
-              loadMessages();
+              loadMessages(true);
             }
           }
         )
@@ -205,8 +218,12 @@ export const ChatInterface = ({
     }
   }, [messages, streamingMessage, isUserNearBottom]);
 
-  const loadMessages = async () => {
+  const loadMessages = async (isBackgroundRefresh = false) => {
     if (!conversationId) return;
+
+    if (!isBackgroundRefresh) {
+      setMessagesLoading(true);
+    }
 
     const { data, error } = await supabase
       .from("messages")
@@ -214,22 +231,30 @@ export const ChatInterface = ({
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true });
 
-    if (!error && data) {
-      setMessages(data);
-      // Load follow-up suggestions from the last assistant message
-      const lastAssistantMsg = [...data].reverse().find(m => m.role === "assistant");
-      if (lastAssistantMsg?.follow_up_suggestions && Array.isArray(lastAssistantMsg.follow_up_suggestions)) {
-        setFollowUpSuggestions(lastAssistantMsg.follow_up_suggestions as {label: string; prompt: string}[]);
-      } else {
-        setFollowUpSuggestions([]);
-      }
-    }
+    // Only update if still on same conversation
+    if (activeConversationRef.current !== conversationId) return;
+
+    setMessagesLoading(false);
+
     if (error) {
       toast.error("Failed to load messages");
       return;
     }
 
-    setMessages(data || []);
+    const messages = data || [];
+    let followUps: {label: string; prompt: string}[] = [];
+    
+    // Load follow-up suggestions from the last assistant message
+    const lastAssistantMsg = [...messages].reverse().find(m => m.role === "assistant");
+    if (lastAssistantMsg?.follow_up_suggestions && Array.isArray(lastAssistantMsg.follow_up_suggestions)) {
+      followUps = lastAssistantMsg.follow_up_suggestions as {label: string; prompt: string}[];
+    }
+
+    // Update cache
+    messagesCacheRef.current.set(conversationId, { messages, followUps });
+    
+    setMessages(messages);
+    setFollowUpSuggestions(followUps);
   };
 
   const handleSend = async (messageOverride?: string, skipAuthCheck?: boolean) => {
@@ -989,7 +1014,19 @@ export const ChatInterface = ({
           
           <ScrollArea className={`flex-1 px-4 md:px-6 py-5 ${conversationId ? 'pt-28' : 'pt-5'} relative z-10`} viewportRef={scrollContainerRef} onScrollCapture={handleScroll}>
             <div className="space-y-6 max-w-3xl mx-auto pb-8">
-              {messages.map((msg) => (
+              {messagesLoading && messages.length === 0 ? (
+                <div className="space-y-6 animate-pulse">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className={`flex gap-3 ${i % 2 === 1 ? 'justify-end' : 'justify-start'}`}>
+                      {i % 2 === 0 && <div className="w-8 h-8 rounded-full bg-muted flex-shrink-0" />}
+                      <div className={`${i % 2 === 1 ? 'max-w-[60%]' : 'max-w-[70%]'}`}>
+                        <div className="rounded-2xl px-4 py-3 bg-muted/50 h-16" />
+                      </div>
+                      {i % 2 === 1 && <div className="w-8 h-8 rounded-full bg-muted flex-shrink-0" />}
+                    </div>
+                  ))}
+                </div>
+              ) : messages.map((msg) => (
                 <div
                   key={msg.id}
                   className={`flex gap-3 ${
