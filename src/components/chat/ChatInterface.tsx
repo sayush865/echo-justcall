@@ -24,6 +24,8 @@ import { ShareDialog } from "./ShareDialog";
 import { DynamicSuggestionPills } from "./DynamicSuggestionPills";
 import { FollowUpPills } from "./FollowUpPills";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { checkRateLimit } from "@/lib/rateLimiter";
+import { validateChatMessage, getMessageLengthStatus } from "@/lib/inputValidation";
 
 // Helper to get user initials
 const getUserInitials = (displayName?: string | null): string => {
@@ -259,6 +261,23 @@ export const ChatInterface = ({
     const messageToSend = messageOverride || input.trim();
     if (!messageToSend || loading) return;
     
+    // Validate message
+    const validation = validateChatMessage(messageToSend);
+    if (!validation.valid) {
+      toast.error(validation.error || "Invalid message");
+      return;
+    }
+    
+    // Check rate limit (client-side)
+    const rateLimitKey = user?.id || 'anonymous';
+    const rateCheck = checkRateLimit(rateLimitKey, { maxRequests: 15, windowMs: 60000 });
+    if (!rateCheck.allowed) {
+      toast.error("Slow down!", { 
+        description: `Please wait ${rateCheck.retryAfter} seconds before sending another message.` 
+      });
+      return;
+    }
+    
     // Check auth - if not logged in, show modal and save message
     if (!user && !skipAuthCheck) {
       setPendingMessage(messageToSend);
@@ -272,7 +291,7 @@ export const ChatInterface = ({
     resetTranscript();
     setLoading(true);
     setIsUserNearBottom(true); // Resume auto-scroll when user sends message
-    setFollowUpSuggestions([]); // Clear follow-up suggestions when sending new message
+    // Keep follow-up suggestions visible until new response arrives
 
     // Optimistically add user message to UI immediately
     const tempUserMsgId = `temp-user-${Date.now()}`;
@@ -1136,9 +1155,9 @@ export const ChatInterface = ({
                   <FollowUpPills 
                     suggestions={followUpSuggestions} 
                     onSelect={(prompt) => {
-                      setFollowUpSuggestions([]);
+                      // Don't clear suggestions - let user switch between them
                       setInput(prompt);
-                      setTimeout(() => textareaRef.current?.focus(), 0);
+                      setTimeout(() => textareaRef2.current?.focus(), 0);
                     }} 
                     loading={followUpLoading}
                   />
