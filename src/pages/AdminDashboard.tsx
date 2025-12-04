@@ -64,6 +64,7 @@ type AuditSortOption = "newest" | "oldest";
 // Filter options
 type RoleFilter = "all" | "user" | "assistant";
 type EventTypeFilter = "all" | "user_message" | "ai_response" | "conversation_created" | "auth_signin" | "auth_signup" | "webhook_error";
+type UserFilterOption = "all" | string; // "all" or a specific user_id
 
 interface UserProfile {
   id: string;
@@ -260,6 +261,7 @@ export default function AdminDashboard() {
   // Filter states
   const [messageRoleFilter, setMessageRoleFilter] = useState<RoleFilter>("all");
   const [auditEventFilter, setAuditEventFilter] = useState<EventTypeFilter>("all");
+  const [userFilter, setUserFilter] = useState<UserFilterOption>("all");
 
   useEffect(() => {
     if (isAdmin) {
@@ -414,6 +416,20 @@ export default function AdminDashboard() {
   const sortedFilteredMessages = useMemo(() => {
     let result = [...messages];
     
+    // Apply user filter
+    if (userFilter !== "all") {
+      const userConvIds = conversations.filter(c => c.user_id === userFilter).map(c => c.id);
+      result = result.filter(m => userConvIds.includes(m.conversation_id));
+    }
+    
+    // Apply search filter
+    if (searchQuery) {
+      result = result.filter(m => 
+        m.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        m.user_email?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
     // Apply role filter
     if (messageRoleFilter !== "all") {
       result = result.filter(m => m.role === messageRoleFilter);
@@ -424,13 +440,18 @@ export default function AdminDashboard() {
       return result.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     }
     return result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [messages, messageSort, messageRoleFilter]);
+  }, [messages, messageSort, messageRoleFilter, userFilter, conversations, searchQuery]);
 
   // Sorted and filtered conversations
   const sortedFilteredConversations = useMemo(() => {
     let result = conversations.filter(c =>
       c.title.toLowerCase().includes(searchQuery.toLowerCase())
     );
+    
+    // Apply user filter
+    if (userFilter !== "all") {
+      result = result.filter(c => c.user_id === userFilter);
+    }
 
     switch (conversationSort) {
       case "most_messages":
@@ -441,11 +462,28 @@ export default function AdminDashboard() {
       default:
         return result.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
     }
-  }, [conversations, searchQuery, conversationSort, messages]);
+  }, [conversations, searchQuery, conversationSort, messages, userFilter]);
 
   // Sorted and filtered audit logs
   const sortedFilteredAuditLogs = useMemo(() => {
     let result = [...auditLogs];
+    
+    // Apply user filter
+    if (userFilter !== "all") {
+      const userProfile = profiles.find(p => p.user_id === userFilter);
+      if (userProfile?.email) {
+        result = result.filter(log => log.user_email === userProfile.email);
+      }
+    }
+    
+    // Apply search filter
+    if (searchQuery) {
+      result = result.filter(log => 
+        log.user_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        log.message_content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        log.event_type.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
     
     // Apply event type filter
     if (auditEventFilter !== "all") {
@@ -457,7 +495,7 @@ export default function AdminDashboard() {
       return result.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     }
     return result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [auditLogs, auditSort, auditEventFilter]);
+  }, [auditLogs, auditSort, auditEventFilter, userFilter, profiles, searchQuery]);
 
   const clearFilters = () => {
     setUserSort("most_logins");
@@ -466,12 +504,20 @@ export default function AdminDashboard() {
     setAuditSort("newest");
     setMessageRoleFilter("all");
     setAuditEventFilter("all");
+    setUserFilter("all");
     setSearchQuery("");
   };
 
   const hasActiveFilters = userSort !== "most_logins" || messageSort !== "newest" || 
     conversationSort !== "recent" || auditSort !== "newest" || 
-    messageRoleFilter !== "all" || auditEventFilter !== "all" || searchQuery !== "";
+    messageRoleFilter !== "all" || auditEventFilter !== "all" || 
+    userFilter !== "all" || searchQuery !== "";
+    
+  const getSelectedUserName = () => {
+    if (userFilter === "all") return "All Users";
+    const profile = profiles.find(p => p.user_id === userFilter);
+    return profile?.display_name || profile?.email || "Unknown";
+  };
 
   // Loading state
   if (authLoading || adminLoading) {
@@ -855,18 +901,36 @@ export default function AdminDashboard() {
                     <CardTitle>All Conversations</CardTitle>
                     <CardDescription>Click on a conversation to view full chat history</CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                    <Select value={conversationSort} onValueChange={(v) => setConversationSort(v as ConversationSortOption)}>
-                      <SelectTrigger className="w-[160px]">
-                        <SelectValue placeholder="Sort by" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="recent">Most Recent</SelectItem>
-                        <SelectItem value="most_messages">Most Messages</SelectItem>
-                        <SelectItem value="oldest">Oldest First</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <Select value={userFilter} onValueChange={(v) => setUserFilter(v as UserFilterOption)}>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Filter by user">{getSelectedUserName()}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Users</SelectItem>
+                          {profiles.map((p) => (
+                            <SelectItem key={p.user_id} value={p.user_id}>
+                              {p.display_name || p.email || "Unknown"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                      <Select value={conversationSort} onValueChange={(v) => setConversationSort(v as ConversationSortOption)}>
+                        <SelectTrigger className="w-[160px]">
+                          <SelectValue placeholder="Sort by" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="recent">Most Recent</SelectItem>
+                          <SelectItem value="most_messages">Most Messages</SelectItem>
+                          <SelectItem value="oldest">Oldest First</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
               </CardHeader>
@@ -990,6 +1054,22 @@ export default function AdminDashboard() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <Select value={userFilter} onValueChange={(v) => setUserFilter(v as UserFilterOption)}>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Filter by user">{getSelectedUserName()}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Users</SelectItem>
+                          {profiles.map((p) => (
+                            <SelectItem key={p.user_id} value={p.user_id}>
+                              {p.display_name || p.email || "Unknown"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-2">
                       <Filter className="h-4 w-4 text-muted-foreground" />
                       <Select value={messageRoleFilter} onValueChange={(v) => setMessageRoleFilter(v as RoleFilter)}>
                         <SelectTrigger className="w-[120px]">
@@ -1066,6 +1146,22 @@ export default function AdminDashboard() {
                     <CardDescription>View recent system activity and events</CardDescription>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <Select value={userFilter} onValueChange={(v) => setUserFilter(v as UserFilterOption)}>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Filter by user">{getSelectedUserName()}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Users</SelectItem>
+                          {profiles.map((p) => (
+                            <SelectItem key={p.user_id} value={p.user_id}>
+                              {p.display_name || p.email || "Unknown"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div className="flex items-center gap-2">
                       <Filter className="h-4 w-4 text-muted-foreground" />
                       <Select value={auditEventFilter} onValueChange={(v) => setAuditEventFilter(v as EventTypeFilter)}>
