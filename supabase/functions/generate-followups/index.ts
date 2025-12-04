@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { lastUserMessage, lastAIResponse } = await req.json();
+    const { lastUserMessage, lastAIResponse, userMessageOnly } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
@@ -20,8 +20,37 @@ serve(async (req) => {
 
     // Truncate AI response for faster processing
     const truncatedResponse = lastAIResponse?.substring(0, 1000) || "";
+    const isUserMessageOnly = userMessageOnly === true || !lastAIResponse;
 
-    console.log("Generating follow-ups for message:", lastUserMessage?.substring(0, 50));
+    console.log("Generating follow-ups:", { 
+      messagePreview: lastUserMessage?.substring(0, 50),
+      mode: isUserMessageOnly ? "user-only" : "full-context"
+    });
+
+    // Different prompts for user-only vs full-context
+    const userContent = isUserMessageOnly
+      ? `User's question: "${lastUserMessage}"
+
+Generate 3 follow-ups that anticipate what the user likely wants to discover next. Focus on:
+1. A question that explores root causes or deeper "why"
+2. A question about actionable insights or next steps
+3. A question that reveals related patterns or connections
+
+Each should have:
+- label: 2-4 word scannable label
+- prompt: Specific, actionable question`
+      : `User's original question: "${lastUserMessage}"
+
+Brief AI response context: "${truncatedResponse.substring(0, 400)}"
+
+Generate 3 follow-ups that help the user DISCOVER what they really need. Focus on:
+1. A question that digs into root causes or "why"
+2. A question that connects to actionable next steps
+3. A question that reveals related patterns they haven't considered
+
+Each should have:
+- label: 2-4 word scannable label
+- prompt: Specific, actionable question that advances their understanding`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -40,7 +69,7 @@ Your goal: Help users DISCOVER insights they didn't know to ask about. Guide the
 
 Rules:
 - Focus on what the USER likely wants to achieve, not just what the AI response said
-- Each question should reveal NEW angles or deeper insights, not rehash the response
+- Each question should reveal NEW angles or deeper insights
 - Think: "What would help this user reach their real goal, even if they don't know what that is yet?"
 - Be specific to the domain (customer feedback, churn, support, sales calls, etc.)
 
@@ -48,18 +77,7 @@ Return suggestions using the generate_followups function.`,
           },
           {
             role: "user",
-            content: `User's original question: "${lastUserMessage}"
-
-Brief AI response context: "${truncatedResponse.substring(0, 400)}"
-
-Generate 3 follow-ups that help the user DISCOVER what they really need. Focus on:
-1. A question that digs into root causes or "why"
-2. A question that connects to actionable next steps
-3. A question that reveals related patterns they haven't considered
-
-Each should have:
-- label: 2-4 word scannable label
-- prompt: Specific, actionable question that advances their understanding`,
+            content: userContent,
           },
         ],
         tools: [
@@ -98,43 +116,44 @@ Each should have:
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
       
-      // Return default suggestions on error
       return new Response(JSON.stringify({ 
-        suggestions: getDefaultSuggestions(lastUserMessage) 
+        suggestions: getDefaultSuggestions(lastUserMessage),
+        source: "default"
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const data = await response.json();
-    console.log("AI response structure:", JSON.stringify({
-      hasChoices: !!data.choices,
+    console.log("AI response:", { 
       hasToolCalls: !!data.choices?.[0]?.message?.tool_calls,
-      toolCallsLength: data.choices?.[0]?.message?.tool_calls?.length,
-    }));
+      mode: isUserMessageOnly ? "user-only" : "full-context"
+    });
     
-    // Extract suggestions from tool call response
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall?.function?.arguments) {
       try {
         const parsed = JSON.parse(toolCall.function.arguments);
         const suggestions = parsed.suggestions || [];
-        console.log("Generated follow-ups:", suggestions.length);
+        console.log("Generated follow-ups:", suggestions.length, "mode:", isUserMessageOnly ? "user-only" : "full-context");
         
         if (suggestions.length > 0) {
-          return new Response(JSON.stringify({ suggestions }), {
+          return new Response(JSON.stringify({ 
+            suggestions,
+            source: isUserMessageOnly ? "user-only" : "full-context"
+          }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
       } catch (e) {
-        console.error("Failed to parse tool call arguments:", e, toolCall.function.arguments);
+        console.error("Failed to parse tool call arguments:", e);
       }
     }
 
-    // Fallback: return default suggestions
     console.log("Using default suggestions as fallback");
     return new Response(JSON.stringify({ 
-      suggestions: getDefaultSuggestions(lastUserMessage) 
+      suggestions: getDefaultSuggestions(lastUserMessage),
+      source: "default"
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -148,16 +167,16 @@ Each should have:
         { label: "Related trends", prompt: "What related trends do you see in the data?" },
         { label: "Action items", prompt: "What actionable next steps do you recommend?" },
       ],
+      source: "error-fallback",
       error: errorMessage 
     }), {
-      status: 200, // Return 200 with fallback suggestions
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
 
 function getDefaultSuggestions(userMessage: string): Array<{label: string, prompt: string}> {
-  // Context-aware default suggestions
   const lowerMsg = userMessage?.toLowerCase() || "";
   
   if (lowerMsg.includes("customer") || lowerMsg.includes("feedback")) {
@@ -184,7 +203,6 @@ function getDefaultSuggestions(userMessage: string): Array<{label: string, promp
     ];
   }
   
-  // Generic fallback
   return [
     { label: "Dig deeper", prompt: "Can you provide more specific details on this?" },
     { label: "Related insights", prompt: "What related insights can you share?" },
