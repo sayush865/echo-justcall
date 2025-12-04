@@ -13,6 +13,11 @@ export default {
       },
     },
     extend: {
+      spacing: {
+        '18': '4.5rem',
+        '25': '6.25rem',
+        '28': '7rem',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
