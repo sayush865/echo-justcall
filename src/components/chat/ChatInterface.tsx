@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,14 +19,12 @@ import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { triggerHaptic } from "@/hooks/useHapticFeedback";
 import { AnimatedPlaceholder } from "./AnimatedPlaceholder";
 import { useAuth } from "@/hooks/useAuth";
+import { AuthModal } from "@/components/auth/AuthModal";
 import { EchoLogo } from "./EchoLogo";
+import { ShareDialog } from "./ShareDialog";
 import { DynamicSuggestionPills } from "./DynamicSuggestionPills";
 import { FollowUpPills } from "./FollowUpPills";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
-// Lazy load heavy dialog components
-const AuthModal = lazy(() => import("@/components/auth/AuthModal").then(m => ({ default: m.AuthModal })));
-const ShareDialog = lazy(() => import("./ShareDialog").then(m => ({ default: m.ShareDialog })));
 
 // Helper to get user initials
 const getUserInitials = (displayName?: string | null): string => {
@@ -974,16 +972,14 @@ export const ChatInterface = ({
 
   return (
     <div className="flex-1 flex flex-col h-screen min-w-0 bg-background">
-      <Suspense fallback={null}>
-        <AuthModal 
-          isOpen={showAuthModal} 
-          onClose={() => {
-            setShowAuthModal(false);
-            setPendingMessage(null);
-          }} 
-          onSuccess={handleAuthSuccess} 
-        />
-      </Suspense>
+      <AuthModal 
+        isOpen={showAuthModal} 
+        onClose={() => {
+          setShowAuthModal(false);
+          setPendingMessage(null);
+        }} 
+        onSuccess={handleAuthSuccess} 
+      />
       {/* Top right controls - Share (chat only) + Profile/Login */}
       <div className="absolute top-8 right-4 z-30 flex items-center gap-2">
         {/* Share button - only in chat view when logged in */}
@@ -1349,14 +1345,12 @@ export const ChatInterface = ({
       
       {/* Share Dialog */}
       {conversationId && (
-        <Suspense fallback={null}>
-          <ShareDialog
-            open={shareDialogOpen}
-            onOpenChange={setShareDialogOpen}
-            conversationId={conversationId}
-            conversationTitle={conversationTitle || "Conversation"}
-          />
-        </Suspense>
+        <ShareDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          conversationId={conversationId}
+          conversationTitle={conversationTitle || "Conversation"}
+        />
       )}
       
       {/* Footer credit */}
