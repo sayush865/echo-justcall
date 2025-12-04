@@ -1163,7 +1163,7 @@ export const ChatInterface = ({
       {/* Footer credit */}
       <a 
         href="mailto:ayush.sharma@saaslabs.co?subject=Great%20job%20on%20Echo!&body=Hey%20Ayush,%0A%0AJust%20wanted%20to%20say%20you%20did%20a%20great%20job%20building%20Echo!%0A%0ACheers!"
-        className="group fixed bottom-2 right-3 text-[10px] text-muted-foreground/50 hover:text-muted-foreground hover:scale-110 transition-all duration-300 cursor-pointer"
+        className="group fixed bottom-2 right-3 text-[10px] text-muted-foreground/50 hover:text-muted-foreground hover:scale-110 hover:animate-nudge transition-all duration-300 cursor-pointer"
       >
         Made with <span className="inline-block group-hover:animate-pulse">♥️</span> Ayush
       </a>
