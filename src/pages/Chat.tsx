@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { ConversationList } from "@/components/chat/ConversationList";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 const Chat = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
+  const navigate = useNavigate();
   const [conversationTitle, setConversationTitle] = useState<string>("");
   // Start with sidebar closed on mobile
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
 
-  // Fetch conversation title when selected conversation changes
+  // Fetch conversation title and validate conversation exists
   useEffect(() => {
     if (conversationId) {
       supabase
@@ -18,13 +20,22 @@ const Chat = () => {
         .select("title")
         .eq("id", conversationId)
         .single()
-        .then(({ data }) => {
-          if (data) setConversationTitle(data.title);
+        .then(({ data, error }) => {
+          if (error || !data) {
+            toast({
+              title: "Conversation not found",
+              description: "This conversation doesn't exist or was deleted.",
+              variant: "destructive",
+            });
+            navigate("/", { replace: true });
+          } else {
+            setConversationTitle(data.title);
+          }
         });
     } else {
       setConversationTitle("");
     }
-  }, [conversationId]);
+  }, [conversationId, navigate]);
 
   return (
     <div className="flex h-screen bg-background w-full">
