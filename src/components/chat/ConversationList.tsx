@@ -90,6 +90,7 @@ export const ConversationList = ({
           event: "*",
           schema: "public",
           table: "conversations",
+          filter: `user_id=eq.${user.id}`,
         },
         () => {
           loadConversations();
@@ -108,6 +109,7 @@ export const ConversationList = ({
     const { data, error } = await supabase
       .from("conversations")
       .select("*")
+      .eq("user_id", user.id)
       .eq("status", "active")
       .order("pinned", { ascending: false })
       .order("updated_at", { ascending: false });
