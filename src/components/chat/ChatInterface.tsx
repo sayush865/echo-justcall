@@ -399,7 +399,8 @@ export const ChatInterface = ({
             if (parsed.type === "item" && parsed.content) {
               fullContent += parsed.content;
               // Only update UI if we're still on the same conversation
-              if (conversationId === streamingForConversation) {
+              // Use activeConversationRef to check current view
+              if (activeConversationRef.current === streamingForConversation) {
                 setStreamingMessage({ 
                   role: "assistant", 
                   content: fullContent, 
@@ -411,7 +412,7 @@ export const ChatInterface = ({
               // Handle intermediate steps (tool calls, thinking, etc.)
               const stepText = parsed.text || parsed.name || parsed.content || JSON.stringify(parsed);
               steps.push(stepText);
-              if (conversationId === streamingForConversation) {
+              if (activeConversationRef.current === streamingForConversation) {
                 setStreamingMessage(prev => prev ? { 
                   ...prev, 
                   steps: [...(prev.steps || []), stepText] 
@@ -420,7 +421,7 @@ export const ChatInterface = ({
             } else if (parsed.type === "agent" && parsed.text) {
               // Agent status updates
               steps.push(parsed.text);
-              if (conversationId === streamingForConversation) {
+              if (activeConversationRef.current === streamingForConversation) {
                 setStreamingMessage(prev => prev ? { 
                   ...prev, 
                   steps: [...(prev.steps || []), parsed.text] 
@@ -437,7 +438,7 @@ export const ChatInterface = ({
       console.log("Streaming complete, fullContent length:", fullContent.length);
       
       // Only update UI if still on the same conversation
-      if (conversationId === streamingForConversation) {
+      if (activeConversationRef.current === streamingForConversation) {
         // Finalize streaming
         setStreamingMessage({ role: "assistant", content: fullContent, isStreaming: false, steps });
         
@@ -644,6 +645,9 @@ export const ChatInterface = ({
 
       if (msgError) throw msgError;
 
+      // Track which conversation we're streaming for
+      activeConversationRef.current = currentConversationId;
+
       // Use fetch for true streaming
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -710,7 +714,7 @@ export const ChatInterface = ({
             if (parsed.type === "item" && parsed.content) {
               fullContent += parsed.content;
               // Only update UI if still on the same conversation
-              if (conversationId === streamingForConversation) {
+              if (activeConversationRef.current === streamingForConversation) {
                 setStreamingMessage({ 
                   role: "assistant", 
                   content: fullContent, 
@@ -721,7 +725,7 @@ export const ChatInterface = ({
             } else if (parsed.type === "step" || parsed.type === "tool" || parsed.type === "thinking") {
               const stepText = parsed.text || parsed.name || parsed.content || JSON.stringify(parsed);
               steps.push(stepText);
-              if (conversationId === streamingForConversation) {
+              if (activeConversationRef.current === streamingForConversation) {
                 setStreamingMessage(prev => prev ? { 
                   ...prev, 
                   steps: [...(prev.steps || []), stepText] 
@@ -729,7 +733,7 @@ export const ChatInterface = ({
               }
             } else if (parsed.type === "agent" && parsed.text) {
               steps.push(parsed.text);
-              if (conversationId === streamingForConversation) {
+              if (activeConversationRef.current === streamingForConversation) {
                 setStreamingMessage(prev => prev ? { 
                   ...prev, 
                   steps: [...(prev.steps || []), parsed.text] 
@@ -743,7 +747,7 @@ export const ChatInterface = ({
       }
 
       // Only update UI if still on the same conversation
-      if (conversationId === streamingForConversation) {
+      if (activeConversationRef.current === streamingForConversation) {
         setStreamingMessage({ role: "assistant", content: fullContent, isStreaming: false, steps });
         
         const tempId = `temp-${Date.now()}`;
@@ -808,7 +812,7 @@ export const ChatInterface = ({
           if (result.data?.suggestions?.length > 0) {
             console.log("Full-context arrived late, updating suggestions");
             // Only update UI if still on same conversation
-            if (conversationId === streamingForConversation) {
+            if (activeConversationRef.current === streamingForConversation) {
               setFollowUpSuggestions(result.data.suggestions);
             }
             // Persist the better suggestions
@@ -848,7 +852,7 @@ export const ChatInterface = ({
 
       console.log("Follow-ups resolved:", { count: finalSuggestions.length, source: usedSource });
       // Only update UI if still on same conversation
-      if (conversationId === streamingForConversation) {
+      if (activeConversationRef.current === streamingForConversation) {
         setFollowUpSuggestions(finalSuggestions);
         setFollowUpLoading(false);
       }
