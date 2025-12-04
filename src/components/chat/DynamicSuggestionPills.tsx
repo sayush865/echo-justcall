@@ -1,17 +1,6 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { Lightbulb, AlertTriangle, Puzzle, TrendingUp, Headset, Users, Sparkles, RefreshCw } from "lucide-react";
-
-interface Suggestion {
-  id: string;
-  label: string;
-  prompt: string;
-  category: string;
-  icon: string | null;
-  priority: number;
-  user_id: string | null;
-}
+import { useAuth } from "@/hooks/useAuth";
+import { useSuggestionCache } from "@/hooks/useSuggestionCache";
 
 interface DynamicSuggestionPillsProps {
   onSelect: (prompt: string) => void;
@@ -36,128 +25,9 @@ const categoryColors: Record<string, string> = {
   general: "bg-muted text-muted-foreground border-border hover:bg-accent",
 };
 
-// Default suggestions as fallback
-const defaultSuggestions: Omit<Suggestion, 'id'>[] = [
-  {
-    label: "Top Feature Requests",
-    prompt: "What are the most requested features from customers this week? Include sentiment and which customer segments are asking for them.",
-    category: "feature",
-    icon: "Lightbulb",
-    priority: 8,
-    user_id: null,
-  },
-  {
-    label: "Churn Risk Signals",
-    prompt: "Identify customers showing signs of churn risk based on recent interactions. What are the common themes in their complaints or concerns?",
-    category: "churn",
-    icon: "AlertTriangle",
-    priority: 9,
-    user_id: null,
-  },
-  {
-    label: "Integration Issues",
-    prompt: "Summarize the most common integration and technical issues customers are facing. Which integrations are causing the most friction?",
-    category: "integration",
-    icon: "Puzzle",
-    priority: 7,
-    user_id: null,
-  },
-  {
-    label: "Sales Call Insights",
-    prompt: "What patterns are emerging from recent sales calls? What objections are prospects raising and how are they being addressed?",
-    category: "sales",
-    icon: "TrendingUp",
-    priority: 6,
-    user_id: null,
-  },
-];
-
 export const DynamicSuggestionPills = ({ onSelect }: DynamicSuggestionPillsProps) => {
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const { user } = useAuth();
-
-  useEffect(() => {
-    fetchSuggestions();
-  }, [user?.id]);
-
-  const fetchSuggestions = async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    try {
-      // If refresh is triggered by user, regenerate suggestions via edge function
-      if (isRefresh && user?.id) {
-        const currentLabels = suggestions.map(s => s.label);
-        await supabase.functions.invoke('analyze-suggestions', {
-          body: { userId: user.id, forceRegenerate: true, excludeLabels: currentLabels }
-        });
-      }
-
-      let personalSuggestions: Suggestion[] = [];
-      let globalSuggestions: Suggestion[] = [];
-
-      // Fetch user's personalized suggestions (if logged in)
-      if (user?.id) {
-        const { data: personal } = await supabase
-          .from("dynamic_suggestions")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("is_active", true)
-          .gt("expires_at", new Date().toISOString())
-          .order("priority", { ascending: false })
-          .limit(2);
-
-        if (personal) {
-          personalSuggestions = personal as Suggestion[];
-        }
-      }
-
-      // Fetch global suggestions - always fill up to 4 total
-      const globalLimit = 4 - personalSuggestions.length;
-      const { data: global } = await supabase
-        .from("dynamic_suggestions")
-        .select("*")
-        .is("user_id", null)
-        .eq("is_active", true)
-        .gt("expires_at", new Date().toISOString())
-        .order("priority", { ascending: false })
-        .limit(globalLimit);
-
-      if (global) {
-        globalSuggestions = global as Suggestion[];
-      }
-
-      // Combine: personal first, then global
-      const combined = [...personalSuggestions, ...globalSuggestions];
-
-      // Always ensure exactly 4 suggestions by filling from defaults if needed
-      const defaultsWithIds = defaultSuggestions.map((s, i) => ({ ...s, id: `default-${i}` }));
-      
-      if (combined.length >= 4) {
-        setSuggestions(combined.slice(0, 4));
-      } else if (combined.length > 0) {
-        // Fill remaining slots with defaults that aren't duplicates
-        const remaining = 4 - combined.length;
-        const fillers = defaultsWithIds
-          .filter(d => !combined.some(c => c.label === d.label))
-          .slice(0, remaining);
-        setSuggestions([...combined, ...fillers]);
-      } else {
-        // Use all defaults if no suggestions found
-        setSuggestions(defaultsWithIds.slice(0, 4));
-      }
-    } catch (error) {
-      console.error("Error fetching suggestions:", error);
-      setSuggestions(defaultSuggestions.map((s, i) => ({ ...s, id: `default-${i}` })));
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  const { suggestions, loading, refreshing, refresh } = useSuggestionCache(user?.id ?? null);
 
   if (loading) {
     return (
@@ -177,7 +47,7 @@ export const DynamicSuggestionPills = ({ onSelect }: DynamicSuggestionPillsProps
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Try asking</span>
           <button
-            onClick={() => fetchSuggestions(true)}
+            onClick={refresh}
             disabled={refreshing}
             className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
             title="Refresh suggestions"
