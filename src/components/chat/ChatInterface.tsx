@@ -788,7 +788,7 @@ export const ChatInterface = ({
       />
       {/* Top right controls - Share (chat only) + Profile */}
       {user && (
-        <div className="absolute top-3 right-4 z-30 flex items-center gap-2">
+        <div className="absolute top-5 right-4 z-30 flex items-center gap-2">
           {/* Share button - only in chat view */}
           {conversationId && (
             <TooltipProvider>
@@ -910,14 +910,14 @@ export const ChatInterface = ({
           
           {/* Conversation Header - title only */}
           {conversationId && (
-            <div className="absolute top-0 left-0 right-0 z-20 h-14 flex items-center bg-background/80 backdrop-blur-sm border-b border-border">
+            <div className="absolute top-0 left-0 right-0 z-20 h-18 flex items-center bg-background/80 backdrop-blur-sm border-b border-border">
               <div className="w-full px-4 pl-16 pr-28">
                 <h2 className="font-medium text-sm truncate max-w-3xl mx-auto">{conversationTitle || "Conversation"}</h2>
               </div>
             </div>
           )}
           
-          <ScrollArea className={`flex-1 px-4 md:px-6 py-5 ${conversationId ? 'pt-16' : 'pt-5'} relative z-10`} viewportRef={scrollContainerRef} onScrollCapture={handleScroll}>
+          <ScrollArea className={`flex-1 px-4 md:px-6 py-5 ${conversationId ? 'pt-20' : 'pt-5'} relative z-10`} viewportRef={scrollContainerRef} onScrollCapture={handleScroll}>
             <div className="space-y-6 max-w-3xl mx-auto pb-8">
               {messages.map((msg) => (
                 <div
