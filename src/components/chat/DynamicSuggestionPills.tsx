@@ -126,11 +126,21 @@ export const DynamicSuggestionPills = ({ onSelect }: DynamicSuggestionPillsProps
       // Combine: personal first, then global
       const combined = [...personalSuggestions, ...globalSuggestions];
 
-      if (combined.length > 0) {
-        setSuggestions(combined);
+      // Always ensure exactly 4 suggestions by filling from defaults if needed
+      const defaultsWithIds = defaultSuggestions.map((s, i) => ({ ...s, id: `default-${i}` }));
+      
+      if (combined.length >= 4) {
+        setSuggestions(combined.slice(0, 4));
+      } else if (combined.length > 0) {
+        // Fill remaining slots with defaults that aren't duplicates
+        const remaining = 4 - combined.length;
+        const fillers = defaultsWithIds
+          .filter(d => !combined.some(c => c.label === d.label))
+          .slice(0, remaining);
+        setSuggestions([...combined, ...fillers]);
       } else {
-        // Use defaults if no suggestions found
-        setSuggestions(defaultSuggestions.map((s, i) => ({ ...s, id: `default-${i}` })));
+        // Use all defaults if no suggestions found
+        setSuggestions(defaultsWithIds.slice(0, 4));
       }
     } catch (error) {
       console.error("Error fetching suggestions:", error);
