@@ -383,15 +383,17 @@ export const ChatInterface = ({
       setStreamingMessage(null);
 
       console.log("Inserting message to DB for conversation:", currentConversationId);
-      await supabase.from("messages").insert({
+      const { data: insertedMsg } = await supabase.from("messages").insert({
         conversation_id: currentConversationId,
         role: "assistant",
         content: fullContent,
         user_id: user?.id,
         user_email: user?.email,
-      });
+      }).select('id').single();
 
-      // Generate follow-up suggestions (fire and forget)
+      const assistantMessageId = insertedMsg?.id;
+
+      // Generate follow-up suggestions and persist them
       console.log("Generating follow-ups for:", { messageToSend: messageToSend.substring(0, 50), responseLength: fullContent.length });
       setFollowUpLoading(true);
       supabase.functions.invoke('generate-followups', {
@@ -399,9 +401,18 @@ export const ChatInterface = ({
           lastUserMessage: messageToSend, 
           lastAIResponse: fullContent.substring(0, 1500),
         }
-      }).then(({ data, error }) => {
+      }).then(async ({ data, error }) => {
         console.log("Follow-ups response:", { data, error });
-        setFollowUpSuggestions(data?.suggestions || []);
+        const suggestions = data?.suggestions || [];
+        setFollowUpSuggestions(suggestions);
+        
+        // Persist follow-ups to the assistant message
+        if (assistantMessageId && suggestions.length > 0) {
+          await supabase.from("messages")
+            .update({ follow_up_suggestions: suggestions })
+            .eq("id", assistantMessageId);
+          console.log("Follow-ups persisted to message:", assistantMessageId);
+        }
       }).catch((err) => {
         console.error("Failed to generate follow-ups:", err);
         setFollowUpSuggestions([]);
