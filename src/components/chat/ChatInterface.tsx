@@ -1159,6 +1159,11 @@ export const ChatInterface = ({
           conversationTitle={conversationTitle || "Conversation"}
         />
       )}
+      
+      {/* Footer credit */}
+      <div className="fixed bottom-2 right-3 text-[10px] text-muted-foreground/50 select-none pointer-events-none">
+        made with ♥️ Ayush
+      </div>
     </div>
   );
 };
