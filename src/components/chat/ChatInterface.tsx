@@ -294,8 +294,11 @@ export const ChatInterface = ({
       created_at: new Date().toISOString()
     }]);
 
+    // Define these outside try block so they're accessible in catch for abort handling
+    let currentConversationId = conversationId;
+    let fullContent = "";
+
     try {
-      let currentConversationId = conversationId;
 
       if (!currentConversationId) {
         const { data: newConv, error: convError } = await supabase
@@ -352,7 +355,7 @@ export const ChatInterface = ({
       if (!reader) throw new Error("No response body");
 
       const decoder = new TextDecoder();
-      let fullContent = "";
+      fullContent = ""; // Reset for this request
       const steps: string[] = [];
       let buffer = ""; // Buffer for incomplete JSON lines
       
@@ -495,17 +498,47 @@ export const ChatInterface = ({
     } catch (error: any) {
       // Handle abort (user clicked stop) - preserve partial content
       if (error?.name === 'AbortError') {
-        console.log("Request was aborted by user");
-        // Keep whatever content was streamed so far
-        if (streamingMessage?.content) {
-          const partialContent = streamingMessage.content;
+        console.log("Request was aborted by user, preserving content length:", fullContent.length);
+        
+        // Keep whatever content was streamed so far (use fullContent, not stale streamingMessage)
+        if (fullContent) {
+          const tempId = `partial-${Date.now()}`;
           setMessages(prev => [...prev, {
-            id: `partial-${Date.now()}`,
+            id: tempId,
             role: "assistant",
-            content: partialContent,
+            content: fullContent,
             created_at: new Date().toISOString()
           }]);
+          
+          // Save partial response to database
+          const { data: insertedMsg } = await supabase.from("messages").insert({
+            conversation_id: currentConversationId,
+            role: "assistant",
+            content: fullContent,
+            user_id: user?.id,
+            user_email: user?.email,
+          }).select('id').single();
+          
+          // Generate follow-ups for partial content too
+          if (fullContent.length > 50) {
+            setFollowUpLoading(true);
+            supabase.functions.invoke('generate-followups', {
+              body: { 
+                lastUserMessage: messageToSend, 
+                lastAIResponse: fullContent.substring(0, 1500),
+              }
+            }).then(async ({ data }) => {
+              const suggestions = data?.suggestions || [];
+              setFollowUpSuggestions(suggestions);
+              if (insertedMsg?.id && suggestions.length > 0) {
+                await supabase.from("messages")
+                  .update({ follow_up_suggestions: suggestions })
+                  .eq("id", insertedMsg.id);
+              }
+            }).finally(() => setFollowUpLoading(false));
+          }
         }
+        
         setStreamingMessage(null);
         setLoading(false);
         abortControllerRef.current = null;
