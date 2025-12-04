@@ -557,6 +557,19 @@ export const ChatInterface = ({
       
       setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
 
+      // Pre-fetch: Start user-message-only follow-up call during streaming
+      console.log("Pre-fetching follow-ups (user-only) during stream");
+      setFollowUpLoading(true);
+      const userOnlyPromise = supabase.functions.invoke('generate-followups', {
+        body: { lastUserMessage: messageToSend, userMessageOnly: true }
+      }).then(({ data, error }) => {
+        console.log("User-only follow-ups received:", { suggestions: data?.suggestions?.length, error });
+        return { data, error, source: 'user-only' as const };
+      }).catch(err => {
+        console.error("User-only follow-ups failed:", err);
+        return { data: null, error: err, source: 'user-only' as const };
+      });
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -627,43 +640,104 @@ export const ChatInterface = ({
         user_email: authUser.email,
       });
 
-      // Generate follow-up suggestions and persist them
-      console.log("Generating follow-ups (auth):", { messageToSend: messageToSend.substring(0, 50), responseLength: fullContent.length });
-      setFollowUpLoading(true);
-      supabase.functions.invoke('generate-followups', {
+      // Generate follow-up suggestions with parallel calls and smart fallback
+      console.log("Generating follow-ups (full-context) - streaming completed");
+      
+      // Full-context call (higher quality but slower)
+      const fullContextPromise = supabase.functions.invoke('generate-followups', {
         body: { 
           lastUserMessage: messageToSend, 
           lastAIResponse: fullContent.substring(0, 1500),
         }
-      }).then(async ({ data, error }) => {
-        console.log("Follow-ups response (auth):", { data, error });
-        const suggestions = data?.suggestions || [];
-        setFollowUpSuggestions(suggestions);
-        
-        // Persist follow-ups to the assistant message
-        if (suggestions.length > 0 && currentConversationId) {
-          const { data: lastMsg } = await supabase
-            .from("messages")
-            .select("id")
-            .eq("conversation_id", currentConversationId)
-            .eq("role", "assistant")
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .single();
-          
-          if (lastMsg) {
-            await supabase
-              .from("messages")
-              .update({ follow_up_suggestions: suggestions })
-              .eq("id", lastMsg.id);
+      }).then(({ data, error }) => {
+        console.log("Full-context follow-ups received:", { suggestions: data?.suggestions?.length, error });
+        return { data, error, source: 'full-context' as const };
+      }).catch(err => {
+        console.error("Full-context follow-ups failed:", err);
+        return { data: null, error: err, source: 'full-context' as const };
+      });
+
+      // Race: Wait max 2 seconds for full-context, otherwise use pre-fetched user-only
+      const timeoutPromise = new Promise<{ timeout: true }>(resolve => 
+        setTimeout(() => resolve({ timeout: true }), 2000)
+      );
+
+      // First, try to get full-context within 2 seconds
+      const raceResult = await Promise.race([fullContextPromise, timeoutPromise]);
+      
+      let finalSuggestions: {label: string; prompt: string}[] = [];
+      let usedSource = 'none';
+
+      if ('timeout' in raceResult) {
+        // Full-context took too long, use user-only result
+        console.log("Full-context timeout (2s), using pre-fetched user-only");
+        const userOnlyResult = await userOnlyPromise;
+        if (userOnlyResult.data?.suggestions?.length > 0) {
+          finalSuggestions = userOnlyResult.data.suggestions;
+          usedSource = 'user-only (timeout fallback)';
+        }
+        // Still wait for full-context in background and update if better
+        fullContextPromise.then(async (result) => {
+          if (result.data?.suggestions?.length > 0) {
+            console.log("Full-context arrived late, updating suggestions");
+            setFollowUpSuggestions(result.data.suggestions);
+            // Persist the better suggestions
+            if (currentConversationId) {
+              const { data: lastMsg } = await supabase
+                .from("messages")
+                .select("id")
+                .eq("conversation_id", currentConversationId)
+                .eq("role", "assistant")
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .single();
+              
+              if (lastMsg) {
+                await supabase
+                  .from("messages")
+                  .update({ follow_up_suggestions: result.data.suggestions })
+                  .eq("id", lastMsg.id);
+              }
+            }
+          }
+        });
+      } else {
+        // Full-context arrived in time
+        if (raceResult.data?.suggestions?.length > 0) {
+          finalSuggestions = raceResult.data.suggestions;
+          usedSource = 'full-context';
+        } else {
+          // Full-context failed, try user-only
+          const userOnlyResult = await userOnlyPromise;
+          if (userOnlyResult.data?.suggestions?.length > 0) {
+            finalSuggestions = userOnlyResult.data.suggestions;
+            usedSource = 'user-only (full-context failed)';
           }
         }
-      }).catch((err) => {
-        console.error("Failed to generate follow-ups:", err);
-        setFollowUpSuggestions([]);
-      }).finally(() => {
-        setFollowUpLoading(false);
-      });
+      }
+
+      console.log("Follow-ups resolved:", { count: finalSuggestions.length, source: usedSource });
+      setFollowUpSuggestions(finalSuggestions);
+      setFollowUpLoading(false);
+      
+      // Persist follow-ups to the assistant message
+      if (finalSuggestions.length > 0 && currentConversationId) {
+        const { data: lastMsg } = await supabase
+          .from("messages")
+          .select("id")
+          .eq("conversation_id", currentConversationId)
+          .eq("role", "assistant")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (lastMsg) {
+          await supabase
+            .from("messages")
+            .update({ follow_up_suggestions: finalSuggestions })
+            .eq("id", lastMsg.id);
+        }
+      }
     } catch (error: any) {
       setStreamingMessage(null);
       const errorMsg = getErrorMessage(error, error?.status);
