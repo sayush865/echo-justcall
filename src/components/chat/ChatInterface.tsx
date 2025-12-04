@@ -490,11 +490,22 @@ export const ChatInterface = ({
         setFollowUpLoading(false);
       });
     } catch (error: any) {
-      // Handle abort gracefully
+      // Handle abort (user clicked stop) - preserve partial content
       if (error?.name === 'AbortError') {
         console.log("Request was aborted by user");
+        // Keep whatever content was streamed so far
+        if (streamingMessage?.content) {
+          const partialContent = streamingMessage.content;
+          setMessages(prev => [...prev, {
+            id: `partial-${Date.now()}`,
+            role: "assistant",
+            content: partialContent,
+            created_at: new Date().toISOString()
+          }]);
+        }
         setStreamingMessage(null);
         setLoading(false);
+        abortControllerRef.current = null;
         return;
       }
       
@@ -589,6 +600,9 @@ export const ChatInterface = ({
     setLoading(true);
     setIsUserNearBottom(true); // Resume auto-scroll when user sends message
     setFollowUpSuggestions([]); // Clear follow-up suggestions when sending new message
+    
+    // Show streaming UI immediately with empty content (loading state)
+    setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
 
     // Optimistically add user message to UI immediately
     const tempUserMsgId = `temp-user-${Date.now()}`;
@@ -661,7 +675,7 @@ export const ChatInterface = ({
       const steps: string[] = [];
       let buffer = "";
       
-      setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
+      // Streaming message already set above
 
       // Pre-fetch: Start user-message-only follow-up call during streaming
       console.log("Pre-fetching follow-ups (user-only) during stream");
