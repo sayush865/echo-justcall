@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Mic, MicOff, Send, Loader2, Copy, Check, ArrowDown, Share2, LogOut } from "lucide-react";
+import { Mic, MicOff, Send, Loader2, Copy, Check, ArrowDown, Share2, LogOut, Square } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { MarkdownRenderer } from "./MarkdownRenderer";
@@ -96,6 +96,7 @@ export const ChatInterface = ({
   const [followUpLoading, setFollowUpLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -281,6 +282,9 @@ export const ChatInterface = ({
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       
+      // Create AbortController for this request
+      abortControllerRef.current = new AbortController();
+      
       const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
         method: "POST",
         headers: {
@@ -288,6 +292,7 @@ export const ChatInterface = ({
           "Authorization": `Bearer ${supabaseKey}`,
         },
         body: JSON.stringify({ message: messageToSend, conversationId: currentConversationId }),
+        signal: abortControllerRef.current.signal,
       });
 
       if (!response.ok) {
@@ -404,6 +409,14 @@ export const ChatInterface = ({
         setFollowUpLoading(false);
       });
     } catch (error: any) {
+      // Handle abort gracefully
+      if (error?.name === 'AbortError') {
+        console.log("Request was aborted by user");
+        setStreamingMessage(null);
+        setLoading(false);
+        return;
+      }
+      
       setStreamingMessage(null);
       const errorMsg = getErrorMessage(error, error?.status);
       
@@ -437,7 +450,15 @@ export const ChatInterface = ({
       console.error("Message send failed:", { error, retryCount, messageToSend: messageToSend.substring(0, 50) });
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
       if (!lastFailedMessage) setRetryCount(0);
+    }
+  };
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      toast.info("Response generation stopped");
     }
   };
 
@@ -876,17 +897,23 @@ export const ChatInterface = ({
                     {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
                   </button>
                 )}
-                <button 
-                  onClick={() => handleSend()}
-                  disabled={!input.trim() || loading}
-                  className="bg-foreground text-background rounded-full p-2.5 hover:opacity-80 transition-all disabled:opacity-50"
-                >
-                  {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
+                {loading ? (
+                  <button 
+                    onClick={handleStop}
+                    className="bg-destructive text-destructive-foreground rounded-full p-2.5 hover:opacity-80 transition-all"
+                    title="Stop generating"
+                  >
+                    <Square className="w-4 h-4 fill-current" />
+                  </button>
+                ) : (
+                  <button 
+                    onClick={() => handleSend()}
+                    disabled={!input.trim()}
+                    className="bg-foreground text-background rounded-full p-2.5 hover:opacity-80 transition-all disabled:opacity-50"
+                  >
                     <Send className="w-4 h-4" />
-                  )}
-                </button>
+                  </button>
+                )}
               </div>
             </div>
             {isListening && (
@@ -1083,17 +1110,23 @@ export const ChatInterface = ({
                       {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
                     </button>
                   )}
-                  <button 
-                    onClick={() => handleSend()}
-                    disabled={!input.trim() || loading}
-                    className="bg-foreground text-background rounded-full p-2.5 hover:opacity-80 transition-all disabled:opacity-50"
-                  >
-                    {loading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
+                  {loading ? (
+                    <button 
+                      onClick={handleStop}
+                      className="bg-destructive text-destructive-foreground rounded-full p-2.5 hover:opacity-80 transition-all"
+                      title="Stop generating"
+                    >
+                      <Square className="w-4 h-4 fill-current" />
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => handleSend()}
+                      disabled={!input.trim()}
+                      className="bg-foreground text-background rounded-full p-2.5 hover:opacity-80 transition-all disabled:opacity-50"
+                    >
                       <Send className="w-4 h-4" />
-                    )}
-                  </button>
+                    </button>
+                  )}
                 </div>
               </div>
               {isListening && (
