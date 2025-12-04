@@ -96,6 +96,8 @@ export const ChatInterface = ({
   const [followUpLoading, setFollowUpLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
+  const [pendingResponse, setPendingResponse] = useState(false); // Track if AI is processing in background
+  const activeConversationRef = useRef<string | null>(null); // Track which conversation we're streaming for
   const abortControllerRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -158,6 +160,7 @@ export const ChatInterface = ({
   useEffect(() => {
     if (conversationId) {
       loadMessages();
+      loadPendingStatus();
 
       const channel = supabase
         .channel(`messages:${conversationId}`)
@@ -173,6 +176,21 @@ export const ChatInterface = ({
             loadMessages();
           }
         )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "conversations",
+            filter: `id=eq.${conversationId}`,
+          },
+          (payload: any) => {
+            // Update pending_response state when conversation is updated
+            if (payload.new?.pending_response !== undefined) {
+              setPendingResponse(payload.new.pending_response);
+            }
+          }
+        )
         .subscribe();
 
       return () => {
@@ -180,8 +198,28 @@ export const ChatInterface = ({
       };
     } else {
       setMessages([]);
+      setPendingResponse(false);
+      // Reset states for new chat but DON'T abort ongoing requests
+      // Let them continue in background for the previous conversation
+      if (activeConversationRef.current && loading) {
+        console.log("Switching away from active conversation, letting it continue in background");
+      }
+      setLoading(false);
+      setStreamingMessage(null);
+      setFollowUpSuggestions([]);
+      setFollowUpLoading(false);
     }
   }, [conversationId]);
+
+  const loadPendingStatus = async () => {
+    if (!conversationId) return;
+    const { data } = await supabase
+      .from("conversations")
+      .select("pending_response")
+      .eq("id", conversationId)
+      .single();
+    setPendingResponse(data?.pending_response || false);
+  };
 
   // Only auto-scroll if user is near the bottom
   useEffect(() => {
@@ -277,6 +315,9 @@ export const ChatInterface = ({
       });
 
       if (msgError) throw msgError;
+
+      // Track which conversation we're streaming for
+      activeConversationRef.current = currentConversationId;
 
       // Use fetch for true streaming instead of supabase.functions.invoke
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -462,6 +503,7 @@ export const ChatInterface = ({
     } finally {
       setLoading(false);
       abortControllerRef.current = null;
+      activeConversationRef.current = null;
       if (!lastFailedMessage) setRetryCount(0);
     }
   };
@@ -1050,6 +1092,16 @@ export const ChatInterface = ({
                       <span className="w-2 h-2 bg-muted-foreground/70 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
                       <span className="w-2 h-2 bg-muted-foreground/70 rounded-full animate-bounce"></span>
                     </div>
+                  </div>
+                </div>
+              )}
+              {/* Pending response indicator - shown when AI is processing in background */}
+              {pendingResponse && !loading && !streamingMessage && (
+                <div className="flex justify-start gap-3 py-2">
+                  <EchoLogo size="md" />
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    <span className="text-sm">Echo is thinking...</span>
                   </div>
                 </div>
               )}
