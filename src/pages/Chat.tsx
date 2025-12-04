@@ -7,7 +7,6 @@ import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const Chat = () => {
-  console.log("[Chat] Component rendering");
   const { conversationId } = useParams<{ conversationId: string }>();
   const navigate = useNavigate();
   const [conversationTitle, setConversationTitle] = useState<string>("");
