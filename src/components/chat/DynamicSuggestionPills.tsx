@@ -103,8 +103,8 @@ export const DynamicSuggestionPills = ({ onSelect }: DynamicSuggestionPillsProps
         }
       }
 
-      // Fetch global suggestions
-      const globalLimit = personalSuggestions.length > 0 ? 2 : 4;
+      // Fetch global suggestions - always fill up to 4 total
+      const globalLimit = 4 - personalSuggestions.length;
       const { data: global } = await supabase
         .from("dynamic_suggestions")
         .select("*")
