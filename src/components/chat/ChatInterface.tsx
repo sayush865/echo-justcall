@@ -107,6 +107,7 @@ export const ChatInterface = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef2 = useRef<HTMLTextAreaElement>(null);
   const activeConversationRef = useRef<string | null>(null);
+  const isStreamingRef = useRef<boolean>(false); // Immediate tracking for streaming state
   const { user, signOut } = useAuth();
 
   // Scroll handler to detect if user has scrolled up
@@ -166,9 +167,9 @@ export const ChatInterface = ({
     activeConversationRef.current = conversationId;
     
     // Reset local UI state when switching conversations (but don't abort - let backend continue)
-    // IMPORTANT: Don't reset if we're currently loading (mid-send) - this handles the case 
+    // IMPORTANT: Don't reset if we're currently streaming - this handles the case 
     // where we just created a new conversation and navigated to it
-    if (!loading) {
+    if (!isStreamingRef.current) {
       setStreamingMessage(null);
       setFollowUpLoading(false);
     }
@@ -283,6 +284,7 @@ export const ChatInterface = ({
     setFollowUpSuggestions([]); // Clear follow-up suggestions when sending new message
     
     // Show streaming UI immediately with empty content (loading state)
+    isStreamingRef.current = true; // Set immediately before streaming starts
     setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
 
     // Optimistically add user message to UI immediately
@@ -539,6 +541,7 @@ export const ChatInterface = ({
           }
         }
         
+        isStreamingRef.current = false;
         setStreamingMessage(null);
         setLoading(false);
         abortControllerRef.current = null;
@@ -577,6 +580,7 @@ export const ChatInterface = ({
       });
       console.error("Message send failed:", { error, retryCount, messageToSend: messageToSend.substring(0, 50) });
     } finally {
+      isStreamingRef.current = false;
       setLoading(false);
       abortControllerRef.current = null;
       if (!lastFailedMessage) setRetryCount(0);
@@ -638,6 +642,7 @@ export const ChatInterface = ({
     setFollowUpSuggestions([]); // Clear follow-up suggestions when sending new message
     
     // Show streaming UI immediately with empty content (loading state)
+    isStreamingRef.current = true; // Set immediately before streaming starts
     setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
 
     // Optimistically add user message to UI immediately
@@ -938,6 +943,7 @@ export const ChatInterface = ({
       });
       console.error("Message send failed (auth):", { error, retryCount, messageToSend: messageToSend.substring(0, 50) });
     } finally {
+      isStreamingRef.current = false;
       setLoading(false);
       if (!lastFailedMessage) setRetryCount(0);
     }
