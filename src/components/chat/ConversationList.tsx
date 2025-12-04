@@ -367,7 +367,7 @@ export const ConversationList = ({
           variant="ghost" 
           size="icon" 
           onClick={handleToggle}
-          className="fixed md:absolute top-5 left-4 z-30 h-9 w-9 bg-card border border-border shadow-sm"
+          className="fixed md:absolute top-4 left-4 z-30 h-9 w-9 bg-card border border-border shadow-sm"
         >
           <PanelLeft className="h-4 w-4" />
         </Button>
