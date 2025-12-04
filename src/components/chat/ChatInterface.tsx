@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Mic, MicOff, Send, Loader2, Copy, Check, ArrowDown, Download, LogOut } from "lucide-react";
+import { Mic, MicOff, Send, Loader2, Copy, Check, ArrowDown, Share2, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { MarkdownRenderer } from "./MarkdownRenderer";
@@ -20,7 +20,7 @@ import { AnimatedPlaceholder } from "./AnimatedPlaceholder";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { EchoLogo } from "./EchoLogo";
-import { ExportDialog } from "./ExportDialog";
+import { ShareDialog } from "./ShareDialog";
 import { DynamicSuggestionPills } from "./DynamicSuggestionPills";
 import { FollowUpPills } from "./FollowUpPills";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -91,7 +91,7 @@ export const ChatInterface = ({
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isUserNearBottom, setIsUserNearBottom] = useState(true);
-  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [followUpSuggestions, setFollowUpSuggestions] = useState<{label: string; prompt: string}[]>([]);
   const [followUpLoading, setFollowUpLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -715,20 +715,20 @@ export const ChatInterface = ({
       {/* Top right controls - Export (chat only) + Profile */}
       {user && (
         <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
-          {/* Export button - only in chat view */}
+          {/* Share button - only in chat view */}
           {conversationId && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => setExportDialogOpen(true)}
+                    onClick={() => setShareDialogOpen(true)}
                     className="flex items-center justify-center h-9 w-9 rounded-full hover:bg-accent transition-colors bg-card border border-border shadow-sm"
                   >
-                    <Download className="w-4 h-4" />
+                    <Share2 className="w-4 h-4" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Export conversation</p>
+                  <p>Share conversation</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -1032,13 +1032,15 @@ export const ChatInterface = ({
         </div>
       )}
       
-      {/* Export Dialog */}
-      <ExportDialog
-        open={exportDialogOpen}
-        onOpenChange={setExportDialogOpen}
-        conversationTitle={conversationTitle || "Conversation"}
-        messages={messages}
-      />
+      {/* Share Dialog */}
+      {conversationId && (
+        <ShareDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          conversationId={conversationId}
+          conversationTitle={conversationTitle || "Conversation"}
+        />
+      )}
     </div>
   );
 };
