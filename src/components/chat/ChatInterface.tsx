@@ -1071,7 +1071,7 @@ export const ChatInterface = ({
             </button>
           )}
 
-          <div className="p-4 md:p-6 pb-5 md:pb-7 bg-transparent relative z-10">
+          <div className="p-4 md:p-6 pb-8 md:pb-10 bg-transparent relative z-10">
             <div className="max-w-3xl mx-auto relative px-1">
               {/* Follow-up suggestion pills - above input with divider */}
               {!loading && !streamingMessage && (followUpSuggestions.length > 0 || followUpLoading) && (
