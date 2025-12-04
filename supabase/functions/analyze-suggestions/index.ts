@@ -32,10 +32,12 @@ serve(async (req) => {
 
     // Check for single-user refresh request
     let singleUserId: string | null = null;
+    let excludeLabels: string[] = [];
     if (req.method === 'POST') {
       try {
         const body = await req.json();
         singleUserId = body.userId || null;
+        excludeLabels = body.excludeLabels || [];
       } catch {
         // No body or invalid JSON - proceed with full analysis
       }
@@ -43,7 +45,7 @@ serve(async (req) => {
 
     // If single user refresh, only regenerate for that user
     if (singleUserId) {
-      console.log(`Regenerating suggestions for single user: ${singleUserId}`);
+      console.log(`Regenerating suggestions for single user: ${singleUserId}, excluding: ${excludeLabels.join(', ')}`);
       
       // Fetch user's recent messages
       const cutoffDate = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
@@ -68,7 +70,8 @@ serve(async (req) => {
           lovableApiKey,
           userMessages.map(m => m.content),
           2,
-          'personal'
+          'personal',
+          excludeLabels
         );
 
         for (const suggestion of personalSuggestions) {
@@ -249,8 +252,13 @@ async function generateSuggestions(
   apiKey: string,
   messages: string[],
   count: number,
-  type: 'global' | 'personal'
+  type: 'global' | 'personal',
+  excludeLabels: string[] = []
 ): Promise<Suggestion[]> {
+  const excludeClause = excludeLabels.length > 0 
+    ? `\n\nIMPORTANT: Do NOT generate suggestions with these labels or similar topics (generate completely different suggestions): ${excludeLabels.join(', ')}`
+    : '';
+
   const systemPrompt = type === 'global'
     ? `You are an AI that analyzes customer conversation patterns to generate helpful suggestion prompts for a customer intelligence platform called Echo. Echo helps product, sales, success, and support teams understand their customers.
 
@@ -269,7 +277,7 @@ For each suggestion, provide:
 - A detailed prompt that will yield valuable insights
 - A category from the list above
 - An icon name (Lightbulb, AlertTriangle, Puzzle, TrendingUp, HeadsetIcon, Users)
-- A priority (1-10, higher = more important)`
+- A priority (1-10, higher = more important)${excludeClause}`
     : `You are an AI that generates personalized suggestion prompts for a specific user based on their recent conversation history with Echo, a customer intelligence platform.
 
 Analyze this user's recent messages and generate ${count} personalized follow-up suggestions that would help them continue their research or explore related topics.
@@ -279,13 +287,13 @@ For each suggestion, provide:
 - A detailed prompt that continues or expands on their research
 - A category (churn, feature, integration, trend, support, sales)
 - An icon name (Lightbulb, AlertTriangle, Puzzle, TrendingUp, HeadsetIcon, Users)
-- A priority (1-10, higher = more important)`;
+- A priority (1-10, higher = more important)${excludeClause}`;
 
   const userPrompt = `Here are recent ${type === 'global' ? 'customer queries' : 'your recent queries'}:
 
 ${messages.slice(0, 30).map((m, i) => `${i + 1}. ${m}`).join('\n')}
 
-Generate ${count} suggestion prompts as a JSON array.`;
+Generate ${count} suggestion prompts as a JSON array.${excludeLabels.length > 0 ? ` Remember: generate completely DIFFERENT suggestions from: ${excludeLabels.join(', ')}` : ''}`;
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',

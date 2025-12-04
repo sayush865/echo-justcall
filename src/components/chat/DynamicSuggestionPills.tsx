@@ -91,9 +91,11 @@ export const DynamicSuggestionPills = ({ onSelect }: DynamicSuggestionPillsProps
     try {
       // If refresh is triggered by user, regenerate suggestions via edge function
       if (isRefresh && user?.id) {
-        console.log("Regenerating suggestions for user...");
+        // Send current suggestion labels to ensure new ones are unique
+        const currentLabels = suggestions.map(s => s.label);
+        console.log("Regenerating suggestions for user, excluding:", currentLabels);
         await supabase.functions.invoke('analyze-suggestions', {
-          body: { userId: user.id, forceRegenerate: true }
+          body: { userId: user.id, forceRegenerate: true, excludeLabels: currentLabels }
         });
       }
 
