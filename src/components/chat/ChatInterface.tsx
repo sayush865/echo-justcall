@@ -1162,7 +1162,7 @@ export const ChatInterface = ({
       
       {/* Footer credit */}
       <div className="fixed bottom-2 right-3 text-[10px] text-muted-foreground/50 select-none pointer-events-none">
-        made with ♥️ Ayush
+        Made with ♥️ Ayush
       </div>
     </div>
   );
