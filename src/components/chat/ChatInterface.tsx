@@ -101,6 +101,7 @@ export const ChatInterface = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef2 = useRef<HTMLTextAreaElement>(null);
+  const activeConversationRef = useRef<string | null>(null);
   const { user, signOut } = useAuth();
 
   // Scroll handler to detect if user has scrolled up
@@ -156,6 +157,16 @@ export const ChatInterface = ({
   }, [transcript]);
 
   useEffect(() => {
+    // Track active conversation for preventing stale UI updates
+    activeConversationRef.current = conversationId;
+    
+    // Reset local UI state when switching conversations (but don't abort - let backend continue)
+    setLoading(false);
+    setStreamingMessage(null);
+    setFollowUpLoading(false);
+    setRetryCount(0);
+    setLastFailedMessage(null);
+    
     if (conversationId) {
       loadMessages();
 
@@ -169,8 +180,11 @@ export const ChatInterface = ({
             table: "messages",
             filter: `conversation_id=eq.${conversationId}`,
           },
-          () => {
-            loadMessages();
+          (payload) => {
+            // Only update if still viewing this conversation
+            if (activeConversationRef.current === conversationId) {
+              loadMessages();
+            }
           }
         )
         .subscribe();
@@ -180,6 +194,7 @@ export const ChatInterface = ({
       };
     } else {
       setMessages([]);
+      setFollowUpSuggestions([]);
     }
   }, [conversationId]);
 
@@ -1084,7 +1099,7 @@ export const ChatInterface = ({
                   <FollowUpPills 
                     suggestions={followUpSuggestions} 
                     onSelect={(prompt) => {
-                      setFollowUpSuggestions([]);
+                      // Don't clear suggestions - let user iterate and choose
                       setInput(prompt);
                       setTimeout(() => textareaRef.current?.focus(), 0);
                     }} 
