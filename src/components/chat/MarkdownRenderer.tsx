@@ -29,8 +29,8 @@ export const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
       return numbers.map((n: number) => `%%CITATION_${n}%%`).join(" ");
     });
     
-    // Handle unbracketed "source X Y Z" or "source X, Y, Z" patterns
-    processed = processed.replace(/\bsource\s+([\d,\s]+)/gi, (match, nums) => {
+    // Handle unbracketed "source X Y Z", "source X, Y, Z", "sources: X Y Z" patterns
+    processed = processed.replace(/\bsources?:?\s*([\d,\s]+)/gi, (match, nums) => {
       const numbers = nums.split(/[,\s]+/).map((n: string) => parseInt(n.trim(), 10)).filter((n: number) => !isNaN(n));
       const hasAnyCitation = numbers.some((n: number) => inlineCitations.has(n));
       if (!hasAnyCitation) return match;

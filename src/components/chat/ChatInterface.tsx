@@ -108,6 +108,8 @@ export const ChatInterface = ({
   const textareaRef2 = useRef<HTMLTextAreaElement>(null);
   const activeConversationRef = useRef<string | null>(null);
   const isStreamingRef = useRef<boolean>(false); // Immediate tracking for streaming state
+  const sendInProgressRef = useRef<string | null>(null); // Track which conversation has active send
+  const lastSentMessageRef = useRef<{ content: string; timestamp: number } | null>(null); // Prevent duplicate sends
   const { user, signOut } = useAuth();
 
   // Scroll handler to detect if user has scrolled up
@@ -167,9 +169,10 @@ export const ChatInterface = ({
     activeConversationRef.current = conversationId;
     
     // Reset local UI state when switching conversations (but don't abort - let backend continue)
-    // IMPORTANT: Don't reset if we're currently streaming - this handles the case 
-    // where we just created a new conversation and navigated to it
-    if (!isStreamingRef.current) {
+    // IMPORTANT: Don't reset if we're currently streaming OR if this is the conversation we just sent to
+    const isSendingToThisConversation = sendInProgressRef.current === conversationId || 
+                                         (sendInProgressRef.current === 'new' && conversationId);
+    if (!isStreamingRef.current && !isSendingToThisConversation) {
       setStreamingMessage(null);
       setFollowUpLoading(false);
     }
@@ -268,6 +271,14 @@ export const ChatInterface = ({
     const messageToSend = messageOverride || input.trim();
     if (!messageToSend || loading) return;
     
+    // Prevent duplicate sends - check if same message was sent within 5 seconds
+    if (lastSentMessageRef.current && 
+        lastSentMessageRef.current.content === messageToSend &&
+        Date.now() - lastSentMessageRef.current.timestamp < 5000) {
+      console.log("Duplicate message prevented:", messageToSend.substring(0, 30));
+      return;
+    }
+    
     // Check auth - if not logged in, show modal and save message
     if (!user && !skipAuthCheck) {
       setPendingMessage(messageToSend);
@@ -282,6 +293,10 @@ export const ChatInterface = ({
     setLoading(true);
     setIsUserNearBottom(true); // Resume auto-scroll when user sends message
     setFollowUpSuggestions([]); // Clear follow-up suggestions when sending new message
+    
+    // Track this send to prevent premature UI resets on navigation
+    sendInProgressRef.current = conversationId || 'new';
+    lastSentMessageRef.current = { content: messageToSend, timestamp: Date.now() };
     
     // Show streaming UI immediately with empty content (loading state)
     isStreamingRef.current = true; // Set immediately before streaming starts
@@ -580,6 +595,7 @@ export const ChatInterface = ({
       });
       console.error("Message send failed:", { error, retryCount, messageToSend: messageToSend.substring(0, 50) });
     } finally {
+      sendInProgressRef.current = null;
       isStreamingRef.current = false;
       setLoading(false);
       abortControllerRef.current = null;
@@ -634,12 +650,24 @@ export const ChatInterface = ({
   const handleSendWithUser = async (messageToSend: string, authUser: { id: string; email?: string }) => {
     if (!messageToSend || loading) return;
     
+    // Prevent duplicate sends - check if same message was sent within 5 seconds
+    if (lastSentMessageRef.current && 
+        lastSentMessageRef.current.content === messageToSend &&
+        Date.now() - lastSentMessageRef.current.timestamp < 5000) {
+      console.log("Duplicate message prevented:", messageToSend.substring(0, 30));
+      return;
+    }
+    
     triggerHaptic("medium");
     setInput("");
     resetTranscript();
     setLoading(true);
     setIsUserNearBottom(true); // Resume auto-scroll when user sends message
     setFollowUpSuggestions([]); // Clear follow-up suggestions when sending new message
+    
+    // Track this send to prevent premature UI resets on navigation
+    sendInProgressRef.current = conversationId || 'new';
+    lastSentMessageRef.current = { content: messageToSend, timestamp: Date.now() };
     
     // Show streaming UI immediately with empty content (loading state)
     isStreamingRef.current = true; // Set immediately before streaming starts
@@ -943,6 +971,7 @@ export const ChatInterface = ({
       });
       console.error("Message send failed (auth):", { error, retryCount, messageToSend: messageToSend.substring(0, 50) });
     } finally {
+      sendInProgressRef.current = null;
       isStreamingRef.current = false;
       setLoading(false);
       if (!lastFailedMessage) setRetryCount(0);
