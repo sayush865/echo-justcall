@@ -15,18 +15,20 @@ interface MarkdownRendererProps {
 export const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   const { cleanContent, citations, inlineCitations } = useMemo(() => parseCitations(content), [content]);
 
-  // Replace [source:N] or [N] markers with placeholder that we'll render as pills
+  // Replace [source:N] or [N] or [source:1,2,3] markers with placeholders
   const contentWithPlaceholders = useMemo(() => {
     if (inlineCitations.size === 0) return cleanContent;
     
-    // Replace [source:N] or [N] with a special marker we can detect
-    return cleanContent.replace(/\[(?:source:)?(\d+)\]/gi, (_, num) => {
-      const sourceNum = parseInt(num, 10);
-      // Only replace if we have a citation for this number
-      if (inlineCitations.has(sourceNum)) {
-        return `%%CITATION_${num}%%`;
-      }
-      return `[${num}]`; // Keep original if no citation found
+    // Handle both single and comma-separated citations: [source:1], [1], [source:1,2,3], [1,2,3]
+    return cleanContent.replace(/\[(?:source:)?([\d,\s]+)\]/gi, (match, nums) => {
+      const numbers = nums.split(/[,\s]+/).map((n: string) => parseInt(n.trim(), 10)).filter((n: number) => !isNaN(n));
+      
+      // Check if at least one citation exists for these numbers
+      const hasAnyCitation = numbers.some((n: number) => inlineCitations.has(n));
+      if (!hasAnyCitation) return match; // Keep original if no citations found
+      
+      // Create placeholder for each number
+      return numbers.map((n: number) => `%%CITATION_${n}%%`).join("");
     });
   }, [cleanContent, inlineCitations]);
 
