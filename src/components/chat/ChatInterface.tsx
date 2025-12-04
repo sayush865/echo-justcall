@@ -273,10 +273,8 @@ export const ChatInterface = ({
   };
 
   const handleSend = async (messageOverride?: string, skipAuthCheck?: boolean) => {
-    console.log("[handleSend] Called with:", { messageOverride: messageOverride?.substring(0, 30), input: input.substring(0, 30), loading, conversationId });
     const messageToSend = messageOverride || input.trim();
     if (!messageToSend || loading) {
-      console.log("[handleSend] Early return - no message or loading");
       return;
     }
     
@@ -284,7 +282,6 @@ export const ChatInterface = ({
     if (lastSentMessageRef.current && 
         lastSentMessageRef.current.content === messageToSend &&
         Date.now() - lastSentMessageRef.current.timestamp < 5000) {
-      console.log("Duplicate message prevented:", messageToSend.substring(0, 30));
       return;
     }
     
@@ -335,7 +332,6 @@ export const ChatInterface = ({
 
         if (convError) throw convError;
         currentConversationId = newConv.id;
-        console.log("[handleSend] Creating new conversation, navigating to:", `/c/${currentConversationId}`);
         navigate(`/c/${currentConversationId}`);
         
         // Log conversation creation
@@ -446,13 +442,12 @@ export const ChatInterface = ({
               }
             }
           } catch {
-            // JSON parse failed - don't add raw content, just log for debugging
-            console.warn("Failed to parse NDJSON line:", line.substring(0, 50));
+            // JSON parse failed - skip this line
           }
         }
       }
 
-      console.log("Streaming complete, fullContent length:", fullContent.length);
+      // Streaming complete
       
       // Only update UI if still on the same conversation
       if (isActiveConversation()) {
@@ -474,7 +469,6 @@ export const ChatInterface = ({
         setStreamingMessage(null);
       }
 
-      console.log("Inserting message to DB for conversation:", currentConversationId);
       const { data: insertedMsg } = await supabase.from("messages").insert({
         conversation_id: currentConversationId,
         role: "assistant",
@@ -486,7 +480,6 @@ export const ChatInterface = ({
       const assistantMessageId = insertedMsg?.id;
 
       // Generate follow-up suggestions and persist them
-      console.log("Generating follow-ups for:", { messageToSend: messageToSend.substring(0, 50), responseLength: fullContent.length });
       setFollowUpLoading(true);
       supabase.functions.invoke('generate-followups', {
         body: { 
@@ -494,7 +487,6 @@ export const ChatInterface = ({
           lastAIResponse: fullContent.substring(0, 1500),
         }
       }).then(async ({ data, error }) => {
-        console.log("Follow-ups response:", { data, error });
         const suggestions = data?.suggestions || [];
         setFollowUpSuggestions(suggestions);
         
@@ -503,7 +495,6 @@ export const ChatInterface = ({
           await supabase.from("messages")
             .update({ follow_up_suggestions: suggestions })
             .eq("id", assistantMessageId);
-          console.log("Follow-ups persisted to message:", assistantMessageId);
         }
         
         // Update cache with follow-ups so they persist when switching conversations
@@ -525,7 +516,6 @@ export const ChatInterface = ({
     } catch (error: any) {
       // Handle abort (user clicked stop) - preserve partial content
       if (error?.name === 'AbortError') {
-        console.log("Request was aborted by user, preserving content length:", fullContent.length);
         
         // Keep whatever content was streamed so far (use fullContent, not stale streamingMessage)
         if (fullContent) {
@@ -664,7 +654,6 @@ export const ChatInterface = ({
     if (lastSentMessageRef.current && 
         lastSentMessageRef.current.content === messageToSend &&
         Date.now() - lastSentMessageRef.current.timestamp < 5000) {
-      console.log("Duplicate message prevented:", messageToSend.substring(0, 30));
       return;
     }
     
@@ -757,12 +746,10 @@ export const ChatInterface = ({
       // Streaming message already set above
 
       // Pre-fetch: Start user-message-only follow-up call during streaming
-      console.log("Pre-fetching follow-ups (user-only) during stream");
       setFollowUpLoading(true);
       const userOnlyPromise = supabase.functions.invoke('generate-followups', {
         body: { lastUserMessage: messageToSend, userMessageOnly: true }
       }).then(({ data, error }) => {
-        console.log("User-only follow-ups received:", { suggestions: data?.suggestions?.length, error });
         return { data, error, source: 'user-only' as const };
       }).catch(err => {
         console.error("User-only follow-ups failed:", err);
@@ -814,7 +801,7 @@ export const ChatInterface = ({
               } : null);
             }
           } catch {
-            console.warn("Failed to parse NDJSON line:", line.substring(0, 50));
+            // JSON parse failed - skip this line
           }
         }
       }
@@ -840,7 +827,6 @@ export const ChatInterface = ({
       });
 
       // Generate follow-up suggestions with parallel calls and smart fallback
-      console.log("Generating follow-ups (full-context) - streaming completed");
       
       // Full-context call (higher quality but slower)
       const fullContextPromise = supabase.functions.invoke('generate-followups', {
@@ -849,7 +835,6 @@ export const ChatInterface = ({
           lastAIResponse: fullContent.substring(0, 1500),
         }
       }).then(({ data, error }) => {
-        console.log("Full-context follow-ups received:", { suggestions: data?.suggestions?.length, error });
         return { data, error, source: 'full-context' as const };
       }).catch(err => {
         console.error("Full-context follow-ups failed:", err);
@@ -869,7 +854,6 @@ export const ChatInterface = ({
 
       if ('timeout' in raceResult) {
         // Full-context took too long, use user-only result
-        console.log("Full-context timeout (2s), using pre-fetched user-only");
         const userOnlyResult = await userOnlyPromise;
         if (userOnlyResult.data?.suggestions?.length > 0) {
           finalSuggestions = userOnlyResult.data.suggestions;
@@ -878,7 +862,6 @@ export const ChatInterface = ({
         // Still wait for full-context in background and update if better
         fullContextPromise.then(async (result) => {
           if (result.data?.suggestions?.length > 0) {
-            console.log("Full-context arrived late, updating suggestions");
             setFollowUpSuggestions(result.data.suggestions);
             // Update cache
             const cached = messagesCacheRef.current.get(currentConversationId);
@@ -894,7 +877,7 @@ export const ChatInterface = ({
                 .eq("role", "assistant")
                 .order("created_at", { ascending: false })
                 .limit(1)
-                .single();
+                .maybeSingle();
               
               if (lastMsg) {
                 await supabase
@@ -920,7 +903,6 @@ export const ChatInterface = ({
         }
       }
 
-      console.log("Follow-ups resolved:", { count: finalSuggestions.length, source: usedSource });
       setFollowUpSuggestions(finalSuggestions);
       setFollowUpLoading(false);
       

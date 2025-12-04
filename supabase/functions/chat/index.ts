@@ -57,7 +57,7 @@ serve(async (req) => {
       .from("conversations")
       .select("*")
       .eq("id", conversationId)
-      .single();
+      .maybeSingle();
 
     if (conversationError) {
       console.error("Error fetching conversation:", conversationError);
@@ -89,7 +89,8 @@ serve(async (req) => {
     url.searchParams.set("conversationTitle", conversation?.title || "");
     url.searchParams.set("messageCount", messages?.length?.toString() || "0");
 
-    console.log("Calling webhook:", url.toString());
+    // Debug logging only in development
+    // console.log("Calling webhook:", url.toString());
 
     // Background processing function - saves response to DB when complete
     const processInBackground = async () => {
@@ -157,7 +158,7 @@ serve(async (req) => {
           }
         }
 
-        console.log("Background processing complete, response length:", fullResponse.length);
+        // Background processing complete
 
         // Save the AI response to messages table
         if (fullResponse.length > 0) {
@@ -168,7 +169,7 @@ serve(async (req) => {
             user_id: userId,
             user_email: userEmail,
           });
-          console.log("Saved AI response to messages table for conversation:", conversationId);
+          // AI response saved to messages table
         }
 
         // Log AI response
@@ -194,7 +195,7 @@ serve(async (req) => {
           .from("conversations")
           .update({ pending_response: false })
           .eq("id", conversationId);
-        console.log("Set pending_response = false for conversation:", conversationId);
+        // Cleanup complete
       }
     };
 
@@ -215,7 +216,7 @@ serve(async (req) => {
       },
     });
 
-    console.log("Webhook response status:", response.status);
+    // Webhook response received
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -282,7 +283,7 @@ serve(async (req) => {
               .from("conversations")
               .update({ pending_response: false })
               .eq("id", conversationId);
-            console.log("Streaming complete, set pending_response = false");
+            // Streaming complete
             
             await writer.close();
             break;
@@ -307,7 +308,7 @@ serve(async (req) => {
             }
           }
           
-          console.log("Streaming chunk:", chunk.substring(0, 100));
+          // Stream chunk processed
           // Write chunk immediately to ensure it's flushed
           await writer.write(encoder.encode(chunk));
         }
