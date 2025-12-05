@@ -278,12 +278,20 @@ export const ChatInterface = ({
       return;
     }
     
+    // Synchronous guard using ref - prevents rapid duplicate calls before state updates
+    if (sendInProgressRef.current) {
+      return;
+    }
+    
     // Prevent duplicate sends - check if same message was sent within 5 seconds
     if (lastSentMessageRef.current && 
         lastSentMessageRef.current.content === messageToSend &&
         Date.now() - lastSentMessageRef.current.timestamp < 5000) {
       return;
     }
+    
+    // Set synchronous guard immediately (before any async operations)
+    sendInProgressRef.current = conversationId || 'new';
     
     // Check auth - if not logged in, show modal and save message
     if (!user && !skipAuthCheck) {
@@ -300,8 +308,6 @@ export const ChatInterface = ({
     setIsUserNearBottom(true); // Resume auto-scroll when user sends message
     setFollowUpSuggestions([]); // Clear follow-up suggestions when sending new message
     
-    // Track this send to prevent premature UI resets on navigation
-    sendInProgressRef.current = conversationId || 'new';
     lastSentMessageRef.current = { content: messageToSend, timestamp: Date.now() };
     
     // Show streaming UI immediately with empty content (loading state)
