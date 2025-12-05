@@ -792,6 +792,16 @@ export const ChatInterface = ({
                 isStreaming: true,
                 steps 
               });
+            } else if (parsed.type === "begin" && parsed.metadata?.nodeName) {
+              // n8n workflow node starting - show as processing step
+              const stepText = parsed.metadata.nodeName;
+              if (!steps.includes(stepText)) {
+                steps.push(stepText);
+                setStreamingMessage(prev => prev ? { 
+                  ...prev, 
+                  steps: [...(prev.steps || []), stepText] 
+                } : null);
+              }
             } else if (parsed.type === "step" || parsed.type === "tool" || parsed.type === "thinking") {
               const stepText = parsed.text || parsed.name || parsed.content || JSON.stringify(parsed);
               steps.push(stepText);
@@ -1221,22 +1231,32 @@ export const ChatInterface = ({
               {streamingMessage && (
                 <div className="flex justify-start gap-3">
                   <EchoLogo size="md" className="mt-0.5" />
-                  <div className="flex-1 space-y-3 min-w-0">
-                    {/* Intermediate steps */}
-                    {streamingMessage.steps && streamingMessage.steps.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {streamingMessage.steps.map((step, idx) => (
-                          <span 
-                            key={idx} 
-                            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 animate-fade-in"
-                          >
-                            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
-                            {step}
+                  <div className="flex-1 space-y-2 min-w-0">
+                    {/* Processing steps indicator - show when streaming */}
+                    {streamingMessage.isStreaming && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {streamingMessage.steps && streamingMessage.steps.length > 0 ? (
+                          streamingMessage.steps.slice(-3).map((step, idx) => (
+                            <span 
+                              key={idx} 
+                              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 animate-fade-in shadow-sm"
+                            >
+                              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
+                              {step.length > 30 ? step.slice(0, 30) + '...' : step}
+                            </span>
+                          ))
+                        ) : !streamingMessage.content && (
+                          <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-muted text-muted-foreground border border-border animate-fade-in">
+                            <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-pulse"></span>
+                            Thinking...
                           </span>
-                        ))}
+                        )}
                       </div>
                     )}
-                    <MarkdownRenderer content={streamingMessage.content + (streamingMessage.isStreaming ? "▋" : "")} />
+                    {/* Show content with real-time citation parsing */}
+                    {(streamingMessage.content || !streamingMessage.isStreaming) && (
+                      <MarkdownRenderer content={streamingMessage.content + (streamingMessage.isStreaming ? "▋" : "")} />
+                    )}
                   </div>
                 </div>
               )}
