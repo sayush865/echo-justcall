@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Copy, Link2, Loader2 } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -48,18 +48,10 @@ export const InlineCitationPill = ({ citation }: InlineCitationPillProps) => {
           className={`
             inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium 
             transition-all duration-200 cursor-pointer align-baseline mx-0.5
-            border shadow-sm
-            ${isStreaming 
-              ? "bg-muted/50 text-muted-foreground border-border/50 animate-pulse" 
-              : "bg-primary/5 text-primary border-primary/30 hover:bg-primary/10 hover:border-primary/50"
-            }
+            bg-muted/80 text-muted-foreground border border-border/50 
+            hover:bg-muted hover:border-border
           `}
         >
-          {isStreaming ? (
-            <Loader2 className="w-3 h-3 animate-spin" />
-          ) : (
-            <Link2 className="w-3 h-3" />
-          )}
           <span>{displayText}</span>
         </button>
       </PopoverTrigger>
@@ -70,15 +62,14 @@ export const InlineCitationPill = ({ citation }: InlineCitationPillProps) => {
         sideOffset={6}
       >
         {isStreaming ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span>Loading source details...</span>
+          <div className="text-sm text-muted-foreground">
+            Loading source details...
           </div>
         ) : (
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                   {displayText}
                 </span>
                 <span className="font-medium text-sm text-foreground">{label}</span>

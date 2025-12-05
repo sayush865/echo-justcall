@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CodeBlock } from "./CodeBlock";
@@ -11,9 +11,10 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 interface MarkdownRendererProps {
   content: string;
   isStreaming?: boolean;
+  onSourceCount?: (count: number) => void;
 }
 
-export const MarkdownRenderer = ({ content, isStreaming = false }: MarkdownRendererProps) => {
+export const MarkdownRenderer = ({ content, isStreaming = false, onSourceCount }: MarkdownRendererProps) => {
   // Use streaming-aware citation parsing
   const { cleanContent, citations, inlineCitations } = useMemo(() => {
     // For streaming content, merge streaming placeholders with any parsed citations
@@ -32,6 +33,13 @@ export const MarkdownRenderer = ({ content, isStreaming = false }: MarkdownRende
     }
     return parseCitations(content);
   }, [content, isStreaming]);
+
+  // Report source count to parent
+  useEffect(() => {
+    if (onSourceCount) {
+      onSourceCount(inlineCitations.size);
+    }
+  }, [inlineCitations.size, onSourceCount]);
 
   // Replace various citation formats with placeholders
   const contentWithPlaceholders = useMemo(() => {
