@@ -252,6 +252,14 @@ export default function AdminDashboard() {
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [addingAdmin, setAddingAdmin] = useState(false);
 
+  // Actual counts from DB (not limited)
+  const [totalCounts, setTotalCounts] = useState({
+    users: 0,
+    conversations: 0,
+    messages: 0,
+    admins: 0,
+  });
+
   // Sort states
   const [userSort, setUserSort] = useState<UserSortOption>("most_logins");
   const [messageSort, setMessageSort] = useState<MessageSortOption>("newest");
@@ -272,12 +280,28 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     setRefreshing(true);
     try {
-      const [profilesRes, conversationsRes, messagesRes, rolesRes, logsRes] = await Promise.all([
+      // Fetch counts separately for accurate stats
+      const [
+        profilesRes, 
+        conversationsRes, 
+        messagesRes, 
+        rolesRes, 
+        logsRes,
+        usersCountRes,
+        convsCountRes,
+        msgsCountRes,
+        adminsCountRes,
+      ] = await Promise.all([
         supabase.from("profiles").select("*").order("created_at", { ascending: false }),
-        supabase.from("conversations").select("*").order("updated_at", { ascending: false }),
-        supabase.from("messages").select("*").order("created_at", { ascending: false }).limit(2000),
+        supabase.from("conversations").select("*").order("updated_at", { ascending: false }).limit(500),
+        supabase.from("messages").select("*").order("created_at", { ascending: false }).limit(1000),
         supabase.from("user_roles").select("*"),
         supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(500),
+        // Count queries for accurate totals
+        supabase.from("profiles").select("*", { count: "exact", head: true }),
+        supabase.from("conversations").select("*", { count: "exact", head: true }),
+        supabase.from("messages").select("*", { count: "exact", head: true }),
+        supabase.from("user_roles").select("*", { count: "exact", head: true }).eq("role", "admin"),
       ]);
 
       if (profilesRes.data) setProfiles(profilesRes.data);
@@ -285,6 +309,13 @@ export default function AdminDashboard() {
       if (messagesRes.data) setMessages(messagesRes.data);
       if (rolesRes.data) setUserRoles(rolesRes.data as UserRole[]);
       if (logsRes.data) setAuditLogs(logsRes.data as AuditLog[]);
+      
+      setTotalCounts({
+        users: usersCountRes.count || 0,
+        conversations: convsCountRes.count || 0,
+        messages: msgsCountRes.count || 0,
+        admins: adminsCountRes.count || 0,
+      });
     } catch (error) {
       toast.error("Failed to fetch data");
     } finally {
@@ -603,7 +634,7 @@ export default function AdminDashboard() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{profiles.length}</div>
+              <div className="text-2xl font-bold">{totalCounts.users}</div>
             </CardContent>
           </Card>
           <Card>
@@ -612,7 +643,7 @@ export default function AdminDashboard() {
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{conversations.length}</div>
+              <div className="text-2xl font-bold">{totalCounts.conversations}</div>
             </CardContent>
           </Card>
           <Card>
@@ -621,7 +652,7 @@ export default function AdminDashboard() {
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{messages.length}</div>
+              <div className="text-2xl font-bold">{totalCounts.messages}</div>
             </CardContent>
           </Card>
           <Card>
@@ -630,7 +661,7 @@ export default function AdminDashboard() {
               <Shield className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{userRoles.filter(r => r.role === "admin").length}</div>
+              <div className="text-2xl font-bold">{totalCounts.admins}</div>
             </CardContent>
           </Card>
         </div>
