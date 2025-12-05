@@ -11,7 +11,11 @@ const ECHO_LOADING_PHRASES = [
   "Finding patterns...",
 ];
 
-export const EchoLoadingIndicator = () => {
+interface EchoLoadingIndicatorProps {
+  asText?: boolean;
+}
+
+export const EchoLoadingIndicator = ({ asText = false }: EchoLoadingIndicatorProps) => {
   const [phraseIndex, setPhraseIndex] = useState(0);
 
   useEffect(() => {
@@ -21,6 +25,14 @@ export const EchoLoadingIndicator = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  if (asText) {
+    return (
+      <span className="text-sm text-muted-foreground animate-fade-in">
+        {ECHO_LOADING_PHRASES[phraseIndex]}
+      </span>
+    );
+  }
 
   return (
     <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-gradient-to-r from-primary/10 to-primary/5 text-primary border border-primary/20 animate-fade-in shadow-sm">
