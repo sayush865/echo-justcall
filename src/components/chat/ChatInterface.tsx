@@ -1250,14 +1250,12 @@ export const ChatInterface = ({
                 </div>
               ))}
               {streamingMessage && (
-                <div className="flex justify-start gap-3">
-                  <EchoLogo size="md" className="mt-0.5" />
+                <div className={`flex justify-start gap-3 ${streamingMessage.isStreaming && !streamingMessage.content ? 'items-center' : ''}`}>
+                  <EchoLogo size="md" className={streamingMessage.content ? "mt-0.5" : ""} />
                   <div className="flex-1 space-y-2 min-w-0">
                     {/* Loading indicator - show when streaming but no content yet */}
                     {streamingMessage.isStreaming && !streamingMessage.content && (
-                      <div className="text-muted-foreground animate-fade-in">
-                        <EchoLoadingIndicator asText />
-                      </div>
+                      <EchoLoadingIndicator asText />
                     )}
                     {/* Source count - show during streaming */}
                     {streamingMessage.isStreaming && streamingSourceCount > 0 && (
