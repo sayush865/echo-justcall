@@ -329,7 +329,7 @@ export const ConversationList = ({
                             <MoreVertical className="w-3 h-3" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-36">
+                        <DropdownMenuContent align="end" className="w-36 z-[100] bg-popover border border-border shadow-lg">
                           <DropdownMenuItem onSelect={(e) => openRenameDialog(e, conv)}>
                             <Pencil className="w-4 h-4 mr-2" />
                             Rename
