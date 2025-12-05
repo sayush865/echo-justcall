@@ -21,6 +21,7 @@ import { AnimatedPlaceholder } from "./AnimatedPlaceholder";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { EchoLogo } from "./EchoLogo";
+import { EchoLoadingIndicator } from "./EchoLoadingIndicator";
 import { ShareDialog } from "./ShareDialog";
 import { DynamicSuggestionPills } from "./DynamicSuggestionPills";
 import { FollowUpPills } from "./FollowUpPills";
@@ -1246,16 +1247,16 @@ export const ChatInterface = ({
                             </span>
                           ))
                         ) : !streamingMessage.content && (
-                          <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-muted text-muted-foreground border border-border animate-fade-in">
-                            <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-pulse"></span>
-                            Thinking...
-                          </span>
+                          <EchoLoadingIndicator />
                         )}
                       </div>
                     )}
                     {/* Show content with real-time citation parsing */}
                     {(streamingMessage.content || !streamingMessage.isStreaming) && (
-                      <MarkdownRenderer content={streamingMessage.content + (streamingMessage.isStreaming ? "▋" : "")} />
+                      <MarkdownRenderer 
+                        content={streamingMessage.content + (streamingMessage.isStreaming ? "▋" : "")} 
+                        isStreaming={streamingMessage.isStreaming}
+                      />
                     )}
                   </div>
                 </div>

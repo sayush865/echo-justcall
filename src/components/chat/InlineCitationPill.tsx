@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Link2, Loader2 } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -19,21 +19,17 @@ const typeLabels: Record<Citation["type"], string> = {
   unknown: "Call",
 };
 
-// Circled number characters
-const circledNumbers = ["⓪", "①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩", 
-  "⑪", "⑫", "⑬", "⑭", "⑮", "⑯", "⑰", "⑱", "⑲", "⑳"];
-
 export const InlineCitationPill = ({ citation }: InlineCitationPillProps) => {
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
   const label = typeLabels[citation.type];
+  const isStreaming = citation.isStreaming;
   
-  const displayNumber = citation.sourceNumber !== undefined && citation.sourceNumber <= 20 
-    ? circledNumbers[citation.sourceNumber] 
-    : `[${citation.sourceNumber}]`;
+  const displayText = `Source ${citation.sourceNumber}`;
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isStreaming) return;
     try {
       await navigator.clipboard.writeText(citation.id);
       setCopied(true);
@@ -49,9 +45,22 @@ export const InlineCitationPill = ({ citation }: InlineCitationPillProps) => {
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-xs font-medium transition-all duration-200 cursor-pointer align-baseline mx-0.5 bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/50"
+          className={`
+            inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium 
+            transition-all duration-200 cursor-pointer align-baseline mx-0.5
+            border shadow-sm
+            ${isStreaming 
+              ? "bg-muted/50 text-muted-foreground border-border/50 animate-pulse" 
+              : "bg-primary/5 text-primary border-primary/30 hover:bg-primary/10 hover:border-primary/50"
+            }
+          `}
         >
-          <span>{displayNumber}</span>
+          {isStreaming ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : (
+            <Link2 className="w-3 h-3" />
+          )}
+          <span>{displayText}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent 
@@ -60,26 +69,38 @@ export const InlineCitationPill = ({ citation }: InlineCitationPillProps) => {
         className="w-auto max-w-xs p-3"
         sideOffset={6}
       >
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-4">
-            <span className="font-medium text-sm text-foreground">{label}</span>
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="p-1.5 hover:bg-muted rounded-md transition-colors"
-              title="Copy Call ID"
-            >
-              {copied ? (
-                <Check className="w-4 h-4 text-emerald-500" />
-              ) : (
-                <Copy className="w-4 h-4 text-muted-foreground" />
-              )}
-            </button>
+        {isStreaming ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>Loading source details...</span>
           </div>
-          <code className="block bg-muted px-2 py-1.5 rounded text-xs font-mono text-foreground break-all">
-            {citation.id}
-          </code>
-        </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                  {displayText}
+                </span>
+                <span className="font-medium text-sm text-foreground">{label}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="p-1.5 hover:bg-muted rounded-md transition-colors"
+                title="Copy Call ID"
+              >
+                {copied ? (
+                  <Check className="w-4 h-4 text-emerald-500" />
+                ) : (
+                  <Copy className="w-4 h-4 text-muted-foreground" />
+                )}
+              </button>
+            </div>
+            <code className="block bg-muted px-2 py-1.5 rounded text-xs font-mono text-foreground break-all">
+              {citation.id}
+            </code>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
