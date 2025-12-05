@@ -275,9 +275,9 @@ export default function AdminDashboard() {
       const [profilesRes, conversationsRes, messagesRes, rolesRes, logsRes] = await Promise.all([
         supabase.from("profiles").select("*").order("created_at", { ascending: false }),
         supabase.from("conversations").select("*").order("updated_at", { ascending: false }),
-        supabase.from("messages").select("*").order("created_at", { ascending: false }).limit(500),
+        supabase.from("messages").select("*").order("created_at", { ascending: false }).limit(2000),
         supabase.from("user_roles").select("*"),
-        supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(200),
+        supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(500),
       ]);
 
       if (profilesRes.data) setProfiles(profilesRes.data);
@@ -291,6 +291,28 @@ export default function AdminDashboard() {
       setRefreshing(false);
     }
   };
+
+  // Realtime subscription for live updates
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const channel = supabase
+      .channel('admin-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+        fetchData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
+        fetchData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isAdmin]);
 
   const getUserConversations = (userId: string) => 
     conversations.filter(c => c.user_id === userId);
