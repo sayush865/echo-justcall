@@ -479,50 +479,63 @@ export const ChatInterface = ({
         setStreamingMessage(null);
       }
 
-      const { data: insertedMsg } = await supabase.from("messages").insert({
-        conversation_id: currentConversationId,
-        role: "assistant",
-        content: fullContent,
-        user_id: user?.id,
-        user_email: user?.email,
-      }).select('id').single();
+      // Immediately enable UI - don't block on database insert
+      isStreamingRef.current = false;
+      setLoading(false);
 
-      const assistantMessageId = insertedMsg?.id;
+      // Fire-and-forget pattern for database insert and follow-ups
+      (async () => {
+        try {
+          const { data: insertedMsg } = await supabase.from("messages").insert({
+            conversation_id: currentConversationId,
+            role: "assistant",
+            content: fullContent,
+            user_id: user?.id,
+            user_email: user?.email,
+          }).select('id').single();
+          
+          const assistantMessageId = insertedMsg?.id;
 
-      // Generate follow-up suggestions and persist them
-      setFollowUpLoading(true);
-      supabase.functions.invoke('generate-followups', {
-        body: { 
-          lastUserMessage: messageToSend, 
-          lastAIResponse: fullContent.substring(0, 1500),
-        }
-      }).then(async ({ data, error }) => {
-        const suggestions = data?.suggestions || [];
-        setFollowUpSuggestions(suggestions);
-        
-        // Persist follow-ups to the assistant message
-        if (assistantMessageId && suggestions.length > 0) {
-          await supabase.from("messages")
-            .update({ follow_up_suggestions: suggestions })
-            .eq("id", assistantMessageId);
-        }
-        
-        // Update cache with follow-ups so they persist when switching conversations
-        if (currentConversationId && suggestions.length > 0) {
-          const cached = messagesCacheRef.current.get(currentConversationId);
-          if (cached) {
-            messagesCacheRef.current.set(currentConversationId, {
-              ...cached,
-              followUps: suggestions
+          // Generate follow-up suggestions and persist them
+          setFollowUpLoading(true);
+          try {
+            const { data } = await supabase.functions.invoke('generate-followups', {
+              body: { 
+                lastUserMessage: messageToSend, 
+                lastAIResponse: fullContent.substring(0, 1500),
+              }
             });
+            
+            const suggestions = data?.suggestions || [];
+            setFollowUpSuggestions(suggestions);
+            
+            // Persist follow-ups to the assistant message
+            if (assistantMessageId && suggestions.length > 0) {
+              await supabase.from("messages")
+                .update({ follow_up_suggestions: suggestions })
+                .eq("id", assistantMessageId);
+            }
+            
+            // Update cache with follow-ups so they persist when switching conversations
+            if (currentConversationId && suggestions.length > 0) {
+              const cached = messagesCacheRef.current.get(currentConversationId);
+              if (cached) {
+                messagesCacheRef.current.set(currentConversationId, {
+                  ...cached,
+                  followUps: suggestions
+                });
+              }
+            }
+          } catch (err) {
+            console.error("Failed to generate follow-ups:", err);
+            setFollowUpSuggestions([]);
+          } finally {
+            setFollowUpLoading(false);
           }
+        } catch (err) {
+          console.error("Background save failed:", err);
         }
-      }).catch((err) => {
-        console.error("Failed to generate follow-ups:", err);
-        setFollowUpSuggestions([]);
-      }).finally(() => {
-        setFollowUpLoading(false);
-      });
+      })();
     } catch (error: any) {
       // Handle abort (user clicked stop) - preserve partial content
       if (error?.name === 'AbortError') {
@@ -606,8 +619,11 @@ export const ChatInterface = ({
       console.error("Message send failed:", { error, retryCount, messageToSend: messageToSend.substring(0, 50) });
     } finally {
       sendInProgressRef.current = null;
-      isStreamingRef.current = false;
-      setLoading(false);
+      // Only reset these if not already reset by success path
+      if (isStreamingRef.current) {
+        isStreamingRef.current = false;
+        setLoading(false);
+      }
       abortControllerRef.current = null;
       if (!lastFailedMessage) setRetryCount(0);
     }
@@ -1157,8 +1173,8 @@ export const ChatInterface = ({
             </div>
           )}
           
-          <ScrollArea className={`flex-1 px-3 md:px-6 py-4 md:py-5 ${conversationId ? 'pt-18 md:pt-20' : 'pt-4 md:pt-5'} relative z-10`} viewportRef={scrollContainerRef} onScrollCapture={handleScroll}>
-            <div className="space-y-6 max-w-3xl mx-auto pb-8">
+          <ScrollArea className="flex-1 relative z-10" viewportRef={scrollContainerRef} onScrollCapture={handleScroll}>
+            <div className={`space-y-6 max-w-3xl mx-auto px-3 md:px-6 py-4 md:py-5 pb-8 ${conversationId ? 'pt-18 md:pt-20' : 'pt-4 md:pt-5'}`}>
               {messagesLoading && messages.length === 0 ? (
                 <div className="space-y-6 animate-pulse">
                   {[1, 2, 3].map((i) => (

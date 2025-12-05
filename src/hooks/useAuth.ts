@@ -22,21 +22,40 @@ export const useAuth = () => {
           
           // Use setTimeout to avoid Supabase deadlock
           setTimeout(async () => {
-            // First get current login_count
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('login_count')
-              .eq('user_id', session.user.id)
-              .single();
-            
-            // Then update with incremented value
-            await supabase
-              .from('profiles')
-              .update({
-                login_count: (profile?.login_count || 0) + 1,
-                last_sign_in: new Date().toISOString()
-              })
-              .eq('user_id', session.user.id);
+            try {
+              const userId = session.user.id;
+              
+              // Use maybeSingle to handle profile not existing yet (signup trigger timing)
+              let { data: profile } = await supabase
+                .from('profiles')
+                .select('login_count')
+                .eq('user_id', userId)
+                .maybeSingle();
+              
+              // If profile doesn't exist yet (signup trigger pending), wait and retry
+              if (!profile) {
+                await new Promise(r => setTimeout(r, 500));
+                const retry = await supabase
+                  .from('profiles')
+                  .select('login_count')
+                  .eq('user_id', userId)
+                  .maybeSingle();
+                profile = retry.data;
+              }
+              
+              // Update with incremented value if profile exists
+              if (profile !== null) {
+                await supabase
+                  .from('profiles')
+                  .update({
+                    login_count: (profile.login_count || 0) + 1,
+                    last_sign_in: new Date().toISOString()
+                  })
+                  .eq('user_id', userId);
+              }
+            } catch (err) {
+              console.error('Failed to track login:', err);
+            }
           }, 0);
         }
       }
