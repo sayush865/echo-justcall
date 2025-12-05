@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // Echo-branded loading phrases that rotate during AI processing
 const ECHO_LOADING_PHRASES = [
@@ -17,20 +17,62 @@ interface EchoLoadingIndicatorProps {
 
 export const EchoLoadingIndicator = ({ asText = false }: EchoLoadingIndicatorProps) => {
   const [phraseIndex, setPhraseIndex] = useState(0);
+  const [displayedText, setDisplayedText] = useState("");
+  const [isTyping, setIsTyping] = useState(true);
+  const charIndexRef = useRef(0);
 
+  // Typing animation effect for asText mode
   useEffect(() => {
+    if (!asText) return;
+
+    const currentPhrase = ECHO_LOADING_PHRASES[phraseIndex];
+    
+    if (isTyping) {
+      // Typing phase
+      if (charIndexRef.current < currentPhrase.length) {
+        const timeout = setTimeout(() => {
+          charIndexRef.current += 1;
+          setDisplayedText(currentPhrase.slice(0, charIndexRef.current));
+        }, 35); // Typing speed
+        return () => clearTimeout(timeout);
+      } else {
+        // Finished typing, wait then start erasing
+        const timeout = setTimeout(() => {
+          setIsTyping(false);
+        }, 1500); // Pause before erasing
+        return () => clearTimeout(timeout);
+      }
+    } else {
+      // Erasing phase
+      if (charIndexRef.current > 0) {
+        const timeout = setTimeout(() => {
+          charIndexRef.current -= 1;
+          setDisplayedText(currentPhrase.slice(0, charIndexRef.current));
+        }, 20); // Erasing speed (faster than typing)
+        return () => clearTimeout(timeout);
+      } else {
+        // Finished erasing, move to next phrase
+        setPhraseIndex((prev) => (prev + 1) % ECHO_LOADING_PHRASES.length);
+        setIsTyping(true);
+      }
+    }
+  }, [asText, phraseIndex, displayedText, isTyping]);
+
+  // Simple rotation for non-asText mode
+  useEffect(() => {
+    if (asText) return;
+    
     const interval = setInterval(() => {
       setPhraseIndex((prev) => (prev + 1) % ECHO_LOADING_PHRASES.length);
-    }, 2500); // Rotate every 2.5 seconds
+    }, 2500);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [asText]);
 
   if (asText) {
     return (
       <span className="text-sm text-muted-foreground animate-fade-in">
-        {ECHO_LOADING_PHRASES[phraseIndex]}
-        <span className="inline-block w-[2px] h-4 ml-0.5 bg-muted-foreground/70 animate-blink align-middle" />
+        {displayedText}
       </span>
     );
   }
