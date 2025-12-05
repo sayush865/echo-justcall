@@ -58,7 +58,7 @@ export const InlineCitationPill = ({ citation }: InlineCitationPillProps) => {
       <PopoverContent 
         side="top" 
         align="center"
-        className="w-auto max-w-xs p-3"
+        className="w-auto max-w-xs p-3 z-[100]"
         sideOffset={6}
       >
         {isStreaming ? (
