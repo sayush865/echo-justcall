@@ -101,6 +101,7 @@ export const ChatInterface = ({
   const [followUpLoading, setFollowUpLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
+  const [streamingSourceCount, setStreamingSourceCount] = useState(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesCacheRef = useRef<Map<string, { messages: Message[]; followUps: {label: string; prompt: string}[] }>>(new Map());
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -313,6 +314,7 @@ export const ChatInterface = ({
     
     // Show streaming UI immediately with empty content (loading state)
     isStreamingRef.current = true; // Set immediately before streaming starts
+    setStreamingSourceCount(0); // Reset source count for new stream
     setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
 
     // Optimistically add user message to UI immediately
@@ -677,6 +679,7 @@ export const ChatInterface = ({
     
     // Show streaming UI immediately with empty content (loading state)
     isStreamingRef.current = true; // Set immediately before streaming starts
+    setStreamingSourceCount(0); // Reset source count for new stream
     setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
 
     // Optimistically add user message to UI immediately
@@ -1235,7 +1238,7 @@ export const ChatInterface = ({
                   <div className="flex-1 space-y-2 min-w-0">
                     {/* Processing steps indicator - show when streaming */}
                     {streamingMessage.isStreaming && (
-                      <div className="flex flex-wrap gap-2 mb-2">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
                         {streamingMessage.steps && streamingMessage.steps.length > 0 ? (
                           streamingMessage.steps.slice(-3).map((step, idx) => (
                             <span 
@@ -1249,6 +1252,12 @@ export const ChatInterface = ({
                         ) : !streamingMessage.content && (
                           <EchoLoadingIndicator />
                         )}
+                        {/* Source count badge - updates in real-time */}
+                        {streamingSourceCount > 0 && (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground animate-fade-in">
+                            Found {streamingSourceCount} source{streamingSourceCount !== 1 ? 's' : ''}
+                          </span>
+                        )}
                       </div>
                     )}
                     {/* Show content with real-time citation parsing */}
@@ -1256,6 +1265,7 @@ export const ChatInterface = ({
                       <MarkdownRenderer 
                         content={streamingMessage.content + (streamingMessage.isStreaming ? "▋" : "")} 
                         isStreaming={streamingMessage.isStreaming}
+                        onSourceCount={streamingMessage.isStreaming ? setStreamingSourceCount : undefined}
                       />
                     )}
                   </div>
