@@ -4,16 +4,34 @@ import remarkGfm from "remark-gfm";
 import { CodeBlock } from "./CodeBlock";
 import { CitationBadges } from "./CitationBadges";
 import { InlineCitationPill } from "./InlineCitationPill";
-import { parseCitations } from "@/lib/citationParser";
+import { parseCitations, parseStreamingCitations } from "@/lib/citationParser";
 import type { Components } from "react-markdown";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 interface MarkdownRendererProps {
   content: string;
+  isStreaming?: boolean;
 }
 
-export const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
-  const { cleanContent, citations, inlineCitations } = useMemo(() => parseCitations(content), [content]);
+export const MarkdownRenderer = ({ content, isStreaming = false }: MarkdownRendererProps) => {
+  // Use streaming-aware citation parsing
+  const { cleanContent, citations, inlineCitations } = useMemo(() => {
+    // For streaming content, merge streaming placeholders with any parsed citations
+    if (isStreaming) {
+      const streamingCitations = parseStreamingCitations(content);
+      const parsed = parseCitations(content);
+      
+      // Merge: use parsed citations if available, otherwise use streaming placeholders
+      streamingCitations.forEach((streamingCitation, num) => {
+        if (!parsed.inlineCitations.has(num)) {
+          parsed.inlineCitations.set(num, streamingCitation);
+        }
+      });
+      
+      return parsed;
+    }
+    return parseCitations(content);
+  }, [content, isStreaming]);
 
   // Replace various citation formats with placeholders
   const contentWithPlaceholders = useMemo(() => {

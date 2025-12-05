@@ -2,6 +2,7 @@ export interface Citation {
   id: string;
   type: "sales" | "support" | "success" | "unknown";
   sourceNumber?: number;
+  isStreaming?: boolean; // True when citation is a placeholder during streaming
 }
 
 export interface ParsedContent {
@@ -21,6 +22,58 @@ const SOURCE_LINE_PATTERN = /\[(\d+)\]\s*(CA[a-f0-9-]+)[^\n]*\(([^)]+)\)/gi;
 // Legacy patterns for backward compatibility
 const LEGACY_CITATION_PATTERN = /callsid:\s*(CA[a-f0-9]+)/gi;
 const LEGACY_GROUPED_PATTERN = /\((?:Examples?:?\s*)?(?:sales|support|success)?\s*[–-]?\s*callsid:\s*([^)]+)\)/gi;
+
+/**
+ * Parse streaming content to extract placeholder citations from [source:N] markers
+ * This is called during streaming BEFORE the Sources section is available
+ */
+export function parseStreamingCitations(content: string): Map<number, Citation> {
+  const inlineCitations = new Map<number, Citation>();
+  
+  // Find all [source:N] or [N] markers in the content
+  const markerPattern = /\[(?:source:)?(\d+)\]/gi;
+  let match;
+  
+  while ((match = markerPattern.exec(content)) !== null) {
+    const sourceNum = parseInt(match[1], 10);
+    if (!inlineCitations.has(sourceNum)) {
+      inlineCitations.set(sourceNum, {
+        id: `pending_${sourceNum}`,
+        type: "unknown",
+        sourceNumber: sourceNum,
+        isStreaming: true,
+      });
+    }
+  }
+  
+  // Also check for Sources section if it's started streaming
+  const sourcesMatch = content.match(SOURCES_SECTION_PATTERN);
+  if (sourcesMatch) {
+    const sourcesText = sourcesMatch[1];
+    const sourceLinePattern = new RegExp(SOURCE_LINE_PATTERN.source, "gi");
+    
+    while ((match = sourceLinePattern.exec(sourcesText)) !== null) {
+      const sourceNum = parseInt(match[1], 10);
+      const callId = match[2];
+      const typeText = match[3].toLowerCase();
+      
+      let type: Citation["type"] = "unknown";
+      if (typeText.includes("sales")) type = "sales";
+      else if (typeText.includes("support")) type = "support";
+      else if (typeText.includes("success")) type = "success";
+      
+      // Update placeholder with real data
+      inlineCitations.set(sourceNum, {
+        id: callId,
+        type,
+        sourceNumber: sourceNum,
+        isStreaming: false,
+      });
+    }
+  }
+  
+  return inlineCitations;
+}
 
 export function parseCitations(content: string): ParsedContent {
   const citations: Citation[] = [];
@@ -46,7 +99,7 @@ export function parseCitations(content: string): ParsedContent {
       else if (typeText.includes("support")) type = "support";
       else if (typeText.includes("success")) type = "success";
       
-      const citation: Citation = { id: callId, type, sourceNumber: sourceNum };
+      const citation: Citation = { id: callId, type, sourceNumber: sourceNum, isStreaming: false };
       
       if (!seenIds.has(callId)) {
         seenIds.add(callId);
@@ -59,6 +112,17 @@ export function parseCitations(content: string): ParsedContent {
     let cleanContent = content.replace(SOURCES_SECTION_PATTERN, "").trim();
     
     return { cleanContent, citations, inlineCitations };
+  }
+  
+  // Check for streaming placeholders (no Sources section yet)
+  const streamingCitations = parseStreamingCitations(content);
+  if (streamingCitations.size > 0) {
+    // Remove source markers from display but keep citations
+    let cleanContent = content
+      .replace(/\[(?:source:)?(\d+)\]/gi, "%%CITATION_$1%%")
+      .trim();
+    
+    return { cleanContent, citations: [], inlineCitations: streamingCitations };
   }
   
   // Fallback to legacy parsing for backward compatibility
