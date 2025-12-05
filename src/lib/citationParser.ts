@@ -15,7 +15,7 @@ export interface ParsedContent {
 const SOURCE_MARKER_PATTERN = /\[(?:source:)?(\d+)\]/gi;
 // Pattern for Sources section at end (handles #### Sources:, ## Sources:, Sources:, ---, etc.)
 // More flexible to handle horizontal rules, varied whitespace, and markdown formatting
-const SOURCES_SECTION_PATTERN = /(?:^|\n)(?:-{3,}\s*\n+)?(?:#{1,4}\s*)?Sources?:?\s*\n((?:\[\d+\][^\n]+\n?)+)[\s\S]*/im;
+const SOURCES_SECTION_PATTERN = /(?:^|\n)(?:-{3,}\s*\n+)?(?:#{1,4}\s*)?(?:\*\*|__)?Sources?:?(?:\*\*|__)?:?\s*\n((?:\[\d+\][^\n]+\n?)+)[\s\S]*/im;
 // Pattern for individual source line: [1] 2d955387-24d2-4f30-88c3-883d8096c1b4 (Success) or [1] CA123abc (Sales)
 // Accepts any hex/UUID format ID (with or without CA prefix)
 const SOURCE_LINE_PATTERN = /\[(\d+)\]\s*([a-f0-9][a-f0-9-]*[a-f0-9])\s*\(([^)]+)\)/gi;
@@ -87,7 +87,7 @@ export function parseCitations(content: string): ParsedContent {
   
   // Fallback: Try a more lenient pattern if the strict one fails
   if (!sourcesMatch) {
-    const lenientPattern = /Sources?:?\s*\n((?:\[\d+\][^\n]+\n?)+)/im;
+    const lenientPattern = /(?:\*\*|__)?Sources?:?(?:\*\*|__)?:?\s*\n((?:\[\d+\][^\n]+\n?)+)/im;
     sourcesMatch = content.match(lenientPattern);
   }
   
