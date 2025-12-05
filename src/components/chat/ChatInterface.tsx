@@ -457,7 +457,9 @@ export const ChatInterface = ({
         }
       }
 
-      // Streaming complete
+      // Streaming complete - IMMEDIATELY unlock UI
+      isStreamingRef.current = false;
+      setLoading(false);
       
       // Only update UI if still on the same conversation
       if (isActiveConversation()) {
@@ -478,10 +480,6 @@ export const ChatInterface = ({
         // User switched away - clear streaming state (response is saved to DB by edge function)
         setStreamingMessage(null);
       }
-
-      // Immediately enable UI - don't block on database insert
-      isStreamingRef.current = false;
-      setLoading(false);
 
       // Fire-and-forget pattern for database insert and follow-ups
       (async () => {
