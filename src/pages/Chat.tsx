@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ConversationList } from "@/components/chat/ConversationList";
 import { ChatInterface } from "@/components/chat/ChatInterface";
@@ -13,11 +13,19 @@ const Chat = () => {
   const [isValidating, setIsValidating] = useState(false);
   // Start with sidebar closed on mobile
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
+  // Track if this is initial page load (show skeleton) vs in-app navigation (don't unmount)
+  const isInitialLoadRef = useRef(true);
+  const hasValidatedRef = useRef<string | null>(null);
 
   // Fetch conversation title and validate conversation exists
   useEffect(() => {
     if (conversationId) {
-      setIsValidating(true);
+      // Only show skeleton on initial page load, not during in-app navigation
+      // This prevents unmounting ChatInterface and losing streaming state
+      if (isInitialLoadRef.current && hasValidatedRef.current !== conversationId) {
+        setIsValidating(true);
+      }
+      
       supabase
         .from("conversations")
         .select("title")
@@ -33,12 +41,15 @@ const Chat = () => {
             navigate("/", { replace: true });
           } else {
             setConversationTitle(data.title);
+            hasValidatedRef.current = conversationId;
           }
           setIsValidating(false);
+          isInitialLoadRef.current = false;
         });
     } else {
       setConversationTitle("");
       setIsValidating(false);
+      isInitialLoadRef.current = false;
     }
   }, [conversationId, navigate]);
 
