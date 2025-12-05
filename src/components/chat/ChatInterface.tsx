@@ -1001,7 +1001,7 @@ export const ChatInterface = ({
         onSuccess={handleAuthSuccess} 
       />
       {/* Top right controls - Share (chat only) + Profile/Login */}
-      <div className="absolute top-8 right-4 z-30 flex items-center gap-2">
+      <div className="absolute top-3 md:top-8 right-3 md:right-4 z-30 flex items-center gap-1.5 md:gap-2">
         {/* Share button - only in chat view when logged in */}
         {user && conversationId && (
           <TooltipProvider>
@@ -1009,9 +1009,9 @@ export const ChatInterface = ({
               <TooltipTrigger asChild>
                 <button
                   onClick={() => setShareDialogOpen(true)}
-                  className="flex items-center justify-center h-9 w-9 rounded-full hover:bg-accent transition-colors bg-card border border-border shadow-sm"
+                  className="flex items-center justify-center h-8 w-8 md:h-9 md:w-9 rounded-full hover:bg-accent transition-colors bg-card border border-border shadow-sm"
                 >
-                  <Share2 className="w-4 h-4" />
+                  <Share2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 </button>
               </TooltipTrigger>
               <TooltipContent>
@@ -1025,8 +1025,8 @@ export const ChatInterface = ({
         {user ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center justify-center h-9 w-9 rounded-full hover:bg-accent transition-colors bg-card border border-border shadow-sm">
-                <Avatar className="h-8 w-8">
+              <button className="flex items-center justify-center h-8 w-8 md:h-9 md:w-9 rounded-full hover:bg-accent transition-colors bg-card border border-border shadow-sm">
+                <Avatar className="h-7 w-7 md:h-8 md:w-8">
                   <AvatarFallback className="bg-primary/10 text-primary text-xs">
                     {user?.email?.charAt(0).toUpperCase() || "U"}
                   </AvatarFallback>
@@ -1054,9 +1054,9 @@ export const ChatInterface = ({
               <TooltipTrigger asChild>
                 <button
                   onClick={() => setShowAuthModal(true)}
-                  className="flex items-center gap-2 h-9 px-4 rounded-full hover:bg-accent transition-colors bg-card border border-border shadow-sm text-sm font-medium"
+                  className="flex items-center gap-1.5 md:gap-2 h-8 md:h-9 px-3 md:px-4 rounded-full hover:bg-accent transition-colors bg-card border border-border shadow-sm text-xs md:text-sm font-medium"
                 >
-                  <LogIn className="w-4 h-4" />
+                  <LogIn className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   <span>Sign In</span>
                 </button>
               </TooltipTrigger>
@@ -1069,20 +1069,20 @@ export const ChatInterface = ({
       </div>
 
       {messages.length === 0 && !conversationId ? (
-        <div className="flex-1 flex flex-col items-center justify-center px-5 md:px-6 pt-14 md:pt-0 relative overflow-hidden bg-background">
+        <div className="flex-1 flex flex-col items-center justify-center px-4 md:px-6 pt-16 md:pt-0 relative overflow-hidden bg-background">
           {/* Subtle gradient background */}
           <div className="absolute inset-0 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.03)_0%,hsl(256_100%_68%/0.04)_50%,hsl(195_100%_65%/0.03)_100%)]" />
           <div className="absolute top-1/4 -left-1/4 w-1/2 h-1/2 bg-primary/3 rounded-full blur-3xl" />
           <div className="absolute bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-aqua/3 rounded-full blur-3xl" />
-          <h1 className="relative z-10 text-2xl md:text-3xl lg:text-4xl font-bold mb-3 text-center animate-fade-in px-2 flex items-center justify-center gap-3">
-            <EchoLogo size="lg" />
-            <span>Echo — Bringing the Voice of Customers Back to You</span>
-          </h1>
-          <p className="relative z-10 text-muted-foreground mb-10 text-center text-sm md:text-base animate-fade-in [animation-delay:100ms] opacity-0 [animation-fill-mode:forwards]">Our customers are talking. Echo remembers.</p>
-          <div className="relative z-10 w-full max-w-2xl px-4">
+          <div className="relative z-10 text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-3 text-center animate-fade-in px-2 flex flex-col md:flex-row items-center justify-center gap-2 md:gap-3">
+            <EchoLogo size="lg" className="flex-shrink-0" />
+            <span className="leading-tight">Echo — Bringing the Voice of Customers Back to You</span>
+          </div>
+          <p className="relative z-10 text-muted-foreground mb-8 md:mb-10 text-center text-xs sm:text-sm md:text-base animate-fade-in [animation-delay:100ms] opacity-0 [animation-fill-mode:forwards] px-4">Our customers are talking. Echo remembers.</p>
+          <div className="relative z-10 w-full max-w-2xl px-3 md:px-4">
             {/* Gradient glow behind input */}
-            <div className="absolute -inset-1.5 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.25)_0%,hsl(256_100%_68%/0.15)_50%,hsl(195_100%_65%/0.25)_100%)] rounded-[2rem] blur-xl opacity-50 pointer-events-none" />
-            <div className={`relative flex items-center gap-3 bg-background/90 backdrop-blur-sm border rounded-3xl px-4 md:px-5 py-3.5 transition-all shadow-sm ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border/80'}`}>
+            <div className="absolute -inset-1 md:-inset-1.5 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.25)_0%,hsl(256_100%_68%/0.15)_50%,hsl(195_100%_65%/0.25)_100%)] rounded-[1.5rem] md:rounded-[2rem] blur-xl opacity-50 pointer-events-none" />
+            <div className={`relative flex items-center gap-2 md:gap-3 bg-background/90 backdrop-blur-sm border rounded-2xl md:rounded-3xl px-3 md:px-5 py-3 md:py-3.5 transition-all shadow-sm ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border/80'}`}>
                 <div className="flex-1 relative min-h-[26px] flex items-center">
                   <textarea
                     ref={textareaRef}
@@ -1090,7 +1090,7 @@ export const ChatInterface = ({
                     onChange={(e) => handleInputChange(e, textareaRef)}
                     onKeyDown={handleKeyDown}
                     placeholder={isListening ? "Listening..." : ""}
-                    className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[26px] max-h-[200px] py-0 text-[15px] leading-[26px]"
+                    className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[26px] max-h-[200px] py-0 text-sm md:text-[15px] leading-[26px]"
                     rows={1}
                   />
                   {!input && !isListening && (
@@ -1099,37 +1099,37 @@ export const ChatInterface = ({
                     </div>
                   )}
                 </div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2 md:gap-2.5">
                 {isSupported && (
                   <button 
                     onClick={handleVoiceToggle}
                     className={`transition-colors p-1 ${isListening ? 'text-red-500 animate-pulse' : 'text-muted-foreground hover:text-foreground'}`}
                     title={isListening ? "Stop listening" : "Start voice input"}
                   >
-                    {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                    {isListening ? <MicOff className="w-4 h-4 md:w-5 md:h-5" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
                   </button>
                 )}
                 {loading ? (
                   <button 
                     onClick={handleStop}
-                    className="bg-destructive text-destructive-foreground rounded-full p-2.5 hover:opacity-80 transition-all"
+                    className="bg-destructive text-destructive-foreground rounded-full p-2 md:p-2.5 hover:opacity-80 transition-all"
                     title="Stop generating"
                   >
-                    <Square className="w-4 h-4 fill-current" />
+                    <Square className="w-3.5 h-3.5 md:w-4 md:h-4 fill-current" />
                   </button>
                 ) : (
                   <button 
                     onClick={() => handleSend()}
                     disabled={!input.trim()}
-                    className="bg-foreground text-background rounded-full p-2.5 hover:opacity-80 transition-all disabled:opacity-50"
+                    className="bg-foreground text-background rounded-full p-2 md:p-2.5 hover:opacity-80 transition-all disabled:opacity-50"
                   >
-                    <Send className="w-4 h-4" />
+                    <Send className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   </button>
                 )}
               </div>
             </div>
             {isListening && (
-              <p className="text-center text-sm text-muted-foreground mt-4 animate-pulse">
+              <p className="text-center text-xs md:text-sm text-muted-foreground mt-3 md:mt-4 animate-pulse">
                 Speak now... Click the mic to stop.
               </p>
             )}
@@ -1149,14 +1149,14 @@ export const ChatInterface = ({
           
           {/* Conversation Header - title only */}
           {conversationId && (
-            <div className="absolute top-0 left-0 right-0 z-20 h-25 flex items-center bg-background/80 backdrop-blur-sm border-b border-border">
-              <div className="w-full px-4 pl-16 pr-28">
-                <h2 className="font-medium text-sm truncate max-w-3xl mx-auto">{conversationTitle || "Conversation"}</h2>
+            <div className="absolute top-0 left-0 right-0 z-20 h-14 md:h-16 flex items-center bg-background/80 backdrop-blur-sm border-b border-border">
+              <div className="w-full px-3 md:px-4 pl-12 md:pl-16 pr-20 md:pr-28">
+                <h2 className="font-medium text-xs md:text-sm truncate max-w-3xl mx-auto">{conversationTitle || "Conversation"}</h2>
               </div>
             </div>
           )}
           
-          <ScrollArea className={`flex-1 px-4 md:px-6 py-5 ${conversationId ? 'pt-28' : 'pt-5'} relative z-10`} viewportRef={scrollContainerRef} onScrollCapture={handleScroll}>
+          <ScrollArea className={`flex-1 px-3 md:px-6 py-4 md:py-5 ${conversationId ? 'pt-18 md:pt-20' : 'pt-4 md:pt-5'} relative z-10`} viewportRef={scrollContainerRef} onScrollCapture={handleScroll}>
             <div className="space-y-6 max-w-3xl mx-auto pb-8">
               {messagesLoading && messages.length === 0 ? (
                 <div className="space-y-6 animate-pulse">
@@ -1179,7 +1179,7 @@ export const ChatInterface = ({
                 >
                   {msg.role === "user" ? (
                     <>
-                      <div className="group max-w-[85%] md:max-w-[75%]">
+                      <div className="group max-w-[90%] md:max-w-[75%]">
                         <div className="rounded-2xl px-4 py-3 bg-muted text-foreground shadow-sm">
                           <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                         </div>
@@ -1294,15 +1294,15 @@ export const ChatInterface = ({
                 scrollRef.current?.scrollIntoView({ behavior: "smooth" });
                 setIsUserNearBottom(true);
               }}
-              className="absolute bottom-28 left-1/2 -translate-x-1/2 z-20 bg-background/90 backdrop-blur-sm border border-border rounded-full p-2 shadow-lg hover:bg-accent transition-all animate-fade-in"
+              className="absolute bottom-24 md:bottom-28 left-1/2 -translate-x-1/2 z-20 bg-background/90 backdrop-blur-sm border border-border rounded-full p-1.5 md:p-2 shadow-lg hover:bg-accent transition-all animate-fade-in"
               title="Scroll to bottom"
             >
-              <ArrowDown className="w-4 h-4" />
+              <ArrowDown className="w-3.5 h-3.5 md:w-4 md:h-4" />
             </button>
           )}
 
-          <div className="p-4 md:p-6 pb-8 md:pb-10 bg-transparent relative z-10">
-            <div className="max-w-3xl mx-auto relative px-1">
+          <div className="p-3 md:p-6 pb-6 md:pb-10 bg-transparent relative z-10">
+            <div className="max-w-3xl mx-auto relative px-0 md:px-1">
               {/* Follow-up suggestion pills - above input with divider */}
               {!loading && !streamingMessage && (followUpSuggestions.length > 0 || followUpLoading) && (
                 <div className="mb-3 relative z-20">
@@ -1324,7 +1324,7 @@ export const ChatInterface = ({
               )}
               {/* Gradient glow behind input */}
               <div className="absolute -inset-1.5 bg-[linear-gradient(135deg,hsl(227_93%_60%/0.25)_0%,hsl(256_100%_68%/0.15)_50%,hsl(195_100%_65%/0.25)_100%)] rounded-[2rem] blur-xl opacity-50 pointer-events-none" />
-              <div className={`relative z-10 flex items-center gap-3 bg-background/90 backdrop-blur-sm border rounded-3xl px-4 md:px-5 py-3.5 transition-all shadow-sm ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border/80'}`}>
+              <div className={`relative z-10 flex items-center gap-2 md:gap-3 bg-background/90 backdrop-blur-sm border rounded-2xl md:rounded-3xl px-3 md:px-5 py-3 md:py-3.5 transition-all shadow-sm ${isListening ? 'border-red-500 bg-red-500/10' : 'border-border/80'}`}>
                 <div className="flex-1 relative min-h-[26px] flex items-center">
                   <textarea
                     ref={textareaRef2}
@@ -1332,7 +1332,7 @@ export const ChatInterface = ({
                     onChange={(e) => handleInputChange(e, textareaRef2)}
                     onKeyDown={handleKeyDown}
                     placeholder={isListening ? "Listening..." : ""}
-                    className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[26px] max-h-[200px] py-0 text-[15px] leading-[26px]"
+                    className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground resize-none min-h-[26px] max-h-[200px] py-0 text-sm md:text-[15px] leading-[26px]"
                     rows={1}
                   />
                   {!input && !isListening && (
@@ -1341,37 +1341,37 @@ export const ChatInterface = ({
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2 md:gap-2.5">
                   {isSupported && (
                     <button 
                       onClick={handleVoiceToggle}
                       className={`transition-colors p-1 ${isListening ? 'text-red-500 animate-pulse' : 'text-muted-foreground hover:text-foreground'}`}
                       title={isListening ? "Stop listening" : "Start voice input"}
                     >
-                      {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                      {isListening ? <MicOff className="w-4 h-4 md:w-5 md:h-5" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
                     </button>
                   )}
                   {loading ? (
                     <button 
                       onClick={handleStop}
-                      className="bg-destructive text-destructive-foreground rounded-full p-2.5 hover:opacity-80 transition-all"
+                      className="bg-destructive text-destructive-foreground rounded-full p-2 md:p-2.5 hover:opacity-80 transition-all"
                       title="Stop generating"
                     >
-                      <Square className="w-4 h-4 fill-current" />
+                      <Square className="w-3.5 h-3.5 md:w-4 md:h-4 fill-current" />
                     </button>
                   ) : (
                     <button 
                       onClick={() => handleSend()}
                       disabled={!input.trim()}
-                      className="bg-foreground text-background rounded-full p-2.5 hover:opacity-80 transition-all disabled:opacity-50"
+                      className="bg-foreground text-background rounded-full p-2 md:p-2.5 hover:opacity-80 transition-all disabled:opacity-50"
                     >
-                      <Send className="w-4 h-4" />
+                      <Send className="w-3.5 h-3.5 md:w-4 md:h-4" />
                     </button>
                   )}
                 </div>
               </div>
               {isListening && (
-                <p className="text-center text-sm text-muted-foreground mt-4 animate-pulse">
+                <p className="text-center text-xs md:text-sm text-muted-foreground mt-3 md:mt-4 animate-pulse">
                   Speak now... Click the mic to stop.
                 </p>
               )}
