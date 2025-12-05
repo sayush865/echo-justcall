@@ -1252,14 +1252,9 @@ export const ChatInterface = ({
                         ) : !streamingMessage.content && (
                           <EchoLoadingIndicator />
                         )}
-                        {/* Source count text - updates in real-time */}
+                        {/* Source count badge - updates in real-time */}
                         {streamingSourceCount > 0 && (
-                          <span className="inline-flex items-center gap-1.5 text-xs text-primary animate-fade-in">
-                            <span className="flex items-center gap-0.5">
-                              <span className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                              <span className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                              <span className="w-1 h-1 bg-primary rounded-full animate-bounce"></span>
-                            </span>
+                          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground animate-fade-in">
                             Found {streamingSourceCount} source{streamingSourceCount !== 1 ? 's' : ''}
                           </span>
                         )}
