@@ -1018,7 +1018,7 @@ export const ChatInterface = ({
         onSuccess={handleAuthSuccess} 
       />
       {/* Top right controls - Share (chat only) + Profile/Login */}
-      <div className="absolute top-3 md:top-8 right-3 md:right-4 z-30 flex items-center gap-1.5 md:gap-2">
+      <div className="absolute top-3 md:top-4 right-3 md:right-4 z-30 flex items-center gap-1.5 md:gap-2">
         {/* Share button - only in chat view when logged in */}
         {user && conversationId && (
           <TooltipProvider>
