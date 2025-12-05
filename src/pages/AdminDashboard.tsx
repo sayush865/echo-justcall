@@ -340,27 +340,45 @@ export default function AdminDashboard() {
     }
   };
 
-  // Realtime subscription for live updates
+  // Realtime subscription for live updates with debouncing
   useEffect(() => {
     if (!isAdmin) return;
 
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    
+    const debouncedFetch = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        fetchData();
+      }, 500); // Debounce multiple rapid updates
+    };
+
     const channel = supabase
-      .channel('admin-updates')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
-        fetchData();
+      .channel(`admin-updates-${user?.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
+        console.log('[Admin] Messages update:', payload.eventType);
+        debouncedFetch();
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
-        fetchData();
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, (payload) => {
+        console.log('[Admin] Conversations update:', payload.eventType);
+        debouncedFetch();
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        fetchData();
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload) => {
+        console.log('[Admin] Profiles update:', payload.eventType);
+        debouncedFetch();
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[Admin] Realtime subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('[Admin] Successfully subscribed to realtime updates');
+        }
+      });
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
-  }, [isAdmin]);
+  }, [isAdmin, user?.id]);
 
   const getUserConversations = (userId: string) => 
     conversations.filter(c => c.user_id === userId);
