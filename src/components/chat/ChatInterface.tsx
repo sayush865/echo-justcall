@@ -1236,20 +1236,10 @@ export const ChatInterface = ({
                 <div className="flex justify-start gap-3">
                   <EchoLogo size="md" className="mt-0.5" />
                   <div className="flex-1 space-y-2 min-w-0">
-                    {/* Processing steps indicator - show when streaming */}
+                    {/* Loading indicator - show when streaming */}
                     {streamingMessage.isStreaming && (
                       <div className="flex flex-wrap items-center gap-2 mb-2">
-                        {streamingMessage.steps && streamingMessage.steps.length > 0 ? (
-                          streamingMessage.steps.slice(-3).map((step, idx) => (
-                            <span 
-                              key={idx} 
-                              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 animate-fade-in shadow-sm"
-                            >
-                              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
-                              {step.length > 30 ? step.slice(0, 30) + '...' : step}
-                            </span>
-                          ))
-                        ) : !streamingMessage.content && (
+                        {!streamingMessage.content && (
                           <EchoLoadingIndicator />
                         )}
                         {/* Source count badge - updates in real-time */}
