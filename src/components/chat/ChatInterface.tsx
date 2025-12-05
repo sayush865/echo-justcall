@@ -1237,19 +1237,17 @@ export const ChatInterface = ({
                 <div className="flex justify-start gap-3">
                   <EchoLogo size="md" className="mt-0.5" />
                   <div className="flex-1 space-y-2 min-w-0">
-                    {/* Loading indicator - show when streaming */}
-                    {streamingMessage.isStreaming && (
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        {!streamingMessage.content && (
-                          <EchoLoadingIndicator />
-                        )}
-                        {/* Source count badge - updates in real-time */}
-                        {streamingSourceCount > 0 && (
-                          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground animate-fade-in">
-                            Found {streamingSourceCount} source{streamingSourceCount !== 1 ? 's' : ''}
-                          </span>
-                        )}
+                    {/* Loading indicator - show when streaming but no content yet */}
+                    {streamingMessage.isStreaming && !streamingMessage.content && (
+                      <div className="text-muted-foreground animate-fade-in">
+                        <EchoLoadingIndicator asText />
                       </div>
+                    )}
+                    {/* Source count - show during streaming */}
+                    {streamingMessage.isStreaming && streamingSourceCount > 0 && (
+                      <p className="text-xs text-muted-foreground animate-fade-in mb-2">
+                        Found {streamingSourceCount} source{streamingSourceCount !== 1 ? 's' : ''}
+                      </p>
                     )}
                     {/* Show content with real-time citation parsing */}
                     {(streamingMessage.content || !streamingMessage.isStreaming) && (
