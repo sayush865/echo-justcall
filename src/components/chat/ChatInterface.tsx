@@ -334,9 +334,11 @@ export const ChatInterface = ({
     try {
 
       if (!currentConversationId) {
+        // Create conversation with placeholder title first
+        const placeholderTitle = "New conversation";
         const { data: newConv, error: convError } = await supabase
           .from("conversations")
-          .insert({ title: messageToSend.slice(0, 50), user_id: user?.id })
+          .insert({ title: placeholderTitle, user_id: user?.id })
           .select()
           .single();
 
@@ -349,7 +351,24 @@ export const ChatInterface = ({
           user_id: user?.id,
           conversation_id: currentConversationId,
           event_type: "conversation_created",
-          metadata: { title: messageToSend.slice(0, 50) },
+          metadata: { title: placeholderTitle },
+        });
+
+        // Fire-and-forget: Generate summarized title in background
+        const convIdForTitle = currentConversationId;
+        supabase.functions.invoke('generate-title', {
+          body: { userMessage: messageToSend }
+        }).then(async ({ data }) => {
+          if (data?.title && data.title !== placeholderTitle) {
+            await supabase.from("conversations")
+              .update({ title: data.title })
+              .eq("id", convIdForTitle);
+          }
+        }).catch(() => {
+          // Fallback: update with truncated message if AI fails
+          supabase.from("conversations")
+            .update({ title: messageToSend.slice(0, 40) })
+            .eq("id", convIdForTitle);
         });
       }
 
