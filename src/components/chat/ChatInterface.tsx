@@ -60,6 +60,7 @@ interface StreamingMessage {
 interface ChatInterfaceProps {
   conversationId: string | null;
   conversationTitle?: string;
+  onTitleChange?: (title: string) => void;
 }
 
 // Retry configuration
@@ -85,6 +86,7 @@ const getErrorMessage = (error: any, status?: number): { title: string; descript
 export const ChatInterface = ({
   conversationId,
   conversationTitle = "",
+  onTitleChange,
 }: ChatInterfaceProps) => {
   const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -363,6 +365,7 @@ export const ChatInterface = ({
             await supabase.from("conversations")
               .update({ title: data.title })
               .eq("id", convIdForTitle);
+            onTitleChange?.(data.title);
           }
         }).catch(() => {
           // Fallback: update with truncated message if AI fails

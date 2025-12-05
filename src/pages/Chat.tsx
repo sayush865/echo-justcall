@@ -93,6 +93,7 @@ const Chat = () => {
       <ChatInterface
         conversationId={conversationId || null}
         conversationTitle={conversationTitle}
+        onTitleChange={setConversationTitle}
       />
     </div>
   );
