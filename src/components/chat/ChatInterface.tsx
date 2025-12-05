@@ -195,10 +195,11 @@ export const ChatInterface = ({
         setMessages([]);
         setFollowUpSuggestions([]);
         loadMessages(false);
-      } else {
-        // We're sending to this conversation - keep existing messages and load in background
-        loadMessages(true);
       }
+      // When isSendingToThisConversation is true and no cache exists:
+      // Skip loadMessages entirely - the optimistic message is already in state
+      // and loading would overwrite it with empty results since DB insert hasn't completed.
+      // The realtime subscription will sync messages once DB writes complete.
 
       const channel = supabase
         .channel(`messages:${conversationId}`)
