@@ -81,8 +81,9 @@ export const ConversationList = ({
     
     loadConversations();
 
+    // Use unique channel name per user for better realtime handling
     const channel = supabase
-      .channel("conversations")
+      .channel(`conversations-${user.id}`)
       .on(
         "postgres_changes",
         {
@@ -100,6 +101,17 @@ export const ConversationList = ({
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [user]);
+
+  // Refetch conversations when tab becomes visible (handles background staleness)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && user) {
+        loadConversations();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [user]);
 
   const loadConversations = async () => {

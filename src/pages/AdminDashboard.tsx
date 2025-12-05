@@ -258,6 +258,8 @@ export default function AdminDashboard() {
     conversations: 0,
     messages: 0,
     admins: 0,
+    activeUsers: 0,
+    inactiveUsers: 0,
   });
 
   // Sort states
@@ -302,6 +304,10 @@ export default function AdminDashboard() {
         supabase.from("conversations").select("*", { count: "exact", head: true }),
         supabase.from("messages").select("*", { count: "exact", head: true }),
         supabase.from("user_roles").select("*", { count: "exact", head: true }).eq("role", "admin"),
+        // Active users: login_count > 0 (returned at least once after signup)
+        supabase.from("profiles").select("*", { count: "exact", head: true }).gt("login_count", 0),
+        // Inactive users: login_count = 0 (never returned after signup)
+        supabase.from("profiles").select("*", { count: "exact", head: true }).eq("login_count", 0),
       ]);
 
       if (profilesRes.data) setProfiles(profilesRes.data);
@@ -310,11 +316,22 @@ export default function AdminDashboard() {
       if (rolesRes.data) setUserRoles(rolesRes.data as UserRole[]);
       if (logsRes.data) setAuditLogs(logsRes.data as AuditLog[]);
       
+      // Get active/inactive counts from parallel queries
+      const activeUsersCount = (await Promise.all([
+        supabase.from("profiles").select("*", { count: "exact", head: true }).gt("login_count", 0)
+      ]))[0].count || 0;
+      
+      const inactiveUsersCount = (await Promise.all([
+        supabase.from("profiles").select("*", { count: "exact", head: true }).eq("login_count", 0)
+      ]))[0].count || 0;
+      
       setTotalCounts({
         users: usersCountRes.count || 0,
         conversations: convsCountRes.count || 0,
         messages: msgsCountRes.count || 0,
         admins: adminsCountRes.count || 0,
+        activeUsers: activeUsersCount,
+        inactiveUsers: inactiveUsersCount,
       });
     } catch (error) {
       toast.error("Failed to fetch data");
@@ -662,6 +679,30 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalCounts.admins}</div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        {/* Active/Inactive Users Stats */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <Card className="border-green-500/20 bg-green-500/5">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-green-600 dark:text-green-400">Active Users</CardTitle>
+              <Users className="h-4 w-4 text-green-600 dark:text-green-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{totalCounts.activeUsers}</div>
+              <p className="text-xs text-muted-foreground mt-1">Returned after signup</p>
+            </CardContent>
+          </Card>
+          <Card className="border-orange-500/20 bg-orange-500/5">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-orange-600 dark:text-orange-400">Inactive Users</CardTitle>
+              <Users className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{totalCounts.inactiveUsers}</div>
+              <p className="text-xs text-muted-foreground mt-1">Never returned after signup</p>
             </CardContent>
           </Card>
         </div>
