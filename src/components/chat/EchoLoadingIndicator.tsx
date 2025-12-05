@@ -30,6 +30,7 @@ export const EchoLoadingIndicator = ({ asText = false }: EchoLoadingIndicatorPro
     return (
       <span className="text-sm text-muted-foreground animate-fade-in">
         {ECHO_LOADING_PHRASES[phraseIndex]}
+        <span className="inline-block w-[2px] h-4 ml-0.5 bg-muted-foreground/70 animate-blink align-middle" />
       </span>
     );
   }
