@@ -54,6 +54,8 @@ import {
   Filter,
   Timer,
   Zap,
+  Star,
+  ThumbsUp,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -112,6 +114,16 @@ interface AuditLog {
   ai_response: string | null;
   created_at: string;
   metadata: Record<string, unknown> | null;
+}
+
+interface UserFeedback {
+  id: string;
+  user_id: string | null;
+  user_email: string | null;
+  display_name: string | null;
+  rating: number;
+  feedback_text: string | null;
+  created_at: string;
 }
 
 // Admin Login Component
@@ -247,6 +259,7 @@ export default function AdminDashboard() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [feedbackList, setFeedbackList] = useState<UserFeedback[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -262,6 +275,8 @@ export default function AdminDashboard() {
     admins: 0,
     activeUsers: 0,
     inactiveUsers: 0,
+    feedbackCount: 0,
+    averageRating: 0,
   });
 
   // Sort states
@@ -291,25 +306,25 @@ export default function AdminDashboard() {
         messagesRes, 
         rolesRes, 
         logsRes,
+        feedbackRes,
         usersCountRes,
         convsCountRes,
         msgsCountRes,
         adminsCountRes,
+        feedbackCountRes,
       ] = await Promise.all([
         supabase.from("profiles").select("*").order("created_at", { ascending: false }),
         supabase.from("conversations").select("*").order("updated_at", { ascending: false }).limit(500),
         supabase.from("messages").select("*").order("created_at", { ascending: false }).limit(1000),
         supabase.from("user_roles").select("*"),
         supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(500),
+        supabase.from("user_feedback").select("*").order("created_at", { ascending: false }).limit(500),
         // Count queries for accurate totals
         supabase.from("profiles").select("*", { count: "exact", head: true }),
         supabase.from("conversations").select("*", { count: "exact", head: true }),
         supabase.from("messages").select("*", { count: "exact", head: true }),
         supabase.from("user_roles").select("*", { count: "exact", head: true }).eq("role", "admin"),
-        // Active users: login_count > 0 (returned at least once after signup)
-        supabase.from("profiles").select("*", { count: "exact", head: true }).gt("login_count", 0),
-        // Inactive users: login_count = 0 (never returned after signup)
-        supabase.from("profiles").select("*", { count: "exact", head: true }).eq("login_count", 0),
+        supabase.from("user_feedback").select("*", { count: "exact", head: true }),
       ]);
 
       if (profilesRes.data) setProfiles(profilesRes.data);
@@ -317,6 +332,7 @@ export default function AdminDashboard() {
       if (messagesRes.data) setMessages(messagesRes.data);
       if (rolesRes.data) setUserRoles(rolesRes.data as UserRole[]);
       if (logsRes.data) setAuditLogs(logsRes.data as AuditLog[]);
+      if (feedbackRes.data) setFeedbackList(feedbackRes.data as UserFeedback[]);
       
       // Get active/inactive counts from parallel queries
       const activeUsersCount = (await Promise.all([
@@ -327,6 +343,11 @@ export default function AdminDashboard() {
         supabase.from("profiles").select("*", { count: "exact", head: true }).eq("login_count", 0)
       ]))[0].count || 0;
       
+      // Calculate average rating
+      const avgRating = feedbackRes.data && feedbackRes.data.length > 0
+        ? feedbackRes.data.reduce((sum, f) => sum + f.rating, 0) / feedbackRes.data.length
+        : 0;
+      
       setTotalCounts({
         users: usersCountRes.count || 0,
         conversations: convsCountRes.count || 0,
@@ -334,6 +355,8 @@ export default function AdminDashboard() {
         admins: adminsCountRes.count || 0,
         activeUsers: activeUsersCount,
         inactiveUsers: inactiveUsersCount,
+        feedbackCount: feedbackCountRes.count || 0,
+        averageRating: avgRating,
       });
     } catch (error) {
       toast.error("Failed to fetch data");
@@ -780,6 +803,10 @@ export default function AdminDashboard() {
             <TabsTrigger value="audit" className="gap-2">
               <FileText className="h-4 w-4" />
               Audit Logs
+            </TabsTrigger>
+            <TabsTrigger value="feedback" className="gap-2">
+              <ThumbsUp className="h-4 w-4" />
+              Feedback
             </TabsTrigger>
             <TabsTrigger value="performance" className="gap-2">
               <Timer className="h-4 w-4" />
@@ -1336,6 +1363,115 @@ export default function AdminDashboard() {
                     ))}
                     {sortedFilteredAuditLogs.length === 0 && (
                       <p className="text-center text-muted-foreground py-8">No audit logs found</p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Feedback Tab */}
+          <TabsContent value="feedback" className="space-y-4">
+            {/* Feedback Stats */}
+            <div className="grid grid-cols-2 gap-4">
+              <Card className="border-yellow-500/20 bg-yellow-500/5">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-yellow-600 dark:text-yellow-400">Average Rating</CardTitle>
+                  <Star className="h-4 w-4 text-yellow-600 dark:text-yellow-400 fill-yellow-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                      {totalCounts.averageRating.toFixed(1)}
+                    </span>
+                    <div className="flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={`h-3 w-3 ${
+                            star <= Math.round(totalCounts.averageRating)
+                              ? "fill-yellow-400 text-yellow-400"
+                              : "text-muted-foreground/30"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">From {totalCounts.feedbackCount} reviews</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Feedback</CardTitle>
+                  <ThumbsUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{totalCounts.feedbackCount}</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <CardTitle>User Feedback</CardTitle>
+                    <CardDescription>All feedback submitted by users</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xs text-muted-foreground mb-2">
+                  Showing {feedbackList.length} of {totalCounts.feedbackCount} feedback entries
+                </div>
+                <ScrollArea className="h-[500px]">
+                  <div className="space-y-3">
+                    {feedbackList.map((feedback) => (
+                      <div
+                        key={feedback.id}
+                        className="p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="font-medium truncate">
+                                {feedback.display_name || feedback.user_email || "Anonymous"}
+                              </p>
+                              <div className="flex items-center gap-0.5">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <Star
+                                    key={star}
+                                    className={`h-4 w-4 ${
+                                      star <= feedback.rating
+                                        ? "fill-yellow-400 text-yellow-400"
+                                        : "text-muted-foreground/30"
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                            {feedback.user_email && feedback.display_name && (
+                              <p className="text-xs text-muted-foreground">{feedback.user_email}</p>
+                            )}
+                            {feedback.feedback_text && (
+                              <p className="text-sm text-foreground/80 mt-2 whitespace-pre-wrap">
+                                {feedback.feedback_text}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(feedback.created_at).toLocaleDateString()}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(feedback.created_at).toLocaleTimeString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {feedbackList.length === 0 && (
+                      <p className="text-center text-muted-foreground py-8">No feedback yet</p>
                     )}
                   </div>
                 </ScrollArea>
