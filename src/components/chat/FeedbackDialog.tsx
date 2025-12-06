@@ -10,7 +10,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Sparkles, Star } from "lucide-react";
 import { toast } from "sonner";
 
 interface FeedbackDialogProps {
@@ -161,27 +160,12 @@ export const FeedbackDialog = ({ open, onOpenChange }: FeedbackDialogProps) => {
             </div>
           </>
         ) : (
-          // Success State with Confidence Message
-          <div className="flex flex-col items-center justify-center py-8 gap-4">
-            <div className="relative">
-              <Sparkles className="w-12 h-12 text-yellow-400 animate-pulse" />
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full animate-ping" />
-            </div>
+          // Success State
+          <div className="flex flex-col items-center justify-center py-10 gap-5">
+            <div className="text-5xl animate-fade-in">✓</div>
             <div className="text-center space-y-2">
-              <p className="text-lg font-medium">{confidenceMessage.text}</p>
-              <p className="text-4xl">{confidenceMessage.emoji}</p>
-            </div>
-            <div className="flex items-center gap-1 mt-2">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <Star
-                  key={star}
-                  className={`w-5 h-5 ${
-                    star <= rating
-                      ? "fill-yellow-400 text-yellow-400"
-                      : "text-muted-foreground/40"
-                  }`}
-                />
-              ))}
+              <p className="text-lg font-medium">Feedback noted!</p>
+              <p className="text-sm text-muted-foreground">Keep using Echo ✨</p>
             </div>
           </div>
         )}
