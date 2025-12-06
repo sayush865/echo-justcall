@@ -22,6 +22,10 @@ const SOURCES_SECTION_PATTERN = /(?:^|\n)(?:-{3,}\s*\n+)?(?:#{1,4}\s*)?(?:\*\*|_
 // Accepts any hex/UUID format ID (with or without CA prefix), and handles "Call" or "Meeting" in type
 const SOURCE_LINE_PATTERN = /\[(\d+)\]\s*([a-f0-9][a-f0-9-]*[a-f0-9])\s*\(([^)]+)\)/gi;
 
+// Pattern for inline full source references like [source: CA123... (Sales Meeting)]
+// These appear during streaming when webhook embeds full source inline
+const INLINE_FULL_SOURCE_PATTERN = /\[source:?\s*([a-f0-9][a-f0-9-]*[a-f0-9])\s*\(([^)]+)\)\]/gi;
+
 // Legacy patterns for backward compatibility
 const LEGACY_CITATION_PATTERN = /callsid:\s*(CA[a-f0-9]+)/gi;
 const LEGACY_GROUPED_PATTERN = /\((?:Examples?:?\s*)?(?:sales|support|success)?\s*[–-]?\s*callsid:\s*([^)]+)\)/gi;
@@ -32,8 +36,40 @@ const LEGACY_GROUPED_PATTERN = /\((?:Examples?:?\s*)?(?:sales|support|success)?\
  */
 export function parseStreamingCitations(content: string): Map<number, Citation> {
   const inlineCitations = new Map<number, Citation>();
+  let autoSourceNum = 1;
   
-  // Find all citation markers in various formats
+  // First, check for inline full sources like [source: CA123... (Sales Meeting)]
+  // These need to be extracted and assigned source numbers
+  const inlineFullPattern = new RegExp(INLINE_FULL_SOURCE_PATTERN.source, "gi");
+  let inlineMatch;
+  while ((inlineMatch = inlineFullPattern.exec(content)) !== null) {
+    const callId = inlineMatch[1];
+    const typeText = inlineMatch[2].toLowerCase();
+    
+    let type: Citation["type"] = "unknown";
+    if (typeText.includes("sales")) type = "sales";
+    else if (typeText.includes("support")) type = "support";
+    else if (typeText.includes("success") || typeText.includes("cs")) type = "success";
+    
+    let subtype: Citation["subtype"] = "unknown";
+    if (typeText.includes("meeting")) subtype = "meeting";
+    else if (typeText.includes("call")) subtype = "call";
+    
+    // Use callId as key to avoid duplicates, assign auto-incrementing source number
+    const existingEntry = Array.from(inlineCitations.values()).find(c => c.id === callId);
+    if (!existingEntry) {
+      inlineCitations.set(autoSourceNum, {
+        id: callId,
+        type,
+        subtype,
+        sourceNumber: autoSourceNum,
+        isStreaming: false,
+      });
+      autoSourceNum++;
+    }
+  }
+  
+  // Find all numbered citation markers in various formats
   const patterns = [
     /\[(?:source[:\s]?)?(\d+)(?:\s*[^\]]+)?\]/gi, // [source:1], [Source 1], [1]
     /["'""](?:sources?[:\s]?)?(\d+)["'""]/gi, // "Source 1", "1"
