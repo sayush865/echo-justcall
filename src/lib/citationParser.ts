@@ -11,13 +11,14 @@ export interface ParsedContent {
   inlineCitations: Map<number, Citation>;
 }
 
-// Pattern for [source:N] or just [N] format
-const SOURCE_MARKER_PATTERN = /\[(?:source:)?(\d+)\]/gi;
+// Pattern for [source:N], [Source N], or just [N] format - with optional trailing data like page refs
+// Matches: [source:1], [Source 1], [1], [Source 1 -20, 21-35], etc.
+const SOURCE_MARKER_PATTERN = /\[(?:source[:\s]?)?(\d+)(?:\s*[^\]]+)?\]/gi;
 // Pattern for Sources section at end (handles #### Sources:, ## Sources:, Sources:, ---, etc.)
 // More flexible to handle horizontal rules, varied whitespace, and markdown formatting
 const SOURCES_SECTION_PATTERN = /(?:^|\n)(?:-{3,}\s*\n+)?(?:#{1,4}\s*)?(?:\*\*|__)?Sources?:?(?:\*\*|__)?:?\s*\n((?:\[\d+\][^\n]+\n?)+)[\s\S]*/im;
-// Pattern for individual source line: [1] 2d955387-24d2-4f30-88c3-883d8096c1b4 (Success) or [1] CA123abc (Sales)
-// Accepts any hex/UUID format ID (with or without CA prefix)
+// Pattern for individual source line: [1] 2d955387-24d2-4f30-88c3-883d8096c1b4 (Sales Call) or (CS Meeting)
+// Accepts any hex/UUID format ID (with or without CA prefix), and handles "Call" or "Meeting" in type
 const SOURCE_LINE_PATTERN = /\[(\d+)\]\s*([a-f0-9][a-f0-9-]*[a-f0-9])\s*\(([^)]+)\)/gi;
 
 // Legacy patterns for backward compatibility
@@ -31,8 +32,8 @@ const LEGACY_GROUPED_PATTERN = /\((?:Examples?:?\s*)?(?:sales|support|success)?\
 export function parseStreamingCitations(content: string): Map<number, Citation> {
   const inlineCitations = new Map<number, Citation>();
   
-  // Find all [source:N] or [N] markers in the content
-  const markerPattern = /\[(?:source:)?(\d+)\]/gi;
+  // Find all [source:N], [Source N], or [N] markers in the content (with optional trailing data)
+  const markerPattern = /\[(?:source[:\s]?)?(\d+)(?:\s*[^\]]+)?\]/gi;
   let match;
   
   while ((match = markerPattern.exec(content)) !== null) {
@@ -125,9 +126,9 @@ export function parseCitations(content: string): ParsedContent {
   // Check for streaming placeholders (no Sources section yet)
   const streamingCitations = parseStreamingCitations(content);
   if (streamingCitations.size > 0) {
-    // Remove source markers from display but keep citations
+    // Remove source markers from display but keep citations (handle various formats)
     let cleanContent = content
-      .replace(/\[(?:source:)?(\d+)\]/gi, "%%CITATION_$1%%")
+      .replace(/\[(?:source[:\s]?)?(\d+)(?:\s*[^\]]+)?\]/gi, "%%CITATION_$1%%")
       .trim();
     
     return { cleanContent, citations: [], inlineCitations: streamingCitations };
@@ -190,6 +191,7 @@ export interface PreloadedSource {
  */
 function mapTypeString(typeStr: string): Citation["type"] {
   const lower = typeStr.toLowerCase();
+  // Handle both "Sales Call", "Sales Meeting", "Sales" etc.
   if (lower.includes("sales")) return "sales";
   if (lower.includes("support")) return "support";
   if (lower.includes("success") || lower.includes("cs")) return "success";
