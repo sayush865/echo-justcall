@@ -965,119 +965,133 @@ export const ChatInterface = ({
       }]);
       
       setStreamingMessage(null);
-
-      await supabase.from("messages").insert({
-        conversation_id: currentConversationId,
-        role: "assistant",
-        content: fullContent,
-        user_id: authUser.id,
-        user_email: authUser.email,
-      });
-
-      // Generate follow-up suggestions with parallel calls and smart fallback
       
-      // Full-context call (higher quality but slower)
-      const fullContextPromise = supabase.functions.invoke('generate-followups', {
-        body: { 
-          lastUserMessage: messageToSend, 
-          lastAIResponse: fullContent.substring(0, 1500),
-        }
-      }).then(({ data, error }) => {
-        return { data, error, source: 'full-context' as const };
-      }).catch(err => {
-        console.error("Full-context follow-ups failed:", err);
-        return { data: null, error: err, source: 'full-context' as const };
-      });
+      // IMMEDIATELY unlock UI - fire-and-forget pattern for database operations
+      isStreamingRef.current = false;
+      setLoading(false);
 
-      // Race: Wait max 2 seconds for full-context, otherwise use pre-fetched user-only
-      const timeoutPromise = new Promise<{ timeout: true }>(resolve => 
-        setTimeout(() => resolve({ timeout: true }), 2000)
-      );
+      // Fire-and-forget: Database insert and follow-up generation run in background
+      const savedMessageToSend = messageToSend;
+      const savedFullContent = fullContent;
+      const savedConversationId = currentConversationId;
+      const savedUserOnlyPromise = userOnlyPromise;
+      const savedAuthUser = authUser;
 
-      // First, try to get full-context within 2 seconds
-      const raceResult = await Promise.race([fullContextPromise, timeoutPromise]);
-      
-      let finalSuggestions: {label: string; prompt: string}[] = [];
-      let usedSource = 'none';
+      (async () => {
+        try {
+          await supabase.from("messages").insert({
+            conversation_id: savedConversationId,
+            role: "assistant",
+            content: savedFullContent,
+            user_id: savedAuthUser.id,
+            user_email: savedAuthUser.email,
+          });
 
-      if ('timeout' in raceResult) {
-        // Full-context took too long, use user-only result
-        const userOnlyResult = await userOnlyPromise;
-        if (userOnlyResult.data?.suggestions?.length > 0) {
-          finalSuggestions = userOnlyResult.data.suggestions;
-          usedSource = 'user-only (timeout fallback)';
-        }
-        // Still wait for full-context in background and update if better
-        fullContextPromise.then(async (result) => {
-          if (result.data?.suggestions?.length > 0) {
-            setFollowUpSuggestions(result.data.suggestions);
-            // Update cache
-            const cached = messagesCacheRef.current.get(currentConversationId);
-            if (cached) {
-              messagesCacheRef.current.set(currentConversationId, { ...cached, followUps: result.data.suggestions });
+          // Generate follow-up suggestions with parallel calls and smart fallback
+          
+          // Full-context call (higher quality but slower)
+          const fullContextPromise = supabase.functions.invoke('generate-followups', {
+            body: { 
+              lastUserMessage: savedMessageToSend, 
+              lastAIResponse: savedFullContent.substring(0, 1500),
             }
-            // Persist the better suggestions
-            if (currentConversationId) {
-              const { data: lastMsg } = await supabase
-                .from("messages")
-                .select("id")
-                .eq("conversation_id", currentConversationId)
-                .eq("role", "assistant")
-                .order("created_at", { ascending: false })
-                .limit(1)
-                .maybeSingle();
-              
-              if (lastMsg) {
-                await supabase
-                  .from("messages")
-                  .update({ follow_up_suggestions: result.data.suggestions })
-                  .eq("id", lastMsg.id);
+          }).then(({ data, error }) => {
+            return { data, error, source: 'full-context' as const };
+          }).catch(err => {
+            console.error("Full-context follow-ups failed:", err);
+            return { data: null, error: err, source: 'full-context' as const };
+          });
+
+          // Race: Wait max 2 seconds for full-context, otherwise use pre-fetched user-only
+          const timeoutPromise = new Promise<{ timeout: true }>(resolve => 
+            setTimeout(() => resolve({ timeout: true }), 2000)
+          );
+
+          // First, try to get full-context within 2 seconds
+          const raceResult = await Promise.race([fullContextPromise, timeoutPromise]);
+          
+          let finalSuggestions: {label: string; prompt: string}[] = [];
+
+          if ('timeout' in raceResult) {
+            // Full-context took too long, use user-only result
+            const userOnlyResult = await savedUserOnlyPromise;
+            if (userOnlyResult.data?.suggestions?.length > 0) {
+              finalSuggestions = userOnlyResult.data.suggestions;
+            }
+            // Still wait for full-context in background and update if better
+            fullContextPromise.then(async (result) => {
+              if (result.data?.suggestions?.length > 0) {
+                setFollowUpSuggestions(result.data.suggestions);
+                // Update cache
+                const cached = messagesCacheRef.current.get(savedConversationId);
+                if (cached) {
+                  messagesCacheRef.current.set(savedConversationId, { ...cached, followUps: result.data.suggestions });
+                }
+                // Persist the better suggestions
+                if (savedConversationId) {
+                  const { data: lastMsg } = await supabase
+                    .from("messages")
+                    .select("id")
+                    .eq("conversation_id", savedConversationId)
+                    .eq("role", "assistant")
+                    .order("created_at", { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                  
+                  if (lastMsg) {
+                    await supabase
+                      .from("messages")
+                      .update({ follow_up_suggestions: result.data.suggestions })
+                      .eq("id", lastMsg.id);
+                  }
+                }
+              }
+            });
+          } else {
+            // Full-context arrived in time
+            if (raceResult.data?.suggestions?.length > 0) {
+              finalSuggestions = raceResult.data.suggestions;
+            } else {
+              // Full-context failed, try user-only
+              const userOnlyResult = await savedUserOnlyPromise;
+              if (userOnlyResult.data?.suggestions?.length > 0) {
+                finalSuggestions = userOnlyResult.data.suggestions;
               }
             }
           }
-        });
-      } else {
-        // Full-context arrived in time
-        if (raceResult.data?.suggestions?.length > 0) {
-          finalSuggestions = raceResult.data.suggestions;
-          usedSource = 'full-context';
-        } else {
-          // Full-context failed, try user-only
-          const userOnlyResult = await userOnlyPromise;
-          if (userOnlyResult.data?.suggestions?.length > 0) {
-            finalSuggestions = userOnlyResult.data.suggestions;
-            usedSource = 'user-only (full-context failed)';
-          }
-        }
-      }
 
-      setFollowUpSuggestions(finalSuggestions);
-      setFollowUpLoading(false);
-      
-      // Persist follow-ups to the assistant message and update cache
-      if (finalSuggestions.length > 0 && currentConversationId) {
-        // Update cache
-        const cached = messagesCacheRef.current.get(currentConversationId);
-        if (cached) {
-          messagesCacheRef.current.set(currentConversationId, { ...cached, followUps: finalSuggestions });
+          setFollowUpSuggestions(finalSuggestions);
+          setFollowUpLoading(false);
+          
+          // Persist follow-ups to the assistant message and update cache
+          if (finalSuggestions.length > 0 && savedConversationId) {
+            // Update cache
+            const cached = messagesCacheRef.current.get(savedConversationId);
+            if (cached) {
+              messagesCacheRef.current.set(savedConversationId, { ...cached, followUps: finalSuggestions });
+            }
+            
+            const { data: lastMsg } = await supabase
+              .from("messages")
+              .select("id")
+              .eq("conversation_id", savedConversationId)
+              .eq("role", "assistant")
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            
+            if (lastMsg) {
+              await supabase
+                .from("messages")
+                .update({ follow_up_suggestions: finalSuggestions })
+                .eq("id", lastMsg.id);
+            }
+          }
+        } catch (err) {
+          console.error("Background follow-up generation failed:", err);
+          setFollowUpLoading(false);
         }
-        
-        const { data: lastMsg } = await supabase
-          .from("messages")
-          .select("id")
-          .eq("conversation_id", currentConversationId)
-          .eq("role", "assistant")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single();
-        
-        if (lastMsg) {
-          await supabase
-            .from("messages")
-            .update({ follow_up_suggestions: finalSuggestions })
-            .eq("id", lastMsg.id);
-        }
-      }
+      })();
     } catch (error: any) {
       setStreamingMessage(null);
       const errorMsg = getErrorMessage(error, error?.status);
@@ -1112,8 +1126,11 @@ export const ChatInterface = ({
       console.error("Message send failed (auth):", { error, retryCount, messageToSend: messageToSend.substring(0, 50) });
     } finally {
       sendInProgressRef.current = null;
-      isStreamingRef.current = false;
-      setLoading(false);
+      // Only reset if not already reset by success path
+      if (isStreamingRef.current) {
+        isStreamingRef.current = false;
+        setLoading(false);
+      }
       if (!lastFailedMessage) setRetryCount(0);
     }
   };
