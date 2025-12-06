@@ -78,8 +78,16 @@ export const MarkdownRenderer = ({ content, isStreaming = false, onSourceCount, 
     
     let processed = cleanContent;
     
-    // Handle bracketed citations: [source:1], [1], [source:1,2,3], [1,2,3]
-    processed = processed.replace(/\[(?:source:)?([\d,\s]+)\]/gi, (match, nums) => {
+    // Handle parenthesized citations: (source 1, source 2), (source 1), (1, 2, 3)
+    processed = processed.replace(/\((?:sources?:?\s*)?([\d,\s]+)\)/gi, (match, nums) => {
+      const numbers = nums.split(/[,\s]+/).map((n: string) => parseInt(n.trim(), 10)).filter((n: number) => !isNaN(n));
+      const hasAnyCitation = numbers.some((n: number) => inlineCitations.has(n));
+      if (!hasAnyCitation) return match;
+      return numbers.map((n: number) => `%%CITATION_${n}%%`).join(" ");
+    });
+    
+    // Handle bracketed citations: [source:1], [1], [source:1,2,3], [1,2,3], [Source 1]
+    processed = processed.replace(/\[(?:source[:\s]?)?([\d,\s]+)\]/gi, (match, nums) => {
       const numbers = nums.split(/[,\s]+/).map((n: string) => parseInt(n.trim(), 10)).filter((n: number) => !isNaN(n));
       const hasAnyCitation = numbers.some((n: number) => inlineCitations.has(n));
       if (!hasAnyCitation) return match;
@@ -87,12 +95,16 @@ export const MarkdownRenderer = ({ content, isStreaming = false, onSourceCount, 
     });
     
     // Handle unbracketed "source X Y Z", "source X, Y, Z", "sources: X Y Z" patterns
-    processed = processed.replace(/\bsources?:?\s*([\d,\s]+)/gi, (match, nums) => {
+    // Also catches trailing orphan patterns like "source 1 )"
+    processed = processed.replace(/\bsources?:?\s*([\d,\s]+)\s*\)?/gi, (match, nums) => {
       const numbers = nums.split(/[,\s]+/).map((n: string) => parseInt(n.trim(), 10)).filter((n: number) => !isNaN(n));
       const hasAnyCitation = numbers.some((n: number) => inlineCitations.has(n));
       if (!hasAnyCitation) return match;
       return numbers.map((n: number) => `%%CITATION_${n}%%`).join(" ");
     });
+    
+    // Clean up any leftover orphan closing parentheses after citations
+    processed = processed.replace(/%%CITATION_(\d+)%%\s*\)/g, "%%CITATION_$1%%");
     
     return processed;
   }, [cleanContent, inlineCitations]);
