@@ -1,0 +1,68 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="hsl(237, 47%, 15%)" />
+      <stop offset="100%" stop-color="hsl(227, 50%, 12%)" />
+    </linearGradient>
+    <!-- Logo gradient -->
+    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="hsl(227, 93%, 60%)" />
+      <stop offset="50%" stop-color="hsl(256, 100%, 68%)" />
+      <stop offset="100%" stop-color="hsl(195, 100%, 65%)" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGrad)" />
+  
+  <!-- Echo Logo - scaled and positioned -->
+  <g transform="translate(280, 165) scale(3)">
+    <!-- Background circle -->
+    <circle cx="50" cy="50" r="48" fill="url(#logoGrad)" />
+    
+    <!-- Left speaker -->
+    <g>
+      <circle cx="18" cy="50" r="12" fill="hsl(237, 47%, 32%)" />
+      <circle cx="18" cy="50" r="9" fill="hsl(227, 93%, 50%)" />
+      <circle cx="18" cy="50" r="5" fill="hsl(195, 100%, 65%)" />
+      <circle cx="18" cy="50" r="2" fill="hsl(237, 47%, 32%)" />
+    </g>
+    
+    <!-- Right speaker -->
+    <g>
+      <circle cx="82" cy="50" r="12" fill="hsl(237, 47%, 32%)" />
+      <circle cx="82" cy="50" r="9" fill="hsl(227, 93%, 50%)" />
+      <circle cx="82" cy="50" r="5" fill="hsl(195, 100%, 65%)" />
+      <circle cx="82" cy="50" r="2" fill="hsl(237, 47%, 32%)" />
+    </g>
+    
+    <!-- Face - white rounded rectangle -->
+    <rect x="25" y="25" width="50" height="50" rx="12" fill="white" />
+    
+    <!-- Left eye -->
+    <circle cx="40" cy="42" r="5" fill="hsl(237, 47%, 20%)" />
+    <circle cx="38" cy="40" r="1.5" fill="white" />
+    
+    <!-- Right eye -->
+    <circle cx="60" cy="42" r="5" fill="hsl(237, 47%, 20%)" />
+    <circle cx="58" cy="40" r="1.5" fill="white" />
+    
+    <!-- Smile -->
+    <path d="M 40 58 Q 50 66 60 58" stroke="hsl(237, 47%, 20%)" stroke-width="3" stroke-linecap="round" fill="none" />
+    
+    <!-- Sound waves - left -->
+    <path d="M 8 38 Q 2 50 8 62" stroke="white" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.6" />
+    <path d="M 4 32 Q -4 50 4 68" stroke="white" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.3" />
+    
+    <!-- Sound waves - right -->
+    <path d="M 92 38 Q 98 50 92 62" stroke="white" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.6" />
+    <path d="M 96 32 Q 104 50 96 68" stroke="white" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.3" />
+  </g>
+  
+  <!-- Echo text -->
+  <text x="620" y="290" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="72" font-weight="600" fill="white">Echo</text>
+  
+  <!-- Tagline -->
+  <text x="620" y="350" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="24" fill="hsl(220, 20%, 60%)">Bringing the Voice of Customers Back to You</text>
+</svg>
