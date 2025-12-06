@@ -265,12 +265,13 @@ serve(async (req) => {
           const { done, value } = await reader.read();
           if (done) {
             // IMMEDIATELY close the stream - client unlocks now
+            const streamCloseTime = Date.now();
             await writer.close();
             
             // Fire-and-forget cleanup using EdgeRuntime.waitUntil
             // Runs in background AFTER the response is closed
             const finalResponse = fullResponse;
-            const endTime = Date.now();
+            const cleanupStartTime = Date.now();
             EdgeRuntime.waitUntil((async () => {
               try {
                 // Parallel cleanup - both operations at once
@@ -281,8 +282,14 @@ serve(async (req) => {
                     event_type: "ai_response",
                     ai_response: finalResponse,
                     metadata: {
-                      latency_ms: endTime - startTime,
+                      // Core latency metrics
+                      total_latency_ms: streamCloseTime - startTime,
                       response_length: finalResponse.length,
+                      // Fire-and-forget metrics for admin visibility
+                      stream_close_time_ms: streamCloseTime - startTime,
+                      cleanup_start_delay_ms: cleanupStartTime - streamCloseTime,
+                      cleanup_duration_ms: Date.now() - cleanupStartTime,
+                      fire_and_forget: true,
                     },
                     ip_address: ipAddress,
                     user_agent: userAgent,
@@ -292,6 +299,10 @@ serve(async (req) => {
                     .update({ pending_response: false })
                     .eq("id", conversationId)
                 ]);
+                
+                // Log final cleanup duration
+                const cleanupEndTime = Date.now();
+                console.log(`[Latency] Stream closed: ${streamCloseTime - startTime}ms, Cleanup: ${cleanupEndTime - cleanupStartTime}ms`);
               } catch (cleanupError) {
                 console.error("Background cleanup error:", cleanupError);
               }
