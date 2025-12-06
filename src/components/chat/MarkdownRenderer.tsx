@@ -86,6 +86,18 @@ export const MarkdownRenderer = ({ content, isStreaming = false, onSourceCount, 
       return numbers.map((n: number) => `%%CITATION_${n}%%`).join(" ");
     };
     
+    // Handle inline full source references like [source: CA123... (Sales Meeting)]
+    // Replace with placeholder using the source number from inlineCitations
+    processed = processed.replace(/\[source:?\s*([a-f0-9][a-f0-9-]*[a-f0-9])\s*\([^)]+\)\]/gi, (match, callId) => {
+      // Find the citation with this callId
+      for (const [num, citation] of inlineCitations) {
+        if (citation.id === callId) {
+          return `%%CITATION_${num}%%`;
+        }
+      }
+      return ""; // Remove if not found (shouldn't happen)
+    });
+    
     // Handle quoted "Source X" patterns (with various quote types)
     processed = processed.replace(/["'""](?:sources?[:\s]?)?([\d,\s]+)["'""]/gi, (match, nums) => {
       const result = replaceCitations(nums);
