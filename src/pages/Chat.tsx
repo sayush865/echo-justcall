@@ -6,6 +6,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
+// UUID v4 validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const isValidUUID = (id: string): boolean => UUID_REGEX.test(id);
+
 const Chat = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
   const navigate = useNavigate();
@@ -20,6 +25,17 @@ const Chat = () => {
   // Fetch conversation title and validate conversation exists
   useEffect(() => {
     if (conversationId) {
+      // Client-side UUID validation - reject invalid IDs before DB query
+      if (!isValidUUID(conversationId)) {
+        toast({
+          title: "Invalid conversation",
+          description: "The conversation ID format is invalid.",
+          variant: "destructive",
+        });
+        navigate("/", { replace: true });
+        return;
+      }
+
       // Only show skeleton on initial page load, not during in-app navigation
       // This prevents unmounting ChatInterface and losing streaming state
       if (isInitialLoadRef.current && hasValidatedRef.current !== conversationId) {
