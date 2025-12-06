@@ -1,0 +1,48 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a1f3a" />
+      <stop offset="100%" stop-color="#0f1629" />
+    </linearGradient>
+    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3a60f8" />
+      <stop offset="50%" stop-color="#875cff" />
+      <stop offset="100%" stop-color="#4cd3ff" />
+    </linearGradient>
+  </defs>
+  
+  <rect width="1200" height="630" fill="url(#bgGrad)" />
+  
+  <g transform="translate(280, 165) scale(3)">
+    <circle cx="50" cy="50" r="48" fill="url(#logoGrad)" />
+    
+    <circle cx="18" cy="50" r="12" fill="#2b2e76" />
+    <circle cx="18" cy="50" r="9" fill="#2952e8" />
+    <circle cx="18" cy="50" r="5" fill="#4cd3ff" />
+    <circle cx="18" cy="50" r="2" fill="#2b2e76" />
+    
+    <circle cx="82" cy="50" r="12" fill="#2b2e76" />
+    <circle cx="82" cy="50" r="9" fill="#2952e8" />
+    <circle cx="82" cy="50" r="5" fill="#4cd3ff" />
+    <circle cx="82" cy="50" r="2" fill="#2b2e76" />
+    
+    <rect x="25" y="25" width="50" height="50" rx="12" fill="white" />
+    
+    <circle cx="40" cy="42" r="5" fill="#1a1d4a" />
+    <circle cx="38" cy="40" r="1.5" fill="white" />
+    
+    <circle cx="60" cy="42" r="5" fill="#1a1d4a" />
+    <circle cx="58" cy="40" r="1.5" fill="white" />
+    
+    <path d="M 40 58 Q 50 66 60 58" stroke="#1a1d4a" stroke-width="3" stroke-linecap="round" fill="none" />
+    
+    <path d="M 8 38 Q 2 50 8 62" stroke="white" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.6" />
+    <path d="M 4 32 Q -4 50 4 68" stroke="white" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.3" />
+    
+    <path d="M 92 38 Q 98 50 92 62" stroke="white" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.6" />
+    <path d="M 96 32 Q 104 50 96 68" stroke="white" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.3" />
+  </g>
+  
+  <text x="620" y="290" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="600" fill="white">Echo</text>
+  <text x="620" y="350" font-family="system-ui, -apple-system, sans-serif" font-size="24" fill="#8090b0">Bringing the Voice of Customers Back to You</text>
+</svg>
