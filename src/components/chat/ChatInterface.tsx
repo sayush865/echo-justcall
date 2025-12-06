@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +15,7 @@ import { Mic, MicOff, Send, Loader2, Copy, Check, ArrowDown, Share2, LogOut, Squ
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { MarkdownRenderer } from "./MarkdownRenderer";
+import { parseCitations } from "@/lib/citationParser";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { triggerHaptic } from "@/hooks/useHapticFeedback";
 import { AnimatedPlaceholder } from "./AnimatedPlaceholder";
@@ -98,7 +99,7 @@ export const ChatInterface = ({
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isUserNearBottom, setIsUserNearBottom] = useState(true);
-  const [messageSourceCounts, setMessageSourceCounts] = useState<Record<string, number>>({});
+  
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [followUpSuggestions, setFollowUpSuggestions] = useState<{label: string; prompt: string}[]>([]);
   const [followUpLoading, setFollowUpLoading] = useState(false);
@@ -1285,41 +1286,38 @@ export const ChatInterface = ({
                       </Avatar>
                     </>
                   ) : (
-                    <>
-                      <EchoLogo size="md" className="mt-0.5" />
-                      <div className="flex-1 group min-w-0">
-                        <MarkdownRenderer 
-                          content={msg.content} 
-                          onSourceCount={(count) => {
-                            setMessageSourceCounts(prev => {
-                              if (prev[msg.id] === count) return prev;
-                              return { ...prev, [msg.id]: count };
-                            });
-                          }}
-                        />
-                        <div className="flex justify-start items-center gap-2 mt-1">
-                          <span className="text-xs text-muted-foreground">
-                            {formatMessageTime(msg.created_at)}
-                          </span>
-                          {messageSourceCounts[msg.id] > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                              • {messageSourceCounts[msg.id]} source{messageSourceCounts[msg.id] !== 1 ? 's' : ''} found
-                            </span>
-                          )}
-                          <button
-                            onClick={() => handleCopy(msg.content, msg.id)}
-                            className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-                            title="Copy response"
-                          >
-                            {copiedId === msg.id ? (
-                              <Check className="w-3.5 h-3.5 text-green-500" />
-                            ) : (
-                              <Copy className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    </>
+                    (() => {
+                      const sourceCount = parseCitations(msg.content).inlineCitations.size;
+                      return (
+                        <>
+                          <EchoLogo size="md" className="mt-0.5" />
+                          <div className="flex-1 group min-w-0">
+                            <MarkdownRenderer content={msg.content} />
+                            <div className="flex justify-start items-center gap-2 mt-1">
+                              <span className="text-xs text-muted-foreground">
+                                {formatMessageTime(msg.created_at)}
+                              </span>
+                              {sourceCount > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  • {sourceCount} source{sourceCount !== 1 ? 's' : ''} found
+                                </span>
+                              )}
+                              <button
+                                onClick={() => handleCopy(msg.content, msg.id)}
+                                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+                                title="Copy response"
+                              >
+                                {copiedId === msg.id ? (
+                                  <Check className="w-3.5 h-3.5 text-green-500" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()
                   )}
                 </div>
               ))}
