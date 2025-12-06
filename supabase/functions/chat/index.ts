@@ -264,28 +264,39 @@ serve(async (req) => {
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
-            // Log AI response when streaming is complete
-            await supabaseAdmin.from("audit_logs").insert({
-              user_id: userId,
-              conversation_id: conversationId,
-              event_type: "ai_response",
-              ai_response: fullResponse,
-              metadata: {
-                latency_ms: Date.now() - startTime,
-                response_length: fullResponse.length,
-              },
-              ip_address: ipAddress,
-              user_agent: userAgent,
-            });
-            
-            // Set pending_response = false when streaming is complete
-            await supabaseAdmin
-              .from("conversations")
-              .update({ pending_response: false })
-              .eq("id", conversationId);
-            // Streaming complete
-            
+            // IMMEDIATELY close the stream - client unlocks now
             await writer.close();
+            
+            // Fire-and-forget cleanup using EdgeRuntime.waitUntil
+            // Runs in background AFTER the response is closed
+            const finalResponse = fullResponse;
+            const endTime = Date.now();
+            EdgeRuntime.waitUntil((async () => {
+              try {
+                // Parallel cleanup - both operations at once
+                await Promise.all([
+                  supabaseAdmin.from("audit_logs").insert({
+                    user_id: userId,
+                    conversation_id: conversationId,
+                    event_type: "ai_response",
+                    ai_response: finalResponse,
+                    metadata: {
+                      latency_ms: endTime - startTime,
+                      response_length: finalResponse.length,
+                    },
+                    ip_address: ipAddress,
+                    user_agent: userAgent,
+                  }),
+                  supabaseAdmin
+                    .from("conversations")
+                    .update({ pending_response: false })
+                    .eq("id", conversationId)
+                ]);
+              } catch (cleanupError) {
+                console.error("Background cleanup error:", cleanupError);
+              }
+            })());
+            
             break;
           }
           
@@ -308,17 +319,22 @@ serve(async (req) => {
             }
           }
           
-          // Stream chunk processed
           // Write chunk immediately to ensure it's flushed
           await writer.write(encoder.encode(chunk));
         }
       } catch (error) {
         console.error("Stream error:", error);
-        // Set pending_response = false on error
-        await supabaseAdmin
-          .from("conversations")
-          .update({ pending_response: false })
-          .eq("id", conversationId);
+        // Fire-and-forget error cleanup
+        EdgeRuntime.waitUntil((async () => {
+          try {
+            await supabaseAdmin
+              .from("conversations")
+              .update({ pending_response: false })
+              .eq("id", conversationId);
+          } catch (cleanupError) {
+            console.error("Error cleanup failed:", cleanupError);
+          }
+        })());
         await writer.abort(error);
       }
     })();
