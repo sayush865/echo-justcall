@@ -15,7 +15,8 @@ import { Mic, MicOff, Send, Loader2, Copy, Check, ArrowDown, Share2, LogOut, Squ
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { MarkdownRenderer } from "./MarkdownRenderer";
-import { parseCitations } from "@/lib/citationParser";
+import { parseCitations, extractTypeFromToolName } from "@/lib/citationParser";
+import type { PreloadedSource } from "@/lib/citationParser";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { triggerHaptic } from "@/hooks/useHapticFeedback";
 import { AnimatedPlaceholder } from "./AnimatedPlaceholder";
@@ -116,6 +117,7 @@ export const ChatInterface = ({
   const isStreamingRef = useRef<boolean>(false); // Immediate tracking for streaming state
   const sendInProgressRef = useRef<string | null>(null); // Track which conversation has active send
   const lastSentMessageRef = useRef<{ content: string; timestamp: number } | null>(null); // Prevent duplicate sends
+  const toolSourceMapRef = useRef<Map<number, PreloadedSource>>(new Map()); // Track sources from tool results during streaming
   const preWarmFollowUpRef = useRef<Promise<any> | null>(null); // Phase 2: Pre-warmed follow-up promise
   const { user, signOut } = useAuth();
 
@@ -321,6 +323,7 @@ export const ChatInterface = ({
     // Show streaming UI immediately with empty content (loading state)
     isStreamingRef.current = true; // Set immediately before streaming starts
     setStreamingSourceCount(0); // Reset source count for new stream
+    toolSourceMapRef.current = new Map(); // Reset tool source map for new stream
     setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
 
     // Optimistically add user message to UI immediately
@@ -468,6 +471,52 @@ export const ChatInterface = ({
               // Handle intermediate steps (tool calls, thinking, etc.)
               const stepText = parsed.text || parsed.name || parsed.content || JSON.stringify(parsed);
               steps.push(stepText);
+              
+              // Extract sources from tool results (Pinecone results contain callSID/instanceId)
+              if (parsed.type === "tool" && parsed.toolName && parsed.result) {
+                try {
+                  const toolName = parsed.toolName as string;
+                  const sourceType = extractTypeFromToolName(toolName);
+                  
+                  // Parse the result - it may be a string or object
+                  const resultData = typeof parsed.result === "string" 
+                    ? JSON.parse(parsed.result) 
+                    : parsed.result;
+                  
+                  // Look for IDs in the result (could be array of documents or nested structure)
+                  const extractIds = (data: any): string[] => {
+                    const ids: string[] = [];
+                    if (Array.isArray(data)) {
+                      data.forEach(item => {
+                        // Look for callSID, instanceId, or id fields
+                        const id = item?.callSID || item?.instanceId || item?.metadata?.callSID || item?.metadata?.instanceId || item?.id;
+                        if (id && typeof id === "string") ids.push(id);
+                      });
+                    } else if (data?.matches) {
+                      // Pinecone format
+                      data.matches.forEach((match: any) => {
+                        const id = match?.metadata?.callSID || match?.metadata?.instanceId || match?.id;
+                        if (id && typeof id === "string") ids.push(id);
+                      });
+                    }
+                    return ids;
+                  };
+                  
+                  const foundIds = extractIds(resultData);
+                  foundIds.forEach(id => {
+                    // Assign sequential source numbers
+                    const nextNum = toolSourceMapRef.current.size + 1;
+                    // Only add if not already seen
+                    const alreadyExists = Array.from(toolSourceMapRef.current.values()).some(s => s.id === id);
+                    if (!alreadyExists) {
+                      toolSourceMapRef.current.set(nextNum, { id, type: sourceType });
+                    }
+                  });
+                } catch (e) {
+                  // Silently ignore parsing errors for tool results
+                }
+              }
+              
               if (isActiveConversation()) {
                 setStreamingMessage(prev => prev ? { 
                   ...prev, 
@@ -1341,6 +1390,7 @@ export const ChatInterface = ({
                         content={streamingMessage.content + (streamingMessage.isStreaming ? "▋" : "")} 
                         isStreaming={streamingMessage.isStreaming}
                         onSourceCount={streamingMessage.isStreaming ? setStreamingSourceCount : undefined}
+                        preloadedSources={streamingMessage.isStreaming ? toolSourceMapRef.current : undefined}
                       />
                     )}
                   </div>

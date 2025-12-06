@@ -4,7 +4,8 @@ import remarkGfm from "remark-gfm";
 import { CodeBlock } from "./CodeBlock";
 import { CitationBadges } from "./CitationBadges";
 import { InlineCitationPill } from "./InlineCitationPill";
-import { parseCitations, parseStreamingCitations } from "@/lib/citationParser";
+import { parseCitations, parseStreamingCitations, mergeWithPreloadedSources } from "@/lib/citationParser";
+import type { PreloadedSource } from "@/lib/citationParser";
 import type { Components } from "react-markdown";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
@@ -12,10 +13,11 @@ interface MarkdownRendererProps {
   content: string;
   isStreaming?: boolean;
   onSourceCount?: (count: number) => void;
+  preloadedSources?: Map<number, PreloadedSource>; // Sources extracted from tool results during streaming
 }
 
-export const MarkdownRenderer = ({ content, isStreaming = false, onSourceCount }: MarkdownRendererProps) => {
-  // Use streaming-aware citation parsing
+export const MarkdownRenderer = ({ content, isStreaming = false, onSourceCount, preloadedSources }: MarkdownRendererProps) => {
+  // Use streaming-aware citation parsing with preloaded sources
   const { cleanContent, citations, inlineCitations } = useMemo(() => {
     const parsed = parseCitations(content);
     
@@ -27,10 +29,16 @@ export const MarkdownRenderer = ({ content, isStreaming = false, onSourceCount }
         // Remove source markers from display
         let cleanedContent = parsed.cleanContent
           .replace(/\[(?:source:)?(\d+)\]/gi, "%%CITATION_$1%%");
+        
+        // Merge with preloaded sources if available
+        const mergedCitations = preloadedSources 
+          ? mergeWithPreloadedSources(streamingCitations, preloadedSources)
+          : streamingCitations;
+        
         return {
           cleanContent: cleanedContent,
           citations: parsed.citations,
-          inlineCitations: streamingCitations,
+          inlineCitations: mergedCitations,
         };
       }
     }
@@ -43,10 +51,19 @@ export const MarkdownRenderer = ({ content, isStreaming = false, onSourceCount }
           parsed.inlineCitations.set(num, streamingCitation);
         }
       });
+      
+      // Merge with preloaded sources
+      if (preloadedSources) {
+        const merged = mergeWithPreloadedSources(parsed.inlineCitations, preloadedSources);
+        return {
+          ...parsed,
+          inlineCitations: merged,
+        };
+      }
     }
     
     return parsed;
-  }, [content, isStreaming]);
+  }, [content, isStreaming, preloadedSources]);
 
   // Report source count to parent
   useEffect(() => {
