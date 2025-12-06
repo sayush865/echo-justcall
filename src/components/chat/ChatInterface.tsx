@@ -98,6 +98,7 @@ export const ChatInterface = ({
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isUserNearBottom, setIsUserNearBottom] = useState(true);
+  const [messageSourceCounts, setMessageSourceCounts] = useState<Record<string, number>>({});
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [followUpSuggestions, setFollowUpSuggestions] = useState<{label: string; prompt: string}[]>([]);
   const [followUpLoading, setFollowUpLoading] = useState(false);
@@ -1287,11 +1288,24 @@ export const ChatInterface = ({
                     <>
                       <EchoLogo size="md" className="mt-0.5" />
                       <div className="flex-1 group min-w-0">
-                        <MarkdownRenderer content={msg.content} />
+                        <MarkdownRenderer 
+                          content={msg.content} 
+                          onSourceCount={(count) => {
+                            setMessageSourceCounts(prev => {
+                              if (prev[msg.id] === count) return prev;
+                              return { ...prev, [msg.id]: count };
+                            });
+                          }}
+                        />
                         <div className="flex justify-start items-center gap-2 mt-1">
                           <span className="text-xs text-muted-foreground">
                             {formatMessageTime(msg.created_at)}
                           </span>
+                          {messageSourceCounts[msg.id] > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              • {messageSourceCounts[msg.id]} source{messageSourceCounts[msg.id] !== 1 ? 's' : ''} found
+                            </span>
+                          )}
                           <button
                             onClick={() => handleCopy(msg.content, msg.id)}
                             className="p-1 text-muted-foreground hover:text-foreground transition-colors"
