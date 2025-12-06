@@ -13,7 +13,14 @@ serve(async (req) => {
   const startTime = Date.now();
   
   try {
-    const { lastUserMessage, lastAIResponse, userMessageOnly } = await req.json();
+    const { lastUserMessage, lastAIResponse, userMessageOnly, warmup } = await req.json();
+
+    // Handle warmup ping - instant response to pre-warm the function
+    if (warmup) {
+      return new Response(JSON.stringify({ status: "warm" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
