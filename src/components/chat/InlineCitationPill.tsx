@@ -12,18 +12,19 @@ interface InlineCitationPillProps {
   citation: Citation;
 }
 
-const typeLabels: Record<Citation["type"], string> = {
-  sales: "Sales Call",
-  support: "Support Call",
-  success: "Success Call",
-  unknown: "Call",
+const typeLabels: Record<Citation["type"], Record<Citation["subtype"], string>> = {
+  sales: { call: "Sales Call", meeting: "Sales Meeting", unknown: "Sales" },
+  support: { call: "Support Call", meeting: "Support Meeting", unknown: "Support" },
+  success: { call: "CS Call", meeting: "CS Meeting", unknown: "CS" },
+  unknown: { call: "Call", meeting: "Meeting", unknown: "Source" },
 };
 
 export const InlineCitationPill = ({ citation }: InlineCitationPillProps) => {
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
-  const label = typeLabels[citation.type];
+  const label = typeLabels[citation.type][citation.subtype];
   const isStreaming = citation.isStreaming;
+  const isMeeting = citation.subtype === "meeting";
   
   const displayText = `Source ${citation.sourceNumber}`;
 
@@ -33,7 +34,7 @@ export const InlineCitationPill = ({ citation }: InlineCitationPillProps) => {
     try {
       await navigator.clipboard.writeText(citation.id);
       setCopied(true);
-      toast.success("Call ID copied to clipboard");
+      toast.success(isMeeting ? "Meeting ID copied to clipboard" : "Call ID copied to clipboard");
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       toast.error("Failed to copy");
@@ -78,7 +79,7 @@ export const InlineCitationPill = ({ citation }: InlineCitationPillProps) => {
                 type="button"
                 onClick={handleCopy}
                 className="p-1.5 hover:bg-muted rounded-md transition-colors"
-                title="Copy Call ID"
+                title={isMeeting ? "Copy Meeting ID" : "Copy Call ID"}
               >
                 {copied ? (
                   <Check className="w-4 h-4 text-emerald-500" />
