@@ -17,18 +17,18 @@ interface FeedbackDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const getEgoMessage = (rating: number): { text: string; emoji: string } => {
+const getConfidenceMessage = (rating: number): { text: string; emoji: string } => {
   switch (rating) {
     case 1:
-      return { text: "Ayush's ego grew by 1... he'll take what he can get", emoji: "😅" };
+      return { text: "Ayush's confidence grew by 1... he'll take what he can get", emoji: "😅" };
     case 2:
-      return { text: "Ayush's ego grew by 2... room for improvement, noted!", emoji: "🙃" };
+      return { text: "Ayush's confidence grew by 2... room for improvement, noted!", emoji: "🙃" };
     case 3:
-      return { text: "Ayush's ego grew by 3! Perfectly balanced", emoji: "😌" };
+      return { text: "Ayush's confidence grew by 3! Perfectly balanced", emoji: "😌" };
     case 4:
-      return { text: "Ayush's ego grew by 4! Almost there... what did he miss?", emoji: "🤔" };
+      return { text: "Ayush's confidence grew by 4! Almost there... what did he miss?", emoji: "🤔" };
     case 5:
-      return { text: "Ayush's ego grew by 5! You're officially his favorite person!", emoji: "🤩" };
+      return { text: "Ayush's confidence grew by 5! You're officially his favorite person!", emoji: "🤩" };
     default:
       return { text: "Thanks for your feedback!", emoji: "🙏" };
   }
@@ -77,7 +77,7 @@ export const FeedbackDialog = ({ open, onOpenChange }: FeedbackDialogProps) => {
     }
   };
 
-  const egoMessage = getEgoMessage(rating);
+  const confidenceMessage = getConfidenceMessage(rating);
 
   return (
     <Dialog open={open} onOpenChange={(newOpen) => {
@@ -155,8 +155,8 @@ export const FeedbackDialog = ({ open, onOpenChange }: FeedbackDialogProps) => {
               <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full animate-ping" />
             </div>
             <div className="text-center space-y-2">
-              <p className="text-lg font-medium">{egoMessage.text}</p>
-              <p className="text-4xl">{egoMessage.emoji}</p>
+              <p className="text-lg font-medium">{confidenceMessage.text}</p>
+              <p className="text-4xl">{confidenceMessage.emoji}</p>
             </div>
             <div className="flex items-center gap-1 mt-2">
               {[1, 2, 3, 4, 5].map((star) => (
