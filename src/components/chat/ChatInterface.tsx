@@ -1540,7 +1540,7 @@ export const ChatInterface = ({
           <TooltipTrigger asChild>
             <button 
               onClick={() => setFeedbackDialogOpen(true)}
-              className="group fixed bottom-2 right-3 z-20 text-xs text-muted-foreground/50 hover:text-muted-foreground hover:scale-110 transition-all duration-300 cursor-pointer"
+              className="group fixed bottom-3 right-4 z-20 text-sm text-muted-foreground/60 hover:text-muted-foreground hover:scale-105 transition-all duration-300 cursor-pointer font-medium"
             >
               Made with <span className="inline-block group-hover:animate-pulse">♥️</span> Ayush
             </button>
