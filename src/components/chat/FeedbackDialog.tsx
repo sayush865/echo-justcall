@@ -9,7 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Star, Sparkles } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Sparkles, Star } from "lucide-react";
 import { toast } from "sonner";
 
 interface FeedbackDialogProps {
@@ -30,14 +31,13 @@ const getConfidenceMessage = (rating: number): { text: string; emoji: string } =
     case 5:
       return { text: "Ayush's confidence grew by 5! You're officially his favorite person!", emoji: "🤩" };
     default:
-      return { text: "Thanks for your feedback!", emoji: "🙏" };
+      return { text: "Slide to rate your experience", emoji: "🎚️" };
   }
 };
 
 export const FeedbackDialog = ({ open, onOpenChange }: FeedbackDialogProps) => {
   const { user } = useAuth();
   const [rating, setRating] = useState<number>(0);
-  const [hoveredRating, setHoveredRating] = useState<number>(0);
   const [feedbackText, setFeedbackText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -78,13 +78,13 @@ export const FeedbackDialog = ({ open, onOpenChange }: FeedbackDialogProps) => {
   };
 
   const confidenceMessage = getConfidenceMessage(rating);
+  const displayRating = rating || 3; // Show middle state visually when not selected
 
   return (
     <Dialog open={open} onOpenChange={(newOpen) => {
       if (!newOpen && !submitted) {
         // Reset when closing without submit
         setRating(0);
-        setHoveredRating(0);
         setFeedbackText("");
       }
       onOpenChange(newOpen);
@@ -97,26 +97,39 @@ export const FeedbackDialog = ({ open, onOpenChange }: FeedbackDialogProps) => {
             </DialogHeader>
             
             <div className="flex flex-col items-center gap-6 py-4">
-              {/* Star Rating */}
-              <div className="flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    className="p-1 transition-transform hover:scale-110 focus:outline-none"
-                    onMouseEnter={() => setHoveredRating(star)}
-                    onMouseLeave={() => setHoveredRating(0)}
-                    onClick={() => setRating(star)}
-                  >
-                    <Star
-                      className={`w-8 h-8 transition-colors ${
-                        star <= (hoveredRating || rating)
-                          ? "fill-yellow-400 text-yellow-400"
-                          : "text-muted-foreground/40"
-                      }`}
-                    />
-                  </button>
-                ))}
+              {/* Live Emoji Display */}
+              <div className="text-5xl transition-all duration-300 ease-out transform">
+                {confidenceMessage.emoji}
+              </div>
+
+              {/* Slider Rating */}
+              <div className="w-full space-y-3">
+                <Slider
+                  value={[displayRating]}
+                  onValueChange={(value) => setRating(value[0])}
+                  min={1}
+                  max={5}
+                  step={1}
+                  className="w-full [&_[role=slider]]:bg-yellow-400 [&_[role=slider]]:border-yellow-500 [&_.bg-primary]:bg-yellow-400"
+                />
+                {/* Number Labels */}
+                <div className="flex justify-between px-1 text-sm text-muted-foreground">
+                  {[1, 2, 3, 4, 5].map((num) => (
+                    <span 
+                      key={num} 
+                      className={`transition-colors ${rating === num ? 'text-yellow-500 font-medium' : ''}`}
+                    >
+                      {num}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Live Confidence Message */}
+              <div className="text-center min-h-[48px] transition-all duration-300">
+                <p className={`text-sm ${rating > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {confidenceMessage.text}
+                </p>
               </div>
 
               {/* Feedback Text */}
@@ -148,7 +161,7 @@ export const FeedbackDialog = ({ open, onOpenChange }: FeedbackDialogProps) => {
             </div>
           </>
         ) : (
-          // Success State with Ego Message
+          // Success State with Confidence Message
           <div className="flex flex-col items-center justify-center py-8 gap-4">
             <div className="relative">
               <Sparkles className="w-12 h-12 text-yellow-400 animate-pulse" />
