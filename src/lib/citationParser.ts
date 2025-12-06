@@ -1,6 +1,7 @@
 export interface Citation {
   id: string;
   type: "sales" | "support" | "success" | "unknown";
+  subtype: "call" | "meeting" | "unknown"; // Distinguishes calls from meetings
   sourceNumber?: number;
   isStreaming?: boolean; // True when citation is a placeholder during streaming
 }
@@ -42,6 +43,7 @@ export function parseStreamingCitations(content: string): Map<number, Citation> 
       inlineCitations.set(sourceNum, {
         id: `pending_${sourceNum}`,
         type: "unknown",
+        subtype: "unknown",
         sourceNumber: sourceNum,
         isStreaming: true,
       });
@@ -62,12 +64,17 @@ export function parseStreamingCitations(content: string): Map<number, Citation> 
       let type: Citation["type"] = "unknown";
       if (typeText.includes("sales")) type = "sales";
       else if (typeText.includes("support")) type = "support";
-      else if (typeText.includes("success")) type = "success";
+      else if (typeText.includes("success") || typeText.includes("cs")) type = "success";
+      
+      let subtype: Citation["subtype"] = "unknown";
+      if (typeText.includes("meeting")) subtype = "meeting";
+      else if (typeText.includes("call")) subtype = "call";
       
       // Update placeholder with real data
       inlineCitations.set(sourceNum, {
         id: callId,
         type,
+        subtype,
         sourceNumber: sourceNum,
         isStreaming: false,
       });
@@ -106,9 +113,13 @@ export function parseCitations(content: string): ParsedContent {
       let type: Citation["type"] = "unknown";
       if (typeText.includes("sales")) type = "sales";
       else if (typeText.includes("support")) type = "support";
-      else if (typeText.includes("success")) type = "success";
+      else if (typeText.includes("success") || typeText.includes("cs")) type = "success";
       
-      const citation: Citation = { id: callId, type, sourceNumber: sourceNum, isStreaming: false };
+      let subtype: Citation["subtype"] = "unknown";
+      if (typeText.includes("meeting")) subtype = "meeting";
+      else if (typeText.includes("call")) subtype = "call";
+      
+      const citation: Citation = { id: callId, type, subtype, sourceNumber: sourceNum, isStreaming: false };
       
       if (!seenIds.has(callId)) {
         seenIds.add(callId);
@@ -152,6 +163,7 @@ export function parseCitations(content: string): ParsedContent {
       citations.push({
         id,
         type: detectType(content, match.index),
+        subtype: "call", // Legacy format was always calls
       });
     }
   }
@@ -191,10 +203,16 @@ export interface PreloadedSource {
  */
 function mapTypeString(typeStr: string): Citation["type"] {
   const lower = typeStr.toLowerCase();
-  // Handle both "Sales Call", "Sales Meeting", "Sales" etc.
   if (lower.includes("sales")) return "sales";
   if (lower.includes("support")) return "support";
   if (lower.includes("success") || lower.includes("cs")) return "success";
+  return "unknown";
+}
+
+function mapSubtypeString(typeStr: string): Citation["subtype"] {
+  const lower = typeStr.toLowerCase();
+  if (lower.includes("meeting")) return "meeting";
+  if (lower.includes("call")) return "call";
   return "unknown";
 }
 
@@ -216,6 +234,7 @@ export function mergeWithPreloadedSources(
       merged.set(num, {
         id: data.id,
         type: mapTypeString(data.type),
+        subtype: mapSubtypeString(data.type),
         sourceNumber: num,
         isStreaming: false, // Fully loaded from tool results
       });
