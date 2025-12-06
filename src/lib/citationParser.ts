@@ -135,13 +135,23 @@ export function parseCitations(content: string): ParsedContent {
       inlineCitations.set(sourceNum, citation);
     }
     
-    // Remove Sources section from content (try both patterns)
+    // Multi-pass aggressive cleanup to remove all Sources section variations
     let cleanContent = content
+      // Remove SOURCES_SECTION_PATTERN match
       .replace(SOURCES_SECTION_PATTERN, "")
-      .replace(/(?:\*\*|__)?SOURCES?:?(?:\*\*|__)?:?\s*\n+((?:\[\d+\][^\n]+\n?)+)[\s\S]*/gim, "")
+      // Remove markdown headers like "### Sources" or "## Sources"
+      .replace(/\n*#{1,4}\s*Sources?\s*\n*/gi, "\n")
+      // Remove "Sources:" or "SOURCES" label with various formatting
+      .replace(/\n*(?:\*\*|__)?SOURCES?:?(?:\*\*|__)?:?\s*\n*/gi, "\n")
+      // Remove individual source lines [N] ID (Type)
+      .replace(/\[\d+\]\s*[a-f0-9][a-f0-9-]*[a-f0-9]\s*\([^)]+\)\s*\n?/gi, "")
+      // Remove trailing horizontal rules
+      .replace(/\n*-{3,}\s*$/g, "")
+      // Clean up multiple consecutive newlines
+      .replace(/\n{3,}/g, "\n\n")
       .trim();
     
-    // Also remove any trailing "Let me know..." type messages after sources
+    // Also remove any trailing "Let me know..." type messages
     cleanContent = cleanContent.replace(/\n\nLet me know[^\n]*$/i, "").trim();
     
     return { cleanContent, citations, inlineCitations };
