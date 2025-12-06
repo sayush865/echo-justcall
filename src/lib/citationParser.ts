@@ -198,7 +198,8 @@ function mapTypeString(typeStr: string): Citation["type"] {
 
 /**
  * Merge streaming citations with preloaded sources from tool results
- * Preloaded sources take priority and mark citations as fully loaded
+ * Only updates EXISTING citations from streamingCitations - does not add new ones
+ * This prevents the source count from inflating with unreferenced tool results
  */
 export function mergeWithPreloadedSources(
   streamingCitations: Map<number, Citation>,
@@ -206,13 +207,17 @@ export function mergeWithPreloadedSources(
 ): Map<number, Citation> {
   const merged = new Map(streamingCitations);
   
+  // Only update citations that already exist in streamingCitations
+  // (i.e., those that have [source:N] markers in the text)
   for (const [num, data] of preloadedMap) {
-    merged.set(num, {
-      id: data.id,
-      type: mapTypeString(data.type),
-      sourceNumber: num,
-      isStreaming: false, // Fully loaded from tool results
-    });
+    if (merged.has(num)) {
+      merged.set(num, {
+        id: data.id,
+        type: mapTypeString(data.type),
+        sourceNumber: num,
+        isStreaming: false, // Fully loaded from tool results
+      });
+    }
   }
   
   return merged;
