@@ -114,6 +114,7 @@ export const ChatInterface = ({
   const isStreamingRef = useRef<boolean>(false); // Immediate tracking for streaming state
   const sendInProgressRef = useRef<string | null>(null); // Track which conversation has active send
   const lastSentMessageRef = useRef<{ content: string; timestamp: number } | null>(null); // Prevent duplicate sends
+  const preWarmFollowUpRef = useRef<Promise<any> | null>(null); // Phase 2: Pre-warmed follow-up promise
   const { user, signOut } = useAuth();
 
   // Scroll handler to detect if user has scrolled up
@@ -417,6 +418,14 @@ export const ChatInterface = ({
       // Helper to check if still on the same conversation
       const isActiveConversation = () => activeConversationRef.current === currentConversationId;
       
+      // Phase 2: Start speculative "user-only" follow-up generation immediately
+      // This pre-warms the response while we wait for the AI to complete
+      const preWarmStartTime = Date.now();
+      preWarmFollowUpRef.current = supabase.functions.invoke('generate-followups', {
+        body: { lastUserMessage: messageToSend, userMessageOnly: true }
+      }).then(res => ({ ...res, duration: Date.now() - preWarmStartTime, source: 'pre-warm' }))
+        .catch(() => null);
+      
       // Read the stream
       while (true) {
         const { done, value } = await reader.read();
@@ -504,29 +513,59 @@ export const ChatInterface = ({
       }
 
       // Fire-and-forget pattern for database insert and follow-ups
+      const savedMessageToSend = messageToSend; // Capture for async closure
+      const savedFullContent = fullContent;
+      const savedConversationId = currentConversationId;
+      const savedPreWarmPromise = preWarmFollowUpRef.current;
+      
       (async () => {
         try {
           const { data: insertedMsg } = await supabase.from("messages").insert({
-            conversation_id: currentConversationId,
+            conversation_id: savedConversationId,
             role: "assistant",
-            content: fullContent,
+            content: savedFullContent,
             user_id: user?.id,
             user_email: user?.email,
           }).select('id').single();
           
           const assistantMessageId = insertedMsg?.id;
 
-          // Generate follow-up suggestions and persist them
+          // Phase 2: Race between full-context and pre-warmed follow-ups
           setFollowUpLoading(true);
           try {
-            const { data } = await supabase.functions.invoke('generate-followups', {
+            const fullContextStartTime = Date.now();
+            const fullContextPromise = supabase.functions.invoke('generate-followups', {
               body: { 
-                lastUserMessage: messageToSend, 
-                lastAIResponse: fullContent.substring(0, 1500),
+                lastUserMessage: savedMessageToSend, 
+                lastAIResponse: savedFullContent.substring(0, 1500),
               }
-            });
+            }).then(res => ({ ...res, duration: Date.now() - fullContextStartTime, source: 'full-context' }));
             
-            const suggestions = data?.suggestions || [];
+            // Race: Use pre-warmed if full-context takes >2s
+            let result: any;
+            let raceWinner: string;
+            
+            if (savedPreWarmPromise) {
+              const timeoutPromise = new Promise<any>(resolve => 
+                setTimeout(async () => {
+                  const preWarm = await savedPreWarmPromise;
+                  resolve(preWarm);
+                }, 2000)
+              );
+              
+              result = await Promise.race([
+                fullContextPromise,
+                timeoutPromise
+              ]);
+              raceWinner = result?.source || 'unknown';
+            } else {
+              result = await fullContextPromise;
+              raceWinner = 'full-context';
+            }
+            
+            const suggestions = result?.data?.suggestions || [];
+            console.log(`[Follow-ups] Winner: ${raceWinner}, Count: ${suggestions.length}, Duration: ${result?.duration}ms`);
+            
             setFollowUpSuggestions(suggestions);
             
             // Persist follow-ups to the assistant message
@@ -537,10 +576,10 @@ export const ChatInterface = ({
             }
             
             // Update cache with follow-ups so they persist when switching conversations
-            if (currentConversationId && suggestions.length > 0) {
-              const cached = messagesCacheRef.current.get(currentConversationId);
+            if (savedConversationId && suggestions.length > 0) {
+              const cached = messagesCacheRef.current.get(savedConversationId);
               if (cached) {
-                messagesCacheRef.current.set(currentConversationId, {
+                messagesCacheRef.current.set(savedConversationId, {
                   ...cached,
                   followUps: suggestions
                 });
@@ -551,6 +590,7 @@ export const ChatInterface = ({
             setFollowUpSuggestions([]);
           } finally {
             setFollowUpLoading(false);
+            preWarmFollowUpRef.current = null;
           }
         } catch (err) {
           console.error("Background save failed:", err);

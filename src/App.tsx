@@ -7,24 +7,34 @@ import Chat from "./pages/Chat";
 import AdminDashboard from "./pages/AdminDashboard";
 import SharedConversation from "./pages/SharedConversation";
 import NotFound from "./pages/NotFound";
+import { useEdgeFunctionWarmup } from "./hooks/useEdgeFunctionWarmup";
 
 const queryClient = new QueryClient();
+
+// Inner component to use hooks
+const AppContent = () => {
+  // Phase 4: Warm up edge functions on app load
+  useEdgeFunctionWarmup();
+  
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Chat />} />
+        <Route path="/c/:conversationId" element={<Chat />} />
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/shared/:token" element={<SharedConversation />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Chat />} />
-          <Route path="/c/:conversationId" element={<Chat />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/shared/:token" element={<SharedConversation />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <AppContent />
     </TooltipProvider>
   </QueryClientProvider>
 );

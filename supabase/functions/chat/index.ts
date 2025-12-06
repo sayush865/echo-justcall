@@ -19,7 +19,14 @@ serve(async (req) => {
   const startTime = Date.now();
 
   try {
-    const { message, conversationId, backgroundMode } = await req.json();
+    const { message, conversationId, backgroundMode, warmup } = await req.json();
+
+    // Handle warmup ping - instant response to pre-warm the function
+    if (warmup) {
+      return new Response(JSON.stringify({ status: "warm" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const WEBHOOK_URL = Deno.env.get("WEBHOOK_URL");
     if (!WEBHOOK_URL) {
@@ -34,53 +41,67 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Set pending_response = true at start
-    await supabaseAdmin
-      .from("conversations")
-      .update({ pending_response: true })
-      .eq("id", conversationId);
-    console.log("Set pending_response = true for conversation:", conversationId);
+    const userAgent = req.headers.get("user-agent") || "";
+    const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "";
 
-    // Fetch full conversation history using admin client (bypasses RLS)
-    const { data: messages, error: messagesError } = await supabaseAdmin
-      .from("messages")
-      .select("*")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
+    // PHASE 1: Parallel DB operations - execute all startup queries simultaneously
+    const parallelStartTime = Date.now();
+    const [_updateResult, messagesResult, conversationResult] = await Promise.all([
+      // Update pending_response
+      supabaseAdmin
+        .from("conversations")
+        .update({ pending_response: true })
+        .eq("id", conversationId),
+      // Fetch messages
+      supabaseAdmin
+        .from("messages")
+        .select("*")
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: true }),
+      // Fetch conversation details
+      supabaseAdmin
+        .from("conversations")
+        .select("*")
+        .eq("id", conversationId)
+        .maybeSingle(),
+    ]);
+    const parallelDuration = Date.now() - parallelStartTime;
+    console.log(`[Latency] Parallel DB startup: ${parallelDuration}ms`);
 
-    if (messagesError) {
-      console.error("Error fetching messages:", messagesError);
+    const messages = messagesResult.data;
+    const conversation = conversationResult.data;
+
+    if (messagesResult.error) {
+      console.error("Error fetching messages:", messagesResult.error);
     }
-
-    // Fetch conversation details using admin client (bypasses RLS)
-    const { data: conversation, error: conversationError } = await supabaseAdmin
-      .from("conversations")
-      .select("*")
-      .eq("id", conversationId)
-      .maybeSingle();
-
-    if (conversationError) {
-      console.error("Error fetching conversation:", conversationError);
+    if (conversationResult.error) {
+      console.error("Error fetching conversation:", conversationResult.error);
     }
 
     const userId = conversation?.user_id;
     const userEmail = conversation?.user_email;
-    const userAgent = req.headers.get("user-agent") || "";
-    const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "";
 
-    // Log user message
-    await supabaseAdmin.from("audit_logs").insert({
-      user_id: userId,
-      conversation_id: conversationId,
-      event_type: "user_message",
-      message_content: message,
-      metadata: {
-        message_count: messages?.length || 0,
-        conversation_title: conversation?.title || "",
-      },
-      ip_address: ipAddress,
-      user_agent: userAgent,
-    });
+    // Fire-and-forget: Log user message (non-critical path)
+    // Fire-and-forget: Log user message (non-critical path)
+    EdgeRuntime.waitUntil((async () => {
+      try {
+        await supabaseAdmin.from("audit_logs").insert({
+          user_id: userId,
+          conversation_id: conversationId,
+          event_type: "user_message",
+          message_content: message,
+          metadata: {
+            message_count: messages?.length || 0,
+            conversation_title: conversation?.title || "",
+            startup_parallel_time_ms: parallelDuration,
+          },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+        });
+      } catch (err) {
+        console.error("Audit log error:", err);
+      }
+    })());
 
     // Use GET with minimal params to avoid URL length limits (431 errors)
     const url = new URL(WEBHOOK_URL);
