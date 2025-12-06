@@ -7,19 +7,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Copy, Check, Link, Loader2, Trash2, Clock } from "lucide-react";
-import { addHours, addDays, format } from "date-fns";
-
-type ExpirationOption = "24h" | "7d" | "never";
+import { format } from "date-fns";
 
 interface ShareDialogProps {
   open: boolean;
@@ -39,80 +30,65 @@ export const ShareDialog = ({
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [expiration, setExpiration] = useState<ExpirationOption>("never");
 
-  const getExpirationDate = (option: ExpirationOption): Date | null => {
-    switch (option) {
-      case "24h":
-        return addHours(new Date(), 24);
-      case "7d":
-        return addDays(new Date(), 7);
-      case "never":
-        return null;
-    }
-  };
-
-  // Check for existing share link when dialog opens
+  // Auto-create share link when dialog opens
   useEffect(() => {
     if (open && conversationId) {
-      checkExistingShare();
+      checkOrCreateShareLink();
     }
   }, [open, conversationId]);
 
-  const checkExistingShare = async () => {
+  const checkOrCreateShareLink = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // First check for existing share
+      const { data: existingShare, error: checkError } = await supabase
         .from("conversation_shares")
         .select("share_token, is_active, expires_at")
         .eq("conversation_id", conversationId)
         .eq("is_active", true)
         .maybeSingle();
 
-      if (error) throw error;
+      if (checkError) throw checkError;
 
-      if (data) {
-        const link = `${window.location.origin}/shared/${data.share_token}`;
+      if (existingShare) {
+        const link = `${window.location.origin}/shared/${existingShare.share_token}`;
         setShareLink(link);
-        setShareToken(data.share_token);
-        setExpiresAt(data.expires_at);
+        setShareToken(existingShare.share_token);
+        setExpiresAt(existingShare.expires_at);
       } else {
-        setShareLink(null);
-        setShareToken(null);
-        setExpiresAt(null);
+        // Auto-create a new share link (never expires by default)
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        const { data: newShare, error: createError } = await supabase
+          .from("conversation_shares")
+          .insert({
+            conversation_id: conversationId,
+            created_by: user?.id,
+            expires_at: null,
+          })
+          .select("share_token, expires_at")
+          .single();
+
+        if (createError) throw createError;
+
+        const link = `${window.location.origin}/shared/${newShare.share_token}`;
+        setShareLink(link);
+        setShareToken(newShare.share_token);
+        setExpiresAt(newShare.expires_at);
+        
+        // Auto-copy to clipboard
+        try {
+          await navigator.clipboard.writeText(link);
+          setCopied(true);
+          toast.success("Share link created and copied!");
+          setTimeout(() => setCopied(false), 2000);
+        } catch {
+          toast.success("Share link created!");
+        }
       }
     } catch (error) {
-      console.error("Error checking share:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const createShareLink = async () => {
-    setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const expirationDate = getExpirationDate(expiration);
-      
-      const { data, error } = await supabase
-        .from("conversation_shares")
-        .insert({
-          conversation_id: conversationId,
-          created_by: user?.id,
-          expires_at: expirationDate?.toISOString() || null,
-        })
-        .select("share_token, expires_at")
-        .single();
-
-      if (error) throw error;
-
-      const link = `${window.location.origin}/shared/${data.share_token}`;
-      setShareLink(link);
-      setShareToken(data.share_token);
-      setExpiresAt(data.expires_at);
-      toast.success("Share link created!");
-    } catch (error: any) {
-      console.error("Error creating share:", error);
+      console.error("Error with share link:", error);
       toast.error("Failed to create share link");
     } finally {
       setLoading(false);
@@ -133,6 +109,7 @@ export const ShareDialog = ({
 
       setShareLink(null);
       setShareToken(null);
+      setExpiresAt(null);
       toast.success("Share link removed");
     } catch (error) {
       console.error("Error deleting share:", error);
@@ -166,18 +143,15 @@ export const ShareDialog = ({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <p className="text-sm text-muted-foreground">
-            {shareLink 
-              ? "Anyone with this link can view this conversation."
-              : "Create a public link to share this conversation."}
-          </p>
-
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : shareLink ? (
             <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Anyone with this link can view this conversation.
+              </p>
               <div className="flex items-center gap-2">
                 <Input
                   value={shareLink}
@@ -197,13 +171,12 @@ export const ShareDialog = ({
                   )}
                 </Button>
               </div>
-              {expiresAt && (
+              {expiresAt ? (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   Expires {format(new Date(expiresAt), "MMM d, yyyy 'at' h:mm a")}
                 </p>
-              )}
-              {!expiresAt && (
+              ) : (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   Never expires
@@ -219,30 +192,7 @@ export const ShareDialog = ({
                 Remove Share Link
               </Button>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Link expires</label>
-                <Select value={expiration} onValueChange={(v) => setExpiration(v as ExpirationOption)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="24h">24 hours</SelectItem>
-                    <SelectItem value="7d">7 days</SelectItem>
-                    <SelectItem value="never">Never</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                onClick={createShareLink}
-                className="w-full"
-              >
-                <Link className="w-4 h-4 mr-2" />
-                Create Share Link
-              </Button>
-            </div>
-          )}
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>
