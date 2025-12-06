@@ -176,3 +176,56 @@ export function groupCitationsByType(citations: Citation[]): Record<Citation["ty
     return acc;
   }, {} as Record<Citation["type"], Citation[]>);
 }
+
+/**
+ * Preloaded source from tool results during streaming
+ */
+export interface PreloadedSource {
+  id: string;
+  type: string; // 'sales' | 'support' | 'success' | 'cs' etc.
+}
+
+/**
+ * Map type string from tool name to Citation type
+ */
+function mapTypeString(typeStr: string): Citation["type"] {
+  const lower = typeStr.toLowerCase();
+  if (lower.includes("sales")) return "sales";
+  if (lower.includes("support")) return "support";
+  if (lower.includes("success") || lower.includes("cs")) return "success";
+  return "unknown";
+}
+
+/**
+ * Merge streaming citations with preloaded sources from tool results
+ * Preloaded sources take priority and mark citations as fully loaded
+ */
+export function mergeWithPreloadedSources(
+  streamingCitations: Map<number, Citation>,
+  preloadedMap: Map<number, PreloadedSource>
+): Map<number, Citation> {
+  const merged = new Map(streamingCitations);
+  
+  for (const [num, data] of preloadedMap) {
+    merged.set(num, {
+      id: data.id,
+      type: mapTypeString(data.type),
+      sourceNumber: num,
+      isStreaming: false, // Fully loaded from tool results
+    });
+  }
+  
+  return merged;
+}
+
+/**
+ * Extract source type from n8n tool name
+ * e.g., "echo_sales_calls" -> "sales", "echo_cs_meetings" -> "success"
+ */
+export function extractTypeFromToolName(toolName: string): Citation["type"] {
+  const lower = toolName.toLowerCase();
+  if (lower.includes("sales")) return "sales";
+  if (lower.includes("support")) return "support";
+  if (lower.includes("cs") || lower.includes("success")) return "success";
+  return "unknown";
+}
