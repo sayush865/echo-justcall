@@ -52,6 +52,8 @@ import {
   ArrowUpDown,
   X,
   Filter,
+  Timer,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -779,6 +781,10 @@ export default function AdminDashboard() {
               <FileText className="h-4 w-4" />
               Audit Logs
             </TabsTrigger>
+            <TabsTrigger value="performance" className="gap-2">
+              <Timer className="h-4 w-4" />
+              Performance
+            </TabsTrigger>
           </TabsList>
 
           {/* Users Tab */}
@@ -1333,6 +1339,178 @@ export default function AdminDashboard() {
                     )}
                   </div>
                 </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Performance Tab */}
+          <TabsContent value="performance">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-primary" />
+                  Streaming Performance Metrics
+                </CardTitle>
+                <CardDescription>
+                  Fire-and-forget latency tracking - measures time savings from async cleanup
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  // Compute performance metrics from ai_response audit logs
+                  const aiResponseLogs = auditLogs.filter(
+                    log => log.event_type === "ai_response" && log.metadata
+                  );
+                  
+                  const metricsWithLatency = aiResponseLogs
+                    .map(log => {
+                      const meta = log.metadata as Record<string, unknown>;
+                      return {
+                        id: log.id,
+                        created_at: log.created_at,
+                        user_email: log.user_email,
+                        total_latency_ms: (meta?.total_latency_ms || meta?.latency_ms || 0) as number,
+                        stream_close_time_ms: (meta?.stream_close_time_ms || 0) as number,
+                        cleanup_duration_ms: (meta?.cleanup_duration_ms || 0) as number,
+                        response_length: (meta?.response_length || 0) as number,
+                        fire_and_forget: !!meta?.fire_and_forget,
+                      };
+                    })
+                    .filter(m => m.total_latency_ms > 0);
+                  
+                  const fireAndForgetLogs = metricsWithLatency.filter(m => m.fire_and_forget);
+                  const legacyLogs = metricsWithLatency.filter(m => !m.fire_and_forget);
+                  
+                  // Calculate averages
+                  const avgStreamClose = fireAndForgetLogs.length > 0
+                    ? Math.round(fireAndForgetLogs.reduce((sum, m) => sum + m.stream_close_time_ms, 0) / fireAndForgetLogs.length)
+                    : 0;
+                  const avgCleanup = fireAndForgetLogs.length > 0
+                    ? Math.round(fireAndForgetLogs.reduce((sum, m) => sum + m.cleanup_duration_ms, 0) / fireAndForgetLogs.length)
+                    : 0;
+                  const avgTotalLatency = metricsWithLatency.length > 0
+                    ? Math.round(metricsWithLatency.reduce((sum, m) => sum + m.total_latency_ms, 0) / metricsWithLatency.length)
+                    : 0;
+                  const avgLegacyLatency = legacyLogs.length > 0
+                    ? Math.round(legacyLogs.reduce((sum, m) => sum + m.total_latency_ms, 0) / legacyLogs.length)
+                    : 0;
+                  
+                  // Time saved = cleanup that now happens in background
+                  const timeSavedPerRequest = avgCleanup;
+                  
+                  return (
+                    <div className="space-y-6">
+                      {/* Summary Stats */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="p-4 rounded-lg border border-green-500/20 bg-green-500/5">
+                          <p className="text-xs text-muted-foreground mb-1">Avg Stream Close</p>
+                          <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                            {avgStreamClose}ms
+                          </p>
+                          <p className="text-xs text-muted-foreground">User sees response</p>
+                        </div>
+                        <div className="p-4 rounded-lg border border-blue-500/20 bg-blue-500/5">
+                          <p className="text-xs text-muted-foreground mb-1">Avg Background Cleanup</p>
+                          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                            {avgCleanup}ms
+                          </p>
+                          <p className="text-xs text-muted-foreground">Runs after stream closes</p>
+                        </div>
+                        <div className="p-4 rounded-lg border border-primary/20 bg-primary/5">
+                          <p className="text-xs text-muted-foreground mb-1">Time Saved/Request</p>
+                          <p className="text-2xl font-bold text-primary">
+                            {timeSavedPerRequest}ms
+                          </p>
+                          <p className="text-xs text-muted-foreground">UI unlock improvement</p>
+                        </div>
+                        <div className="p-4 rounded-lg border border-border bg-muted/20">
+                          <p className="text-xs text-muted-foreground mb-1">Fire & Forget Requests</p>
+                          <p className="text-2xl font-bold">
+                            {fireAndForgetLogs.length}
+                          </p>
+                          <p className="text-xs text-muted-foreground">of {metricsWithLatency.length} total</p>
+                        </div>
+                      </div>
+                      
+                      {/* Comparison */}
+                      {legacyLogs.length > 0 && fireAndForgetLogs.length > 0 && (
+                        <div className="p-4 rounded-lg border border-border bg-muted/20">
+                          <h4 className="text-sm font-medium mb-2">Before vs After Comparison</h4>
+                          <div className="flex items-center gap-4">
+                            <div>
+                              <p className="text-xs text-muted-foreground">Legacy (blocking)</p>
+                              <p className="text-lg font-semibold">{avgLegacyLatency}ms</p>
+                            </div>
+                            <div className="text-muted-foreground">→</div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Fire & Forget</p>
+                              <p className="text-lg font-semibold text-green-600">{avgStreamClose}ms</p>
+                            </div>
+                            <div className="ml-auto">
+                              <Badge className="bg-green-500/20 text-green-600 border-green-500/30">
+                                {Math.round(((avgLegacyLatency - avgStreamClose) / avgLegacyLatency) * 100) || 0}% faster
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Recent Metrics Table */}
+                      <div>
+                        <h4 className="text-sm font-medium mb-3">Recent Response Latencies</h4>
+                        <ScrollArea className="h-[300px]">
+                          <div className="space-y-2">
+                            {metricsWithLatency.slice(0, 50).map((metric) => (
+                              <div key={metric.id} className="p-3 rounded-lg border border-border flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm text-muted-foreground">
+                                    {metric.user_email || "Unknown"} • {new Date(metric.created_at).toLocaleString()}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Response: {metric.response_length.toLocaleString()} chars
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-3 text-right">
+                                  {metric.fire_and_forget ? (
+                                    <>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Stream</p>
+                                        <p className="font-mono text-sm text-green-600">{metric.stream_close_time_ms}ms</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Cleanup</p>
+                                        <p className="font-mono text-sm text-blue-600">{metric.cleanup_duration_ms}ms</p>
+                                      </div>
+                                      <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30">
+                                        <Zap className="h-3 w-3 mr-1" />
+                                        Async
+                                      </Badge>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Total</p>
+                                        <p className="font-mono text-sm">{metric.total_latency_ms}ms</p>
+                                      </div>
+                                      <Badge variant="outline" className="text-xs">
+                                        Legacy
+                                      </Badge>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                            {metricsWithLatency.length === 0 && (
+                              <p className="text-center text-muted-foreground py-8">
+                                No performance data yet. Send some messages to see latency metrics.
+                              </p>
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           </TabsContent>
