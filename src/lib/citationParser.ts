@@ -33,20 +33,26 @@ const LEGACY_GROUPED_PATTERN = /\((?:Examples?:?\s*)?(?:sales|support|success)?\
 export function parseStreamingCitations(content: string): Map<number, Citation> {
   const inlineCitations = new Map<number, Citation>();
   
-  // Find all [source:N], [Source N], or [N] markers in the content (with optional trailing data)
-  const markerPattern = /\[(?:source[:\s]?)?(\d+)(?:\s*[^\]]+)?\]/gi;
-  let match;
+  // Find all citation markers in various formats
+  const patterns = [
+    /\[(?:source[:\s]?)?(\d+)(?:\s*[^\]]+)?\]/gi, // [source:1], [Source 1], [1]
+    /["'""](?:sources?[:\s]?)?(\d+)["'""]/gi, // "Source 1", "1"
+    /\((?:sources?:?\s*)?(\d+)\)/gi, // (source 1), (1)
+  ];
   
-  while ((match = markerPattern.exec(content)) !== null) {
-    const sourceNum = parseInt(match[1], 10);
-    if (!inlineCitations.has(sourceNum)) {
-      inlineCitations.set(sourceNum, {
-        id: `pending_${sourceNum}`,
-        type: "unknown",
-        subtype: "unknown",
-        sourceNumber: sourceNum,
-        isStreaming: true,
-      });
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.exec(content)) !== null) {
+      const sourceNum = parseInt(match[1], 10);
+      if (!inlineCitations.has(sourceNum)) {
+        inlineCitations.set(sourceNum, {
+          id: `pending_${sourceNum}`,
+          type: "unknown",
+          subtype: "unknown",
+          sourceNumber: sourceNum,
+          isStreaming: true,
+        });
+      }
     }
   }
   
@@ -55,11 +61,12 @@ export function parseStreamingCitations(content: string): Map<number, Citation> 
   if (sourcesMatch) {
     const sourcesText = sourcesMatch[1];
     const sourceLinePattern = new RegExp(SOURCE_LINE_PATTERN.source, "gi");
+    let sourceMatch;
     
-    while ((match = sourceLinePattern.exec(sourcesText)) !== null) {
-      const sourceNum = parseInt(match[1], 10);
-      const callId = match[2];
-      const typeText = match[3].toLowerCase();
+    while ((sourceMatch = sourceLinePattern.exec(sourcesText)) !== null) {
+      const sourceNum = parseInt(sourceMatch[1], 10);
+      const callId = sourceMatch[2];
+      const typeText = sourceMatch[3].toLowerCase();
       
       let type: Citation["type"] = "unknown";
       if (typeText.includes("sales")) type = "sales";
@@ -137,9 +144,11 @@ export function parseCitations(content: string): ParsedContent {
   // Check for streaming placeholders (no Sources section yet)
   const streamingCitations = parseStreamingCitations(content);
   if (streamingCitations.size > 0) {
-    // Remove source markers from display but keep citations (handle various formats)
+    // Remove source markers from display but keep citations (handle various formats including quotes)
     let cleanContent = content
+      .replace(/["'""](?:sources?[:\s]?)?(\d+)["'""]/gi, "%%CITATION_$1%%")
       .replace(/\[(?:source[:\s]?)?(\d+)(?:\s*[^\]]+)?\]/gi, "%%CITATION_$1%%")
+      .replace(/\((?:sources?:?\s*)?(\d+)\)/gi, "%%CITATION_$1%%")
       .trim();
     
     return { cleanContent, citations: [], inlineCitations: streamingCitations };
