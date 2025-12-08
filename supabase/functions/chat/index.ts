@@ -14,28 +14,35 @@ const corsHeaders = {
 // Helper function to properly extract content from NDJSON stream
 function extractContentFromNDJSON(chunk: string): string {
   let content = "";
-  const lines = chunk.split('\n').filter(line => line.trim());
   
-  for (const line of lines) {
-    try {
-      const parsed = JSON.parse(line);
-      if (parsed.type === "item" && parsed.content) {
-        content += parsed.content;
-      }
-      // Ignore step/tool/agent types - they're metadata
-    } catch {
-      // Not valid JSON - check if it's embedded JSON in plain text
-      // Match pattern: {"type":"item","content":"...","metadata":{...}}
-      const jsonPattern = /\{"type"\s*:\s*"item"\s*,\s*"content"\s*:\s*"([^"]*)"/g;
-      let match;
-      let hasMatch = false;
-      while ((match = jsonPattern.exec(line)) !== null) {
-        content += match[1];
-        hasMatch = true;
-      }
-      // If no JSON found and it's plain text without JSON markers, add it
-      if (!hasMatch && line.trim() && !line.includes('{"type"')) {
-        content += line;
+  // n8n sends NDJSON where each line is a complete JSON object
+  // Format: {"type":"item","content":"text","metadata":{...}}
+  // We need to find all JSON objects and extract just the content field
+  
+  // First try to find complete JSON objects with type:"item"
+  const jsonObjectPattern = /\{"type"\s*:\s*"item"\s*,\s*"content"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,?\s*"metadata"/g;
+  let match;
+  
+  while ((match = jsonObjectPattern.exec(chunk)) !== null) {
+    // Unescape the content string
+    let extracted = match[1];
+    extracted = extracted.replace(/\\n/g, '\n');
+    extracted = extracted.replace(/\\"/g, '"');
+    extracted = extracted.replace(/\\\\/g, '\\');
+    content += extracted;
+  }
+  
+  // If no matches found, try line-by-line JSON parsing as fallback
+  if (!content) {
+    const lines = chunk.split('\n').filter(line => line.trim());
+    for (const line of lines) {
+      try {
+        const parsed = JSON.parse(line);
+        if (parsed.type === "item" && typeof parsed.content === "string") {
+          content += parsed.content;
+        }
+      } catch {
+        // Skip non-JSON lines entirely - don't add raw text
       }
     }
   }
