@@ -1385,7 +1385,7 @@ export const ChatInterface = ({
                     {isListening ? <MicOff className="w-4 h-4 md:w-5 md:h-5" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
                   </button>
                 )}
-                {loading && streamingConversationId === (conversationId || 'new') ? (
+                {loading ? (
                   <button 
                     onClick={handleStop}
                     className="bg-destructive text-destructive-foreground rounded-full p-2 md:p-2.5 hover:opacity-80 transition-all"
@@ -1624,15 +1624,15 @@ export const ChatInterface = ({
                       {isListening ? <MicOff className="w-4 h-4 md:w-5 md:h-5" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
                     </button>
                   )}
-                  {loading && streamingConversationId === (conversationId || 'new') ? (
-                    <button 
-                      onClick={handleStop}
-                      className="bg-destructive text-destructive-foreground rounded-full p-2 md:p-2.5 hover:opacity-80 transition-all"
-                      title="Stop generating"
-                    >
-                      <Square className="w-3.5 h-3.5 md:w-4 md:h-4 fill-current" />
-                    </button>
-                  ) : (
+{loading ? (
+                  <button 
+                    onClick={handleStop}
+                    className="bg-destructive text-destructive-foreground rounded-full p-2 md:p-2.5 hover:opacity-80 transition-all"
+                    title="Stop generating"
+                  >
+                    <Square className="w-3.5 h-3.5 md:w-4 md:h-4 fill-current" />
+                  </button>
+                ) : (
                     <button 
                       onClick={() => handleSend()}
                       disabled={!input.trim()}
