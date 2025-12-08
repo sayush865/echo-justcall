@@ -1605,7 +1605,7 @@ export const ChatInterface = ({
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2 md:gap-2.5">
+                <div className="flex items-end gap-2 md:gap-2.5 pb-0.5">
                   {isSupported && (
                     <button 
                       onClick={handleVoiceToggle}
