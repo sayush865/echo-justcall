@@ -11,6 +11,38 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper function to properly extract content from NDJSON stream
+function extractContentFromNDJSON(chunk: string): string {
+  let content = "";
+  const lines = chunk.split('\n').filter(line => line.trim());
+  
+  for (const line of lines) {
+    try {
+      const parsed = JSON.parse(line);
+      if (parsed.type === "item" && parsed.content) {
+        content += parsed.content;
+      }
+      // Ignore step/tool/agent types - they're metadata
+    } catch {
+      // Not valid JSON - check if it's embedded JSON in plain text
+      // Match pattern: {"type":"item","content":"...","metadata":{...}}
+      const jsonPattern = /\{"type"\s*:\s*"item"\s*,\s*"content"\s*:\s*"([^"]*)"/g;
+      let match;
+      let hasMatch = false;
+      while ((match = jsonPattern.exec(line)) !== null) {
+        content += match[1];
+        hasMatch = true;
+      }
+      // If no JSON found and it's plain text without JSON markers, add it
+      if (!hasMatch && line.trim() && !line.includes('{"type"')) {
+        content += line;
+      }
+    }
+  }
+  
+  return content;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -47,10 +79,10 @@ serve(async (req) => {
     // PHASE 1: Parallel DB operations - execute all startup queries simultaneously
     const parallelStartTime = Date.now();
     const [_updateResult, messagesResult, conversationResult] = await Promise.all([
-      // Update pending_response
+      // Update pending_response and clear streaming_content
       supabaseAdmin
         .from("conversations")
-        .update({ pending_response: true })
+        .update({ pending_response: true, streaming_content: '' })
         .eq("id", conversationId),
       // Fetch messages
       supabaseAdmin
@@ -82,7 +114,6 @@ serve(async (req) => {
     const userEmail = conversation?.user_email;
 
     // Fire-and-forget: Log user message (non-critical path)
-    // Fire-and-forget: Log user message (non-critical path)
     EdgeRuntime.waitUntil((async () => {
       try {
         await supabaseAdmin.from("audit_logs").insert({
@@ -110,12 +141,10 @@ serve(async (req) => {
     url.searchParams.set("conversationTitle", conversation?.title || "");
     url.searchParams.set("messageCount", messages?.length?.toString() || "0");
 
-    // Debug logging only in development
-    // console.log("Calling webhook:", url.toString());
-
     // Background processing function - saves response to DB when complete
     const processInBackground = async () => {
       let fullResponse = "";
+      let lastSaveTime = Date.now();
       
       try {
         const response = await fetch(url.toString(), {
@@ -161,25 +190,17 @@ serve(async (req) => {
           if (done) break;
           
           const chunk = decoder.decode(value, { stream: true });
+          fullResponse += extractContentFromNDJSON(chunk);
           
-          // Extract content from NDJSON chunks
-          const lines = chunk.split('\n').filter(line => line.trim());
-          for (const line of lines) {
-            try {
-              const parsed = JSON.parse(line);
-              if (parsed.type === "item" && parsed.content) {
-                fullResponse += parsed.content;
-              }
-            } catch {
-              // Not JSON, might be plain text
-              if (line.trim()) {
-                fullResponse += line;
-              }
-            }
+          // Save progress every 500ms for live updates
+          if (Date.now() - lastSaveTime > 500) {
+            await supabaseAdmin
+              .from("conversations")
+              .update({ streaming_content: fullResponse })
+              .eq("id", conversationId);
+            lastSaveTime = Date.now();
           }
         }
-
-        // Background processing complete
 
         // Save the AI response to messages table
         if (fullResponse.length > 0) {
@@ -190,7 +211,6 @@ serve(async (req) => {
             user_id: userId,
             user_email: userEmail,
           });
-          // AI response saved to messages table
         }
 
         // Log AI response
@@ -211,12 +231,11 @@ serve(async (req) => {
       } catch (error) {
         console.error("Background processing error:", error);
       } finally {
-        // Always set pending_response = false when done
+        // Always clear streaming_content and set pending_response = false when done
         await supabaseAdmin
           .from("conversations")
-          .update({ pending_response: false })
+          .update({ pending_response: false, streaming_content: '' })
           .eq("id", conversationId);
-        // Cleanup complete
       }
     };
 
@@ -237,8 +256,6 @@ serve(async (req) => {
       },
     });
 
-    // Webhook response received
-    
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Webhook error response:", errorText);
@@ -260,7 +277,7 @@ serve(async (req) => {
       // Set pending_response = false on error
       await supabaseAdmin
         .from("conversations")
-        .update({ pending_response: false })
+        .update({ pending_response: false, streaming_content: '' })
         .eq("id", conversationId);
       
       throw new Error(`Webhook returned ${response.status}: ${errorText}`);
@@ -278,6 +295,7 @@ serve(async (req) => {
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
     let fullResponse = "";
+    let lastSaveTime = Date.now();
 
     // Process stream in background
     (async () => {
@@ -290,7 +308,6 @@ serve(async (req) => {
             await writer.close();
             
             // Fire-and-forget cleanup using EdgeRuntime.waitUntil
-            // Runs in background AFTER the response is closed
             const finalResponse = fullResponse;
             const cleanupStartTime = Date.now();
             EdgeRuntime.waitUntil((async () => {
@@ -303,10 +320,8 @@ serve(async (req) => {
                     event_type: "ai_response",
                     ai_response: finalResponse,
                     metadata: {
-                      // Core latency metrics
                       total_latency_ms: streamCloseTime - startTime,
                       response_length: finalResponse.length,
-                      // Fire-and-forget metrics for admin visibility
                       stream_close_time_ms: streamCloseTime - startTime,
                       cleanup_start_delay_ms: cleanupStartTime - streamCloseTime,
                       cleanup_duration_ms: Date.now() - cleanupStartTime,
@@ -317,11 +332,10 @@ serve(async (req) => {
                   }),
                   supabaseAdmin
                     .from("conversations")
-                    .update({ pending_response: false })
+                    .update({ pending_response: false, streaming_content: '' })
                     .eq("id", conversationId)
                 ]);
                 
-                // Log final cleanup duration
                 const cleanupEndTime = Date.now();
                 console.log(`[Latency] Stream closed: ${streamCloseTime - startTime}ms, Cleanup: ${cleanupEndTime - cleanupStartTime}ms`);
               } catch (cleanupError) {
@@ -332,23 +346,24 @@ serve(async (req) => {
             break;
           }
           
-          // Pass through the chunk and accumulate response
+          // Pass through the chunk and accumulate response using proper parser
           const chunk = decoder.decode(value, { stream: true });
+          fullResponse += extractContentFromNDJSON(chunk);
           
-          // Try to extract content from NDJSON chunks
-          const lines = chunk.split('\n').filter(line => line.trim());
-          for (const line of lines) {
-            try {
-              const parsed = JSON.parse(line);
-              if (parsed.type === "item" && parsed.content) {
-                fullResponse += parsed.content;
+          // Save progress every 500ms for live continuation when user returns
+          if (Date.now() - lastSaveTime > 500) {
+            // Fire-and-forget save - don't block streaming
+            (async () => {
+              try {
+                await supabaseAdmin
+                  .from("conversations")
+                  .update({ streaming_content: fullResponse })
+                  .eq("id", conversationId);
+              } catch (err) {
+                console.error("Progress save error:", err);
               }
-            } catch {
-              // Not JSON, might be plain text
-              if (line.trim()) {
-                fullResponse += line;
-              }
-            }
+            })();
+            lastSaveTime = Date.now();
           }
           
           // Write chunk immediately to ensure it's flushed
@@ -362,6 +377,7 @@ serve(async (req) => {
         EdgeRuntime.waitUntil((async () => {
           try {
             let finalResponse = savedResponseSoFar;
+            let bgLastSaveTime = Date.now();
             
             // Continue reading remaining webhook response if reader is still active
             try {
@@ -371,16 +387,15 @@ serve(async (req) => {
                 if (done) break;
                 
                 const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n').filter(line => line.trim());
-                for (const line of lines) {
-                  try {
-                    const parsed = JSON.parse(line);
-                    if (parsed.type === "item" && parsed.content) {
-                      finalResponse += parsed.content;
-                    }
-                  } catch {
-                    if (line.trim()) finalResponse += line;
-                  }
+                finalResponse += extractContentFromNDJSON(chunk);
+                
+                // Save progress every 500ms for live updates
+                if (Date.now() - bgLastSaveTime > 500) {
+                  await supabaseAdmin
+                    .from("conversations")
+                    .update({ streaming_content: finalResponse })
+                    .eq("id", conversationId);
+                  bgLastSaveTime = Date.now();
                 }
               }
               console.log(`[Background] Finished reading webhook: ${finalResponse.length} chars`);
@@ -417,10 +432,10 @@ serve(async (req) => {
               user_agent: userAgent,
             });
             
-            // Reset pending flag
+            // Reset pending flag and clear streaming content
             await supabaseAdmin
               .from("conversations")
-              .update({ pending_response: false })
+              .update({ pending_response: false, streaming_content: '' })
               .eq("id", conversationId);
               
             console.log(`[Background] Cleanup complete after client disconnect`);
@@ -430,7 +445,7 @@ serve(async (req) => {
             try {
               await supabaseAdmin
                 .from("conversations")
-                .update({ pending_response: false })
+                .update({ pending_response: false, streaming_content: '' })
                 .eq("id", conversationId);
             } catch {}
           }

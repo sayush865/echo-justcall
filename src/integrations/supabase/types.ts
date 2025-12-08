@@ -109,6 +109,7 @@ export type Database = {
           pending_response: boolean | null
           pinned: boolean
           status: string
+          streaming_content: string | null
           title: string
           updated_at: string
           user_id: string | null
@@ -119,6 +120,7 @@ export type Database = {
           pending_response?: boolean | null
           pinned?: boolean
           status?: string
+          streaming_content?: string | null
           title?: string
           updated_at?: string
           user_id?: string | null
@@ -129,6 +131,7 @@ export type Database = {
           pending_response?: boolean | null
           pinned?: boolean
           status?: string
+          streaming_content?: string | null
           title?: string
           updated_at?: string
           user_id?: string | null
