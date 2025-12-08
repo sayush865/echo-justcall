@@ -121,6 +121,13 @@ export const ChatInterface = ({
   const lastSentMessageRef = useRef<{ content: string; timestamp: number } | null>(null); // Prevent duplicate sends
   const toolSourceMapRef = useRef<Map<number, PreloadedSource>>(new Map()); // Track sources from tool results during streaming
   const preWarmFollowUpRef = useRef<Promise<any> | null>(null); // Phase 2: Pre-warmed follow-up promise
+  
+  // Tab visibility tracking for background continuation
+  const wasStreamingOnHideRef = useRef(false);
+  const hiddenConversationRef = useRef<string | null>(null);
+  const hiddenPartialContentRef = useRef<string>("");
+  const pendingResponseCheckRef = useRef<string | null>(null);
+  
   const { user, signOut } = useAuth();
 
   // Scroll handler to detect if user has scrolled up
@@ -244,6 +251,103 @@ export const ChatInterface = ({
       scrollRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, streamingMessage, isUserNearBottom]);
+
+  // Tab visibility handler for background continuation
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.hidden) {
+        // Tab became hidden
+        if (isStreamingRef.current && activeConversationRef.current) {
+          // Save current streaming state
+          wasStreamingOnHideRef.current = true;
+          hiddenConversationRef.current = activeConversationRef.current;
+          hiddenPartialContentRef.current = streamingMessage?.content || "";
+          
+          // Abort client-side stream - edge function continues in background
+          if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+          }
+          
+          // Clear streaming UI but keep partial content visible
+          if (hiddenPartialContentRef.current) {
+            const tempId = `partial-hidden-${Date.now()}`;
+            setMessages(prev => [...prev, {
+              id: tempId,
+              role: "assistant",
+              content: hiddenPartialContentRef.current,
+              created_at: new Date().toISOString()
+            }]);
+          }
+          
+          isStreamingRef.current = false;
+          setStreamingMessage(null);
+          setLoading(false);
+        }
+      } else {
+        // Tab became visible again
+        if (wasStreamingOnHideRef.current && hiddenConversationRef.current) {
+          const convToCheck = hiddenConversationRef.current;
+          wasStreamingOnHideRef.current = false;
+          hiddenConversationRef.current = null;
+          
+          // Only recover if still on the same conversation
+          if (activeConversationRef.current === convToCheck) {
+            pendingResponseCheckRef.current = convToCheck;
+            
+            // Check if response is still pending or completed
+            const { data: conv } = await supabase
+              .from("conversations")
+              .select("pending_response")
+              .eq("id", convToCheck)
+              .maybeSingle();
+            
+            if (conv?.pending_response) {
+              // Response still processing - show loading indicator
+              setLoading(true);
+              setStreamingMessage({ 
+                role: "assistant", 
+                content: hiddenPartialContentRef.current || "", 
+                isStreaming: true, 
+                steps: ["Resuming response..."] 
+              });
+              
+              // Poll for completion or rely on realtime subscription
+              const checkComplete = async () => {
+                const { data: updatedConv } = await supabase
+                  .from("conversations")
+                  .select("pending_response")
+                  .eq("id", convToCheck)
+                  .maybeSingle();
+                
+                if (!updatedConv?.pending_response) {
+                  // Response completed - refresh messages
+                  await loadMessages(true);
+                  setStreamingMessage(null);
+                  setLoading(false);
+                  pendingResponseCheckRef.current = null;
+                } else if (pendingResponseCheckRef.current === convToCheck) {
+                  // Still pending - check again in 1 second
+                  setTimeout(checkComplete, 1000);
+                }
+              };
+              
+              checkComplete();
+            } else {
+              // Response already completed - refresh to get full response
+              await loadMessages(true);
+              setStreamingMessage(null);
+              setLoading(false);
+            }
+          }
+          
+          hiddenPartialContentRef.current = "";
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [streamingMessage]);
 
   const loadMessages = async (isBackgroundRefresh = false) => {
     if (!conversationId) return;
