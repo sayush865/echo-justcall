@@ -122,6 +122,7 @@ export const ChatInterface = ({
   const toolSourceMapRef = useRef<Map<number, PreloadedSource>>(new Map()); // Track sources from tool results during streaming
   const preWarmFollowUpRef = useRef<Promise<any> | null>(null); // Phase 2: Pre-warmed follow-up promise
   const streamingConversationIdRef = useRef<string | null>(null); // Track WHICH conversation is currently streaming
+  const [streamingConversationId, setStreamingConversationId] = useState<string | null>(null); // State version for UI re-renders
   
   // Tab visibility tracking for background continuation
   const wasStreamingOnHideRef = useRef(false);
@@ -288,6 +289,7 @@ export const ChatInterface = ({
           
           isStreamingRef.current = false;
           streamingConversationIdRef.current = null;
+          setStreamingConversationId(null);
           setStreamingMessage(null);
           setLoading(false);
         }
@@ -437,6 +439,7 @@ export const ChatInterface = ({
     // Show streaming UI immediately with empty content (loading state)
     isStreamingRef.current = true; // Set immediately before streaming starts
     streamingConversationIdRef.current = conversationId || 'new'; // Track WHICH conversation is streaming
+    setStreamingConversationId(conversationId || 'new'); // State for UI re-renders
     setStreamingSourceCount(0); // Reset source count for new stream
     toolSourceMapRef.current = new Map(); // Reset tool source map for new stream
     setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
@@ -657,6 +660,7 @@ export const ChatInterface = ({
       // Streaming complete - IMMEDIATELY unlock UI
       isStreamingRef.current = false;
       streamingConversationIdRef.current = null;
+      setStreamingConversationId(null);
       setLoading(false);
       
       // Only update UI if still on the same conversation
@@ -808,6 +812,7 @@ export const ChatInterface = ({
         
         isStreamingRef.current = false;
         streamingConversationIdRef.current = null;
+        setStreamingConversationId(null);
         setStreamingMessage(null);
         setLoading(false);
         abortControllerRef.current = null;
@@ -851,6 +856,7 @@ export const ChatInterface = ({
       if (isStreamingRef.current) {
         isStreamingRef.current = false;
         streamingConversationIdRef.current = null;
+        setStreamingConversationId(null);
         setLoading(false);
       }
       abortControllerRef.current = null;
@@ -927,6 +933,7 @@ export const ChatInterface = ({
     // Show streaming UI immediately with empty content (loading state)
     isStreamingRef.current = true; // Set immediately before streaming starts
     streamingConversationIdRef.current = conversationId || 'new'; // Track WHICH conversation is streaming
+    setStreamingConversationId(conversationId || 'new'); // State for UI re-renders
     setStreamingSourceCount(0); // Reset source count for new stream
     setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
 
@@ -1089,6 +1096,7 @@ export const ChatInterface = ({
       // IMMEDIATELY unlock UI - fire-and-forget pattern for database operations
       isStreamingRef.current = false;
       streamingConversationIdRef.current = null;
+      setStreamingConversationId(null);
       setLoading(false);
 
       // Fire-and-forget: Database insert and follow-up generation run in background
@@ -1251,6 +1259,7 @@ export const ChatInterface = ({
       if (isStreamingRef.current) {
         isStreamingRef.current = false;
         streamingConversationIdRef.current = null;
+        setStreamingConversationId(null);
         setLoading(false);
       }
       if (!lastFailedMessage) setRetryCount(0);
@@ -1366,7 +1375,7 @@ export const ChatInterface = ({
                     </div>
                   )}
                 </div>
-              <div className="flex items-center gap-2 md:gap-2.5">
+              <div className="flex items-end gap-2 md:gap-2.5 pb-0.5">
                 {isSupported && (
                   <button 
                     onClick={handleVoiceToggle}
@@ -1376,7 +1385,7 @@ export const ChatInterface = ({
                     {isListening ? <MicOff className="w-4 h-4 md:w-5 md:h-5" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
                   </button>
                 )}
-                {loading && streamingConversationIdRef.current === (conversationId || 'new') ? (
+                {loading && streamingConversationId === (conversationId || 'new') ? (
                   <button 
                     onClick={handleStop}
                     className="bg-destructive text-destructive-foreground rounded-full p-2 md:p-2.5 hover:opacity-80 transition-all"
@@ -1615,7 +1624,7 @@ export const ChatInterface = ({
                       {isListening ? <MicOff className="w-4 h-4 md:w-5 md:h-5" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
                     </button>
                   )}
-                  {loading && streamingConversationIdRef.current === (conversationId || 'new') ? (
+                  {loading && streamingConversationId === (conversationId || 'new') ? (
                     <button 
                       onClick={handleStop}
                       className="bg-destructive text-destructive-foreground rounded-full p-2 md:p-2.5 hover:opacity-80 transition-all"
