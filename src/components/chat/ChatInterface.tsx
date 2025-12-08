@@ -249,13 +249,13 @@ export const ChatInterface = ({
             steps: ["Resuming response..."] 
           });
           
-          // Poll for completion
-          const pollForCompletion = async () => {
+          // Poll for live updates from streaming_content
+          const pollForUpdates = async () => {
             if (activeConversationRef.current !== conversationId) return; // User switched away
             
             const { data: updatedConv } = await supabase
               .from("conversations")
-              .select("pending_response")
+              .select("pending_response, streaming_content")
               .eq("id", conversationId)
               .maybeSingle();
             
@@ -268,12 +268,21 @@ export const ChatInterface = ({
               streamingConversationIdRef.current = null;
               setStreamingConversationId(null);
             } else {
-              // Still pending - check again in 1 second
-              setTimeout(pollForCompletion, 1000);
+              // Update streaming message with current progress
+              if (updatedConv.streaming_content) {
+                setStreamingMessage({
+                  role: "assistant",
+                  content: updatedConv.streaming_content,
+                  isStreaming: true,
+                  steps: ["Processing in background..."]
+                });
+              }
+              // Still pending - check again in 500ms for live updates
+              setTimeout(pollForUpdates, 500);
             }
           };
           
-          pollForCompletion();
+          pollForUpdates();
         }
       };
       
