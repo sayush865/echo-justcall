@@ -356,17 +356,51 @@ serve(async (req) => {
         }
       } catch (error) {
         console.error("Stream error:", error);
-        // Fire-and-forget error cleanup
+        
+        // Fire-and-forget: Save accumulated content and cleanup when client disconnects
+        const savedResponse = fullResponse;
         EdgeRuntime.waitUntil((async () => {
           try {
+            // If we have accumulated content, save it to the database
+            if (savedResponse && savedResponse.length > 0) {
+              await supabaseAdmin.from("messages").insert({
+                conversation_id: conversationId,
+                role: "assistant",
+                content: savedResponse,
+                user_id: userId,
+                user_email: userEmail,
+              });
+              console.log(`[Background] Saved partial response on disconnect: ${savedResponse.length} chars`);
+            }
+            
+            // Log the disconnection with partial response
+            await supabaseAdmin.from("audit_logs").insert({
+              user_id: userId,
+              conversation_id: conversationId,
+              event_type: "ai_response",
+              ai_response: savedResponse || "",
+              metadata: {
+                client_disconnected: true,
+                partial_response: savedResponse?.length > 0,
+                response_length: savedResponse?.length || 0,
+                latency_ms: Date.now() - startTime,
+              },
+              ip_address: ipAddress,
+              user_agent: userAgent,
+            });
+            
+            // Reset pending flag
             await supabaseAdmin
               .from("conversations")
               .update({ pending_response: false })
               .eq("id", conversationId);
+              
+            console.log(`[Background] Cleanup complete after client disconnect`);
           } catch (cleanupError) {
-            console.error("Error cleanup failed:", cleanupError);
+            console.error("Background save error:", cleanupError);
           }
         })());
+        
         await writer.abort(error);
       }
     })();
