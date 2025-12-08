@@ -1426,7 +1426,7 @@ export const ChatInterface = ({
           {/* Conversation Header - title only */}
           {conversationId && (
             <div className="absolute top-0 left-0 right-0 z-20 h-14 md:h-16 flex items-center bg-background/80 backdrop-blur-sm border-b border-border">
-              <div className="w-full px-3 md:px-4 pl-12 md:pl-16 pr-20 md:pr-28">
+              <div className="w-full px-3 md:px-4 pl-14 md:pl-16 pr-20 md:pr-28">
                 <h2 className="font-medium text-xs md:text-sm truncate max-w-3xl mx-auto">{conversationTitle || "Conversation"}</h2>
               </div>
             </div>
