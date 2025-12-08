@@ -355,34 +355,62 @@ serve(async (req) => {
           await writer.write(encoder.encode(chunk));
         }
       } catch (error) {
-        console.error("Stream error:", error);
+        console.error("Stream error (client likely disconnected):", error);
         
-        // Fire-and-forget: Save accumulated content and cleanup when client disconnects
-        const savedResponse = fullResponse;
+        // Fire-and-forget: Continue reading webhook and save complete response
+        const savedResponseSoFar = fullResponse;
         EdgeRuntime.waitUntil((async () => {
           try {
-            // If we have accumulated content, save it to the database
-            if (savedResponse && savedResponse.length > 0) {
+            let finalResponse = savedResponseSoFar;
+            
+            // Continue reading remaining webhook response if reader is still active
+            try {
+              console.log(`[Background] Continuing to read webhook response...`);
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n').filter(line => line.trim());
+                for (const line of lines) {
+                  try {
+                    const parsed = JSON.parse(line);
+                    if (parsed.type === "item" && parsed.content) {
+                      finalResponse += parsed.content;
+                    }
+                  } catch {
+                    if (line.trim()) finalResponse += line;
+                  }
+                }
+              }
+              console.log(`[Background] Finished reading webhook: ${finalResponse.length} chars`);
+            } catch (readError) {
+              console.log(`[Background] Webhook read ended:`, readError);
+            }
+            
+            // Save whatever we have (partial or complete)
+            if (finalResponse && finalResponse.length > 0) {
               await supabaseAdmin.from("messages").insert({
                 conversation_id: conversationId,
                 role: "assistant",
-                content: savedResponse,
+                content: finalResponse,
                 user_id: userId,
                 user_email: userEmail,
               });
-              console.log(`[Background] Saved partial response on disconnect: ${savedResponse.length} chars`);
+              console.log(`[Background] Saved response: ${finalResponse.length} chars`);
             }
             
-            // Log the disconnection with partial response
+            // Log the disconnection with response details
             await supabaseAdmin.from("audit_logs").insert({
               user_id: userId,
               conversation_id: conversationId,
               event_type: "ai_response",
-              ai_response: savedResponse || "",
+              ai_response: finalResponse || "",
               metadata: {
                 client_disconnected: true,
-                partial_response: savedResponse?.length > 0,
-                response_length: savedResponse?.length || 0,
+                continued_in_background: true,
+                initial_content_length: savedResponseSoFar?.length || 0,
+                final_response_length: finalResponse?.length || 0,
                 latency_ms: Date.now() - startTime,
               },
               ip_address: ipAddress,
@@ -397,7 +425,14 @@ serve(async (req) => {
               
             console.log(`[Background] Cleanup complete after client disconnect`);
           } catch (cleanupError) {
-            console.error("Background save error:", cleanupError);
+            console.error("Background processing error:", cleanupError);
+            // Still try to reset pending flag on error
+            try {
+              await supabaseAdmin
+                .from("conversations")
+                .update({ pending_response: false })
+                .eq("id", conversationId);
+            } catch {}
           }
         })());
         

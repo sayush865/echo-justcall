@@ -224,6 +224,61 @@ export const ChatInterface = ({
       // Skip loadMessages entirely - the optimistic message is already in state
       // and loading would overwrite it with empty results since DB insert hasn't completed.
       // The realtime subscription will sync messages once DB writes complete.
+      
+      // Check if this conversation has a pending response being processed in background
+      const checkPendingResponse = async () => {
+        // Skip if we're actively streaming to this conversation
+        if (isStreamingThisConversation) return;
+        
+        const { data: conv } = await supabase
+          .from("conversations")
+          .select("pending_response")
+          .eq("id", conversationId)
+          .maybeSingle();
+        
+        if (conv?.pending_response && activeConversationRef.current === conversationId) {
+          // Response is still processing in background - show loading indicator
+          setLoading(true);
+          isStreamingRef.current = true;
+          streamingConversationIdRef.current = conversationId;
+          setStreamingConversationId(conversationId);
+          setStreamingMessage({ 
+            role: "assistant", 
+            content: "", 
+            isStreaming: true, 
+            steps: ["Resuming response..."] 
+          });
+          
+          // Poll for completion
+          const pollForCompletion = async () => {
+            if (activeConversationRef.current !== conversationId) return; // User switched away
+            
+            const { data: updatedConv } = await supabase
+              .from("conversations")
+              .select("pending_response")
+              .eq("id", conversationId)
+              .maybeSingle();
+            
+            if (!updatedConv?.pending_response) {
+              // Response completed - refresh messages
+              await loadMessages(true);
+              setStreamingMessage(null);
+              setLoading(false);
+              isStreamingRef.current = false;
+              streamingConversationIdRef.current = null;
+              setStreamingConversationId(null);
+            } else {
+              // Still pending - check again in 1 second
+              setTimeout(pollForCompletion, 1000);
+            }
+          };
+          
+          pollForCompletion();
+        }
+      };
+      
+      // Check for pending response after a brief delay to allow cache/load to complete
+      setTimeout(checkPendingResponse, 100);
 
       const channel = supabase
         .channel(`messages:${conversationId}`)
