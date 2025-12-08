@@ -121,6 +121,7 @@ export const ChatInterface = ({
   const lastSentMessageRef = useRef<{ content: string; timestamp: number } | null>(null); // Prevent duplicate sends
   const toolSourceMapRef = useRef<Map<number, PreloadedSource>>(new Map()); // Track sources from tool results during streaming
   const preWarmFollowUpRef = useRef<Promise<any> | null>(null); // Phase 2: Pre-warmed follow-up promise
+  const streamingConversationIdRef = useRef<string | null>(null); // Track WHICH conversation is currently streaming
   
   // Tab visibility tracking for background continuation
   const wasStreamingOnHideRef = useRef(false);
@@ -186,13 +187,19 @@ export const ChatInterface = ({
     // Track active conversation for preventing stale UI updates
     activeConversationRef.current = conversationId;
     
-    // Reset local UI state when switching conversations (but don't abort - let backend continue)
-    // IMPORTANT: Don't reset if we're currently streaming OR if this is the conversation we just sent to
+    // CRITICAL FIX: Per-conversation streaming isolation
+    // Reset loading/streaming UI when switching to a DIFFERENT conversation
+    // The edge function continues in background, but each conversation's UI is independent
+    const isStreamingThisConversation = streamingConversationIdRef.current === conversationId;
     const isSendingToThisConversation = sendInProgressRef.current === conversationId || 
                                          (sendInProgressRef.current === 'new' && conversationId);
-    if (!isStreamingRef.current && !isSendingToThisConversation) {
+    
+    if (!isStreamingThisConversation && !isSendingToThisConversation) {
+      // Reset UI for this conversation - another conversation may still be streaming in background
+      setLoading(false);
       setStreamingMessage(null);
       setFollowUpLoading(false);
+      isStreamingRef.current = false;
     }
     setRetryCount(0);
     setLastFailedMessage(null);
@@ -280,6 +287,7 @@ export const ChatInterface = ({
           }
           
           isStreamingRef.current = false;
+          streamingConversationIdRef.current = null;
           setStreamingMessage(null);
           setLoading(false);
         }
@@ -428,6 +436,7 @@ export const ChatInterface = ({
     
     // Show streaming UI immediately with empty content (loading state)
     isStreamingRef.current = true; // Set immediately before streaming starts
+    streamingConversationIdRef.current = conversationId || 'new'; // Track WHICH conversation is streaming
     setStreamingSourceCount(0); // Reset source count for new stream
     toolSourceMapRef.current = new Map(); // Reset tool source map for new stream
     setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
@@ -647,6 +656,7 @@ export const ChatInterface = ({
 
       // Streaming complete - IMMEDIATELY unlock UI
       isStreamingRef.current = false;
+      streamingConversationIdRef.current = null;
       setLoading(false);
       
       // Only update UI if still on the same conversation
@@ -797,6 +807,7 @@ export const ChatInterface = ({
         }
         
         isStreamingRef.current = false;
+        streamingConversationIdRef.current = null;
         setStreamingMessage(null);
         setLoading(false);
         abortControllerRef.current = null;
@@ -839,6 +850,7 @@ export const ChatInterface = ({
       // Only reset these if not already reset by success path
       if (isStreamingRef.current) {
         isStreamingRef.current = false;
+        streamingConversationIdRef.current = null;
         setLoading(false);
       }
       abortControllerRef.current = null;
@@ -847,7 +859,8 @@ export const ChatInterface = ({
   };
 
   const handleStop = () => {
-    if (abortControllerRef.current) {
+    // Only abort if we're viewing the conversation that's actively streaming
+    if (abortControllerRef.current && streamingConversationIdRef.current === conversationId) {
       abortControllerRef.current.abort();
       toast.info("Response generation stopped");
     }
@@ -913,6 +926,7 @@ export const ChatInterface = ({
     
     // Show streaming UI immediately with empty content (loading state)
     isStreamingRef.current = true; // Set immediately before streaming starts
+    streamingConversationIdRef.current = conversationId || 'new'; // Track WHICH conversation is streaming
     setStreamingSourceCount(0); // Reset source count for new stream
     setStreamingMessage({ role: "assistant", content: "", isStreaming: true, steps: [] });
 
@@ -1074,6 +1088,7 @@ export const ChatInterface = ({
       
       // IMMEDIATELY unlock UI - fire-and-forget pattern for database operations
       isStreamingRef.current = false;
+      streamingConversationIdRef.current = null;
       setLoading(false);
 
       // Fire-and-forget: Database insert and follow-up generation run in background
@@ -1235,6 +1250,7 @@ export const ChatInterface = ({
       // Only reset if not already reset by success path
       if (isStreamingRef.current) {
         isStreamingRef.current = false;
+        streamingConversationIdRef.current = null;
         setLoading(false);
       }
       if (!lastFailedMessage) setRetryCount(0);
@@ -1360,7 +1376,7 @@ export const ChatInterface = ({
                     {isListening ? <MicOff className="w-4 h-4 md:w-5 md:h-5" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
                   </button>
                 )}
-                {loading ? (
+                {loading && streamingConversationIdRef.current === (conversationId || 'new') ? (
                   <button 
                     onClick={handleStop}
                     className="bg-destructive text-destructive-foreground rounded-full p-2 md:p-2.5 hover:opacity-80 transition-all"
@@ -1599,7 +1615,7 @@ export const ChatInterface = ({
                       {isListening ? <MicOff className="w-4 h-4 md:w-5 md:h-5" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
                     </button>
                   )}
-                  {loading ? (
+                  {loading && streamingConversationIdRef.current === (conversationId || 'new') ? (
                     <button 
                       onClick={handleStop}
                       className="bg-destructive text-destructive-foreground rounded-full p-2 md:p-2.5 hover:opacity-80 transition-all"
