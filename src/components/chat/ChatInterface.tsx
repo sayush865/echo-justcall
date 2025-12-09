@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Mic, MicOff, Send, Copy, Check, ArrowDown, Share2, LogOut, Square, LogIn } from "lucide-react";
 import { toast } from "sonner";
-import { MarkdownRenderer } from "./MarkdownRenderer";
+import { MemoizedMarkdownRenderer, MarkdownRenderer } from "./MarkdownRenderer";
 import { parseCitations, extractTypeFromToolName } from "@/lib/citationParser";
 import type { PreloadedSource } from "@/lib/citationParser";
 import { triggerHaptic } from "@/hooks/useHapticFeedback";
@@ -26,6 +26,7 @@ import { ShareDialog } from "./ShareDialog";
 import { FeedbackDialog } from "./FeedbackDialog";
 import { DynamicSuggestionPills } from "./DynamicSuggestionPills";
 import { FollowUpPills } from "./FollowUpPills";
+import { MessageItem } from "./MessageItem";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Import custom hooks
@@ -941,60 +942,13 @@ export const ChatInterface = ({
                   ))}
                 </div>
               ) : messages.map((msg) => (
-                <div
+                <MessageItem
                   key={msg.id}
-                  className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  {msg.role === "user" ? (
-                    <>
-                      <div className="group max-w-[90%] md:max-w-[75%]">
-                        <div className="rounded-2xl px-4 py-3 bg-muted text-foreground shadow-sm">
-                          <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                        </div>
-                        <div className="flex justify-end items-center gap-2 mt-1">
-                          <span className="text-xs text-muted-foreground">{formatMessageTime(msg.created_at)}</span>
-                          <button
-                            onClick={() => handleCopy(msg.content, msg.id)}
-                            className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-                            title="Copy message"
-                          >
-                            {copiedId === msg.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-                          </button>
-                        </div>
-                      </div>
-                      <Avatar className="w-8 h-8 flex-shrink-0">
-                        <AvatarFallback className="bg-muted text-xs font-medium">
-                          {getUserInitials(user?.user_metadata?.display_name)}
-                        </AvatarFallback>
-                      </Avatar>
-                    </>
-                  ) : (
-                    (() => {
-                      const sourceCount = parseCitations(msg.content).inlineCitations.size;
-                      return (
-                        <>
-                          <EchoLogo size="md" className="mt-0.5" />
-                          <div className="flex-1 group min-w-0">
-                            <MarkdownRenderer content={msg.content} />
-                            <div className="flex justify-start items-center gap-2 mt-1">
-                              <span className="text-xs text-muted-foreground">{formatMessageTime(msg.created_at)}</span>
-                              {sourceCount > 0 && (
-                                <span className="text-xs text-muted-foreground">• {sourceCount} source{sourceCount !== 1 ? 's' : ''} found</span>
-                              )}
-                              <button
-                                onClick={() => handleCopy(msg.content, msg.id)}
-                                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-                                title="Copy response"
-                              >
-                                {copiedId === msg.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-                              </button>
-                            </div>
-                          </div>
-                        </>
-                      );
-                    })()
-                  )}
-                </div>
+                  message={msg}
+                  userDisplayName={user?.user_metadata?.display_name}
+                  copiedId={copiedId}
+                  onCopy={handleCopy}
+                />
               ))}
               {streamingMessage && (
                 <div className={`flex justify-start gap-3 ${streamingMessage.isStreaming && !streamingMessage.content ? 'items-center' : ''}`}>

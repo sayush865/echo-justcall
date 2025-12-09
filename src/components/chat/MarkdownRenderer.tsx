@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from "react";
+import React, { useMemo, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CodeBlock } from "./CodeBlock";
@@ -286,3 +286,12 @@ export const MarkdownRenderer = ({ content, isStreaming = false, onSourceCount, 
     </div>
   );
 };
+
+// Memoize MarkdownRenderer - only re-render when content/streaming state changes
+export const MemoizedMarkdownRenderer = React.memo(MarkdownRenderer, (prevProps, nextProps) => {
+  return (
+    prevProps.content === nextProps.content &&
+    prevProps.isStreaming === nextProps.isStreaming &&
+    prevProps.preloadedSources === nextProps.preloadedSources
+  );
+});
