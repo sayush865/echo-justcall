@@ -200,6 +200,14 @@ export const ChatInterface = ({
     const messageToSend = messageOverride || input.trim();
     if (!messageToSend || loading) return;
     
+    // Check auth FIRST before acquiring lock - this is a UX flow redirection
+    if (!user && !skipAuthCheck) {
+      setPendingMessage(messageToSend);
+      setShowAuthModal(true);
+      toast.info("Sign in to send your message", { description: "Your message is queued and will be sent after you sign in." });
+      return;
+    }
+    
     if (sendInProgressRef.current) return;
     
     if (lastSentMessageRef.current && 
@@ -209,13 +217,6 @@ export const ChatInterface = ({
     }
     
     sendInProgressRef.current = conversationId || 'new';
-    
-    if (!user && !skipAuthCheck) {
-      setPendingMessage(messageToSend);
-      setShowAuthModal(true);
-      toast.info("Sign in to send your message", { description: "Your message is queued and will be sent after you sign in." });
-      return;
-    }
     
     triggerHaptic("medium");
     clearInput();
