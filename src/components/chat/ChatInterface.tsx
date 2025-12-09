@@ -556,11 +556,16 @@ export const ChatInterface = ({
   const handleSendWithUser = async (messageToSend: string, authUser: { id: string; email?: string }) => {
     if (!messageToSend || loading) return;
     
+    // Guard against duplicate sends
+    if (sendInProgressRef.current) return;
+    
     if (lastSentMessageRef.current && 
         lastSentMessageRef.current.content === messageToSend &&
         Date.now() - lastSentMessageRef.current.timestamp < 5000) {
       return;
     }
+    
+    sendInProgressRef.current = conversationId || 'new';
     
     triggerHaptic("medium");
     clearInput();
@@ -568,7 +573,6 @@ export const ChatInterface = ({
     resumeAutoScroll();
     clearFollowUps();
     
-    sendInProgressRef.current = conversationId || 'new';
     lastSentMessageRef.current = { content: messageToSend, timestamp: Date.now() };
     
     isStreamingRef.current = true;
