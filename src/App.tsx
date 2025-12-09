@@ -8,6 +8,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import SharedConversation from "./pages/SharedConversation";
 import NotFound from "./pages/NotFound";
 import { useEdgeFunctionWarmup } from "./hooks/useEdgeFunctionWarmup";
+import { ConnectionStatusIndicator } from "./components/chat/ConnectionStatusIndicator";
 
 const queryClient = new QueryClient();
 
@@ -18,6 +19,7 @@ const AppContent = () => {
   
   return (
     <BrowserRouter>
+      <ConnectionStatusIndicator />
       <Routes>
         <Route path="/" element={<Chat />} />
         <Route path="/c/:conversationId" element={<Chat />} />
