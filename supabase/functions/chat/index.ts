@@ -11,6 +11,51 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Rate limiting configuration
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 20; // 20 requests per minute per user/IP
+
+// Check rate limit using audit_logs
+async function checkRateLimit(
+  supabaseAdmin: any,
+  userId: string | null,
+  ipAddress: string
+): Promise<{ allowed: boolean; remaining: number; resetIn: number }> {
+  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+  
+  // Query recent requests for this user/IP
+  let query = supabaseAdmin
+    .from("audit_logs")
+    .select("created_at", { count: "exact" })
+    .eq("event_type", "user_message")
+    .gte("created_at", windowStart);
+  
+  // Prefer user_id if available, fallback to IP
+  if (userId) {
+    query = query.eq("user_id", userId);
+  } else {
+    query = query.eq("ip_address", ipAddress);
+  }
+  
+  const { count, error } = await query;
+  
+  if (error) {
+    console.error("Rate limit check error:", error);
+    // Allow on error to avoid blocking legitimate requests
+    return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS, resetIn: 0 };
+  }
+  
+  const requestCount = count || 0;
+  const remaining = Math.max(0, RATE_LIMIT_MAX_REQUESTS - requestCount);
+  const allowed = requestCount < RATE_LIMIT_MAX_REQUESTS;
+  
+  return {
+    allowed,
+    remaining,
+    resetIn: allowed ? 0 : Math.ceil(RATE_LIMIT_WINDOW_MS / 1000),
+  };
+}
+
 // Helper function to properly extract content from NDJSON stream
 function extractContentFromNDJSON(chunk: string): string {
   let content = "";
@@ -120,6 +165,32 @@ serve(async (req) => {
     const userId = conversation?.user_id;
     const userEmail = conversation?.user_email;
 
+    // Server-side rate limiting check
+    const rateLimit = await checkRateLimit(supabaseAdmin, userId, ipAddress);
+    if (!rateLimit.allowed) {
+      console.log(`[Rate Limit] Blocked: userId=${userId || 'anonymous'}, ip=${ipAddress}, remaining=${rateLimit.remaining}`);
+      
+      // Reset pending_response since we're rejecting the request
+      await supabaseAdmin
+        .from("conversations")
+        .update({ pending_response: false, streaming_content: '' })
+        .eq("id", conversationId);
+      
+      return new Response(
+        JSON.stringify({ 
+          error: "Rate limit exceeded. Please wait before sending more messages.",
+          retryAfter: rateLimit.resetIn,
+        }),
+        {
+          status: 429,
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json",
+            "Retry-After": String(rateLimit.resetIn),
+          },
+        }
+      );
+    }
     // Fire-and-forget: Log user message (non-critical path)
     EdgeRuntime.waitUntil((async () => {
       try {
