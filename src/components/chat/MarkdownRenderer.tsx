@@ -123,6 +123,15 @@ export const MarkdownRenderer = ({ content, isStreaming = false, onSourceCount, 
       return result || match;
     });
     
+    // Handle standalone "Source N" patterns (possibly with newlines around them in table cells)
+    processed = processed.replace(/\n?\s*Source\s+(\d+)\s*\n?/gi, (match, num) => {
+      const n = parseInt(num, 10);
+      if (inlineCitations.has(n)) {
+        return ` %%CITATION_${n}%% `;
+      }
+      return match;
+    });
+    
     // Clean up any leftover orphan quotes/parens after citations
     processed = processed.replace(/%%CITATION_(\d+)%%\s*[)\]"'""']/g, "%%CITATION_$1%%");
     
