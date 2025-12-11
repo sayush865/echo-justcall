@@ -171,19 +171,23 @@ export function parseCitations(content: string): ParsedContent {
       inlineCitations.set(sourceNum, citation);
     }
     
-    // Multi-pass aggressive cleanup to remove all Sources section variations
-    let cleanContent = content
-      // Remove SOURCES_SECTION_PATTERN match
-      .replace(SOURCES_SECTION_PATTERN, "")
-      // Remove markdown headers like "### Sources" or "## Sources"
-      .replace(/\n*#{1,4}\s*Sources?\s*\n*/gi, "\n")
-      // Remove "Sources:" or "SOURCES" label with various formatting
-      .replace(/\n*(?:\*\*|__)?SOURCES?:?(?:\*\*|__)?:?\s*\n*/gi, "\n")
-      // Remove individual source lines [N] ID (Type)
-      .replace(/\[\d+\]\s*[a-f0-9][a-f0-9-]*[a-f0-9]\s*\([^)]+\)\s*\n?/gi, "")
-      // Remove trailing horizontal rules
+    // Only remove the actual Sources section - not patterns elsewhere in content
+    // First, find where the Sources section starts
+    const sourcesHeaderMatch = content.match(/\n*(?:#{1,4}\s*)?(?:\*\*|__)?SOURCES?:?(?:\*\*|__)?:?\s*\n+(?=\[\d+\])/im);
+    
+    let cleanContent = content;
+    
+    if (sourcesHeaderMatch && sourcesHeaderMatch.index !== undefined) {
+      // Only remove content from the Sources header onwards
+      cleanContent = content.slice(0, sourcesHeaderMatch.index).trim();
+    } else {
+      // Fallback: try to remove just the SOURCES_SECTION_PATTERN match
+      cleanContent = content.replace(SOURCES_SECTION_PATTERN, "").trim();
+    }
+    
+    // Clean up trailing horizontal rules and excessive newlines
+    cleanContent = cleanContent
       .replace(/\n*-{3,}\s*$/g, "")
-      // Clean up multiple consecutive newlines
       .replace(/\n{3,}/g, "\n\n")
       .trim();
     
