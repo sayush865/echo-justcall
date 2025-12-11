@@ -1,6 +1,7 @@
 import React, { useMemo, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import { CodeBlock } from "./CodeBlock";
 import { CitationBadges } from "./CitationBadges";
 import { InlineCitationPill } from "./InlineCitationPill";
@@ -284,7 +285,7 @@ export const MarkdownRenderer = ({ content, isStreaming = false, onSourceCount, 
   return (
     <div className="relative">
       <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-pre:p-0 prose-pre:bg-transparent overflow-visible">
-        <ReactMarkdown components={components} remarkPlugins={[remarkGfm]}>
+        <ReactMarkdown components={components} remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
           {contentWithPlaceholders}
         </ReactMarkdown>
       </div>
