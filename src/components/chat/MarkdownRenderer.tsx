@@ -207,8 +207,8 @@ export const MarkdownRenderer = ({ content, isStreaming = false, onSourceCount, 
     },
     table({ children }) {
       return (
-        <ScrollArea className="w-full whitespace-nowrap rounded-lg border border-border my-4">
-          <table className="w-full text-sm">
+        <ScrollArea className="w-full rounded-lg border border-border my-4">
+          <table className="w-full text-sm table-fixed">
             {children}
           </table>
           <ScrollBar orientation="horizontal" />
@@ -230,7 +230,7 @@ export const MarkdownRenderer = ({ content, isStreaming = false, onSourceCount, 
     },
     th({ children }) {
       return (
-        <th className="px-4 py-3 text-left font-semibold text-foreground whitespace-normal">
+        <th className="px-3 py-2 text-left font-semibold text-foreground text-xs break-words">
           {children}
         </th>
       );
@@ -248,7 +248,7 @@ export const MarkdownRenderer = ({ content, isStreaming = false, onSourceCount, 
         : processChildren(children);
 
       return (
-        <td className="px-4 py-3 text-muted-foreground whitespace-normal min-w-[150px] max-w-[400px]">
+        <td className="px-3 py-2 text-muted-foreground text-xs break-words">
           {processedChildren}
         </td>
       );
