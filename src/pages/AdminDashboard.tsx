@@ -42,6 +42,7 @@ import {
   RefreshCw,
   Shield,
   ShieldOff,
+  ShieldAlert,
   Trash2,
   LogIn,
   Lock,
@@ -56,6 +57,8 @@ import {
   Zap,
   Star,
   ThumbsUp,
+  AlertTriangle,
+  Ban,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -67,7 +70,7 @@ type AuditSortOption = "newest" | "oldest";
 
 // Filter options
 type RoleFilter = "all" | "user" | "assistant";
-type EventTypeFilter = "all" | "user_message" | "ai_response" | "conversation_created" | "auth_signin" | "auth_signup" | "webhook_error";
+type EventTypeFilter = "all" | "user_message" | "ai_response" | "conversation_created" | "auth_signin" | "auth_signup" | "webhook_error" | "rate_limit_exceeded";
 type UserFilterOption = "all" | string; // "all" or a specific user_id
 
 interface UserProfile {
@@ -812,6 +815,10 @@ export default function AdminDashboard() {
               <Timer className="h-4 w-4" />
               Performance
             </TabsTrigger>
+            <TabsTrigger value="security" className="gap-2">
+              <ShieldAlert className="h-4 w-4" />
+              Security
+            </TabsTrigger>
           </TabsList>
 
           {/* Users Tab */}
@@ -1321,6 +1328,7 @@ export default function AdminDashboard() {
                           <SelectItem value="auth_signin">Sign In</SelectItem>
                           <SelectItem value="auth_signup">Sign Up</SelectItem>
                           <SelectItem value="webhook_error">Webhook Error</SelectItem>
+                          <SelectItem value="rate_limit_exceeded">Rate Limit</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1701,6 +1709,243 @@ export default function AdminDashboard() {
                           </div>
                         </ScrollArea>
                       </div>
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Security Tab */}
+          <TabsContent value="security" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldAlert className="h-5 w-5" />
+                  Security Monitoring
+                </CardTitle>
+                <CardDescription>
+                  Monitor rate limits, errors, and security events
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  // Filter security-related events
+                  const webhookErrors = auditLogs.filter(log => log.event_type === "webhook_error");
+                  const rateLimitEvents = auditLogs.filter(log => {
+                    const meta = log.metadata as Record<string, unknown>;
+                    return meta?.rate_limited === true || log.event_type === "rate_limit_exceeded";
+                  });
+                  const authFailures = auditLogs.filter(log => 
+                    log.event_type === "auth_error" || 
+                    (log.metadata as Record<string, unknown>)?.auth_failed === true
+                  );
+                  const allSecurityEvents = [...webhookErrors, ...rateLimitEvents, ...authFailures]
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+                  // Calculate error rates
+                  const totalRequests = auditLogs.filter(log => log.event_type === "user_message").length;
+                  const errorRate = totalRequests > 0 
+                    ? ((webhookErrors.length / totalRequests) * 100).toFixed(2) 
+                    : "0.00";
+
+                  // Get unique IPs with most errors
+                  const errorsByIP = webhookErrors.reduce((acc, log) => {
+                    const ip = (log.metadata as Record<string, unknown>)?.ip_address as string || "unknown";
+                    acc[ip] = (acc[ip] || 0) + 1;
+                    return acc;
+                  }, {} as Record<string, number>);
+                  const topErrorIPs = Object.entries(errorsByIP)
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, 5);
+
+                  // Recent 24h stats
+                  const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                  const errors24h = webhookErrors.filter(log => new Date(log.created_at) > last24h).length;
+                  const requests24h = auditLogs.filter(log => 
+                    log.event_type === "user_message" && new Date(log.created_at) > last24h
+                  ).length;
+
+                  return (
+                    <div className="space-y-6">
+                      {/* Summary Stats */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="p-4 rounded-lg border border-green-500/20 bg-green-500/5">
+                          <p className="text-xs text-muted-foreground mb-1">Requests (24h)</p>
+                          <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                            {requests24h}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Total messages</p>
+                        </div>
+                        <div className="p-4 rounded-lg border border-red-500/20 bg-red-500/5">
+                          <p className="text-xs text-muted-foreground mb-1">Errors (24h)</p>
+                          <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                            {errors24h}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Webhook failures</p>
+                        </div>
+                        <div className="p-4 rounded-lg border border-orange-500/20 bg-orange-500/5">
+                          <p className="text-xs text-muted-foreground mb-1">Rate Limits</p>
+                          <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                            {rateLimitEvents.length}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Blocked requests</p>
+                        </div>
+                        <div className="p-4 rounded-lg border border-primary/20 bg-primary/5">
+                          <p className="text-xs text-muted-foreground mb-1">Error Rate</p>
+                          <p className="text-2xl font-bold text-primary">
+                            {errorRate}%
+                          </p>
+                          <p className="text-xs text-muted-foreground">All time</p>
+                        </div>
+                      </div>
+
+                      {/* Rate Limit Config */}
+                      <div className="p-4 rounded-lg border border-primary/30 bg-primary/5">
+                        <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                          <Shield className="h-4 w-4 text-primary" />
+                          Active Rate Limits
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-green-500">✓</Badge>
+                            <span>Client: 15 req/min</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-green-500">✓</Badge>
+                            <span>Server: 20 req/min/user</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-green-500">✓</Badge>
+                            <span>Input: 10,000 chars max</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Top Error Sources */}
+                      {topErrorIPs.length > 0 && (
+                        <div className="p-4 rounded-lg border border-border bg-muted/20">
+                          <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-orange-500" />
+                            Top Error Sources (by IP)
+                          </h4>
+                          <div className="space-y-2">
+                            {topErrorIPs.map(([ip, count]) => (
+                              <div key={ip} className="flex items-center justify-between text-sm">
+                                <span className="font-mono text-muted-foreground">{ip}</span>
+                                <Badge variant="destructive">{count} errors</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recent Security Events */}
+                      <div>
+                        <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                          <Ban className="h-4 w-4 text-red-500" />
+                          Recent Security Events
+                        </h4>
+                        <ScrollArea className="h-[400px]">
+                          <div className="space-y-2">
+                            {allSecurityEvents.length === 0 ? (
+                              <div className="text-center py-8 text-muted-foreground">
+                                <ShieldAlert className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                <p>No security events recorded</p>
+                                <p className="text-xs">This is good! Your system is running smoothly.</p>
+                              </div>
+                            ) : (
+                              allSecurityEvents.slice(0, 100).map((log) => {
+                                const meta = log.metadata as Record<string, unknown>;
+                                const isRateLimit = meta?.rate_limited === true;
+                                const isWebhookError = log.event_type === "webhook_error";
+                                
+                                return (
+                                  <div 
+                                    key={log.id} 
+                                    className={`p-3 rounded-lg border flex items-start justify-between ${
+                                      isRateLimit 
+                                        ? "border-orange-500/30 bg-orange-500/5" 
+                                        : "border-red-500/30 bg-red-500/5"
+                                    }`}
+                                  >
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        {isRateLimit ? (
+                                          <Badge variant="outline" className="text-orange-600 border-orange-500/30">
+                                            Rate Limited
+                                          </Badge>
+                                        ) : isWebhookError ? (
+                                          <Badge variant="destructive">
+                                            Webhook Error
+                                          </Badge>
+                                        ) : (
+                                          <Badge variant="outline">
+                                            {log.event_type}
+                                          </Badge>
+                                        )}
+                                        <span className="text-xs text-muted-foreground">
+                                          {new Date(log.created_at).toLocaleString()}
+                                        </span>
+                                      </div>
+                                      <p className="text-sm text-muted-foreground">
+                                        {log.user_email || "Anonymous"}
+                                      </p>
+                                      {meta?.error && (
+                                        <p className="text-xs text-red-500 mt-1 font-mono truncate max-w-md">
+                                          {String(meta.error).substring(0, 100)}
+                                        </p>
+                                      )}
+                                      {meta?.status && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                          HTTP {String(meta.status)}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div className="text-right text-xs text-muted-foreground">
+                                      {meta?.latency_ms && (
+                                        <p>{String(meta.latency_ms)}ms</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </div>
+
+                      {/* Webhook Errors Detail */}
+                      {webhookErrors.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-medium mb-3">Webhook Error Details</h4>
+                          <ScrollArea className="h-[200px]">
+                            <div className="space-y-2">
+                              {webhookErrors.slice(0, 20).map((log) => {
+                                const meta = log.metadata as Record<string, unknown>;
+                                return (
+                                  <div key={log.id} className="p-3 rounded-lg border border-red-500/20 bg-red-500/5">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-sm font-medium">{log.user_email || "Unknown"}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {new Date(log.created_at).toLocaleString()}
+                                      </span>
+                                    </div>
+                                    <p className="text-xs text-red-500 font-mono">
+                                      Status: {String(meta?.status || "N/A")} | Latency: {String(meta?.latency_ms || "N/A")}ms
+                                    </p>
+                                    {meta?.error && (
+                                      <p className="text-xs text-muted-foreground mt-1 truncate">
+                                        {String(meta.error).substring(0, 200)}
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}

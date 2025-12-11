@@ -170,6 +170,23 @@ serve(async (req) => {
     if (!rateLimit.allowed) {
       console.log(`[Rate Limit] Blocked: userId=${userId || 'anonymous'}, ip=${ipAddress}, remaining=${rateLimit.remaining}`);
       
+      // Log rate limit event for security monitoring
+      await supabaseAdmin.from("audit_logs").insert({
+        user_id: userId,
+        user_email: userEmail,
+        conversation_id: conversationId,
+        event_type: "rate_limit_exceeded",
+        message_content: message?.substring(0, 200),
+        metadata: {
+          rate_limited: true,
+          remaining: rateLimit.remaining,
+          reset_in_seconds: rateLimit.resetIn,
+          ip_address: ipAddress,
+        },
+        ip_address: ipAddress,
+        user_agent: userAgent,
+      });
+      
       // Reset pending_response since we're rejecting the request
       await supabaseAdmin
         .from("conversations")
