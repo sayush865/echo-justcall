@@ -56,7 +56,32 @@ async function checkRateLimit(
   };
 }
 
-// Helper function to properly extract content from NDJSON stream
+// Check if IP is blocked
+async function checkIPBlocked(
+  supabaseAdmin: any,
+  ipAddress: string
+): Promise<{ blocked: boolean; reason: string | null }> {
+  if (!ipAddress) {
+    return { blocked: false, reason: null };
+  }
+  
+  const { data, error } = await supabaseAdmin
+    .from("blocked_ips")
+    .select("ip_address, reason")
+    .eq("ip_address", ipAddress)
+    .eq("is_active", true)
+    .maybeSingle();
+  
+  if (error) {
+    console.error("IP block check error:", error);
+    return { blocked: false, reason: null };
+  }
+  
+  return { 
+    blocked: !!data, 
+    reason: data?.reason || null 
+  };
+}
 function extractContentFromNDJSON(chunk: string): string {
   let content = "";
   
@@ -208,6 +233,48 @@ serve(async (req) => {
         }
       );
     }
+    
+    // Check if IP is blocked
+    const ipBlock = await checkIPBlocked(supabaseAdmin, ipAddress);
+    if (ipBlock.blocked) {
+      console.log(`[IP Block] Blocked request from: ${ipAddress}, reason: ${ipBlock.reason}`);
+      
+      // Log blocked IP event
+      await supabaseAdmin.from("audit_logs").insert({
+        user_id: userId,
+        user_email: userEmail,
+        conversation_id: conversationId,
+        event_type: "ip_blocked",
+        message_content: message?.substring(0, 200),
+        metadata: {
+          ip_blocked: true,
+          ip_address: ipAddress,
+          block_reason: ipBlock.reason,
+        },
+        ip_address: ipAddress,
+        user_agent: userAgent,
+      });
+      
+      // Reset pending_response
+      await supabaseAdmin
+        .from("conversations")
+        .update({ pending_response: false, streaming_content: '' })
+        .eq("id", conversationId);
+      
+      return new Response(
+        JSON.stringify({ 
+          error: "Access denied. Your IP has been blocked.",
+        }),
+        {
+          status: 403,
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+    
     // Fire-and-forget: Log user message (non-critical path)
     EdgeRuntime.waitUntil((async () => {
       try {
