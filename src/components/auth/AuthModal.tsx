@@ -11,12 +11,6 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
-// Whitelist of allowed emails
-const ALLOWED_EMAILS = [
-  "ayush@gmail.com",
-  "anand@saaslabs.co",
-];
-
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -35,13 +29,6 @@ export const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Check email whitelist
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!ALLOWED_EMAILS.includes(normalizedEmail)) {
-      toast.error("Access restricted. Contact administrator.");
-      return;
-    }
     
     setLoading(true);
 
