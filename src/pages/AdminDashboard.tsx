@@ -70,7 +70,7 @@ type AuditSortOption = "newest" | "oldest";
 
 // Filter options
 type RoleFilter = "all" | "user" | "assistant";
-type EventTypeFilter = "all" | "user_message" | "ai_response" | "conversation_created" | "auth_signin" | "auth_signup" | "webhook_error" | "rate_limit_exceeded";
+type EventTypeFilter = "all" | "user_message" | "ai_response" | "conversation_created" | "auth_signin" | "auth_signup" | "webhook_error" | "rate_limit_exceeded" | "ip_blocked";
 type UserFilterOption = "all" | string; // "all" or a specific user_id
 
 interface UserProfile {
@@ -127,6 +127,16 @@ interface UserFeedback {
   rating: number;
   feedback_text: string | null;
   created_at: string;
+}
+
+interface BlockedIP {
+  id: string;
+  ip_address: string;
+  reason: string | null;
+  blocked_by: string | null;
+  blocked_at: string;
+  expires_at: string | null;
+  is_active: boolean;
 }
 
 // Admin Login Component
@@ -263,12 +273,16 @@ export default function AdminDashboard() {
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [feedbackList, setFeedbackList] = useState<UserFeedback[]>([]);
+  const [blockedIPs, setBlockedIPs] = useState<BlockedIP[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [addingAdmin, setAddingAdmin] = useState(false);
+  const [newBlockIP, setNewBlockIP] = useState("");
+  const [newBlockReason, setNewBlockReason] = useState("");
+  const [blockingIP, setBlockingIP] = useState(false);
 
   // Actual counts from DB (not limited)
   const [totalCounts, setTotalCounts] = useState({
@@ -310,6 +324,7 @@ export default function AdminDashboard() {
         rolesRes, 
         logsRes,
         feedbackRes,
+        blockedIPsRes,
         usersCountRes,
         convsCountRes,
         msgsCountRes,
@@ -322,6 +337,7 @@ export default function AdminDashboard() {
         supabase.from("user_roles").select("*"),
         supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(500),
         supabase.from("user_feedback").select("*").order("created_at", { ascending: false }).limit(500),
+        supabase.from("blocked_ips").select("*").order("blocked_at", { ascending: false }),
         // Count queries for accurate totals
         supabase.from("profiles").select("*", { count: "exact", head: true }),
         supabase.from("conversations").select("*", { count: "exact", head: true }),
@@ -336,6 +352,7 @@ export default function AdminDashboard() {
       if (rolesRes.data) setUserRoles(rolesRes.data as UserRole[]);
       if (logsRes.data) setAuditLogs(logsRes.data as AuditLog[]);
       if (feedbackRes.data) setFeedbackList(feedbackRes.data as UserFeedback[]);
+      if (blockedIPsRes.data) setBlockedIPs(blockedIPsRes.data as BlockedIP[]);
       
       // Get active/inactive counts from parallel queries
       const activeUsersCount = (await Promise.all([
@@ -494,6 +511,48 @@ export default function AdminDashboard() {
       fetchData();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to delete conversation";
+      toast.error(message);
+    }
+  };
+
+  const blockIP = async (ipAddress: string, reason: string) => {
+    if (!ipAddress.trim()) return;
+    setBlockingIP(true);
+    
+    try {
+      const { error } = await supabase
+        .from("blocked_ips")
+        .insert({ 
+          ip_address: ipAddress.trim(), 
+          reason: reason.trim() || null,
+          blocked_by: user?.id 
+        });
+
+      if (error) throw error;
+      toast.success(`IP ${ipAddress} blocked successfully`);
+      setNewBlockIP("");
+      setNewBlockReason("");
+      fetchData();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to block IP";
+      toast.error(message);
+    } finally {
+      setBlockingIP(false);
+    }
+  };
+
+  const unblockIP = async (id: string, ipAddress: string) => {
+    try {
+      const { error } = await supabase
+        .from("blocked_ips")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+      toast.success(`IP ${ipAddress} unblocked`);
+      fetchData();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to unblock IP";
       toast.error(message);
     }
   };
@@ -1740,7 +1799,8 @@ export default function AdminDashboard() {
                     log.event_type === "auth_error" || 
                     (log.metadata as Record<string, unknown>)?.auth_failed === true
                   );
-                  const allSecurityEvents = [...webhookErrors, ...rateLimitEvents, ...authFailures]
+                  const ipBlockEvents = auditLogs.filter(log => log.event_type === "ip_blocked");
+                  const allSecurityEvents = [...webhookErrors, ...rateLimitEvents, ...authFailures, ...ipBlockEvents]
                     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
                   // Calculate error rates
@@ -1769,7 +1829,7 @@ export default function AdminDashboard() {
                   return (
                     <div className="space-y-6">
                       {/* Summary Stats */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         <div className="p-4 rounded-lg border border-green-500/20 bg-green-500/5">
                           <p className="text-xs text-muted-foreground mb-1">Requests (24h)</p>
                           <p className="text-2xl font-bold text-green-600 dark:text-green-400">
@@ -1798,6 +1858,13 @@ export default function AdminDashboard() {
                           </p>
                           <p className="text-xs text-muted-foreground">All time</p>
                         </div>
+                        <div className="p-4 rounded-lg border border-purple-500/20 bg-purple-500/5">
+                          <p className="text-xs text-muted-foreground mb-1">Blocked IPs</p>
+                          <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                            {blockedIPs.filter(ip => ip.is_active).length}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Active blocks</p>
+                        </div>
                       </div>
 
                       {/* Rate Limit Config */}
@@ -1822,6 +1889,98 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
+                      {/* IP Blocking */}
+                      <div className="p-4 rounded-lg border border-red-500/30 bg-red-500/5">
+                        <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                          <Ban className="h-4 w-4 text-red-500" />
+                          IP Blocking ({blockedIPs.filter(ip => ip.is_active).length} active)
+                        </h4>
+                        
+                        {/* Add New Block */}
+                        <div className="flex flex-col sm:flex-row gap-2 mb-4">
+                          <Input
+                            placeholder="IP Address (e.g., 192.168.1.1)"
+                            value={newBlockIP}
+                            onChange={(e) => setNewBlockIP(e.target.value)}
+                            className="flex-1 font-mono"
+                          />
+                          <Input
+                            placeholder="Reason (optional)"
+                            value={newBlockReason}
+                            onChange={(e) => setNewBlockReason(e.target.value)}
+                            className="flex-1"
+                          />
+                          <Button 
+                            onClick={() => blockIP(newBlockIP, newBlockReason)} 
+                            disabled={blockingIP || !newBlockIP.trim()}
+                            variant="destructive"
+                            size="sm"
+                          >
+                            {blockingIP ? (
+                              <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <>
+                                <Ban className="h-4 w-4 mr-1" />
+                                Block
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        
+                        {/* Blocked IPs List */}
+                        {blockedIPs.length > 0 ? (
+                          <ScrollArea className="h-[200px]">
+                            <div className="space-y-2">
+                              {blockedIPs.map((blocked) => (
+                                <div 
+                                  key={blocked.id} 
+                                  className={`flex items-center justify-between p-2 rounded border ${
+                                    blocked.is_active 
+                                      ? "border-red-500/30 bg-red-500/10" 
+                                      : "border-muted bg-muted/20 opacity-60"
+                                  }`}
+                                >
+                                  <div>
+                                    <p className="font-mono text-sm">{blocked.ip_address}</p>
+                                    {blocked.reason && (
+                                      <p className="text-xs text-muted-foreground">{blocked.reason}</p>
+                                    )}
+                                    <p className="text-xs text-muted-foreground">
+                                      Blocked: {new Date(blocked.blocked_at).toLocaleString()}
+                                    </p>
+                                  </div>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Unblock IP?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Remove {blocked.ip_address} from the blocked list? This IP will be able to access the system again.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => unblockIP(blocked.id, blocked.ip_address)}>
+                                          Unblock
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        ) : (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            No blocked IPs. Block abusive IPs to protect your system.
+                          </p>
+                        )}
+                      </div>
+
                       {/* Top Error Sources */}
                       {topErrorIPs.length > 0 && (
                         <div className="p-4 rounded-lg border border-border bg-muted/20">
@@ -1830,12 +1989,32 @@ export default function AdminDashboard() {
                             Top Error Sources (by IP)
                           </h4>
                           <div className="space-y-2">
-                            {topErrorIPs.map(([ip, count]) => (
-                              <div key={ip} className="flex items-center justify-between text-sm">
-                                <span className="font-mono text-muted-foreground">{ip}</span>
-                                <Badge variant="destructive">{count} errors</Badge>
-                              </div>
-                            ))}
+                            {topErrorIPs.map(([ip, count]) => {
+                              const isAlreadyBlocked = blockedIPs.some(b => b.ip_address === ip && b.is_active);
+                              return (
+                                <div key={ip} className="flex items-center justify-between text-sm">
+                                  <span className="font-mono text-muted-foreground">{ip}</span>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="destructive">{count} errors</Badge>
+                                    {isAlreadyBlocked ? (
+                                      <Badge variant="outline" className="text-purple-600 border-purple-500/30">
+                                        Blocked
+                                      </Badge>
+                                    ) : (
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-6 px-2 text-xs"
+                                        onClick={() => blockIP(ip, `High error rate (${count} errors)`)}
+                                      >
+                                        <Ban className="h-3 w-3 mr-1" />
+                                        Block
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -1857,8 +2036,9 @@ export default function AdminDashboard() {
                             ) : (
                               allSecurityEvents.slice(0, 100).map((log) => {
                                 const meta = log.metadata as Record<string, unknown>;
-                                const isRateLimit = meta?.rate_limited === true;
+                                const isRateLimit = meta?.rate_limited === true || log.event_type === "rate_limit_exceeded";
                                 const isWebhookError = log.event_type === "webhook_error";
+                                const isIPBlocked = log.event_type === "ip_blocked";
                                 
                                 return (
                                   <div 
@@ -1866,6 +2046,8 @@ export default function AdminDashboard() {
                                     className={`p-3 rounded-lg border flex items-start justify-between ${
                                       isRateLimit 
                                         ? "border-orange-500/30 bg-orange-500/5" 
+                                        : isIPBlocked
+                                        ? "border-purple-500/30 bg-purple-500/5"
                                         : "border-red-500/30 bg-red-500/5"
                                     }`}
                                   >
@@ -1878,6 +2060,10 @@ export default function AdminDashboard() {
                                         ) : isWebhookError ? (
                                           <Badge variant="destructive">
                                             Webhook Error
+                                          </Badge>
+                                        ) : isIPBlocked ? (
+                                          <Badge variant="outline" className="text-purple-600 border-purple-500/30">
+                                            IP Blocked
                                           </Badge>
                                         ) : (
                                           <Badge variant="outline">
