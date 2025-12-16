@@ -1,9 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Input validation schema
+const followupsRequestSchema = z.object({
+  lastUserMessage: z.string().max(5000, "User message too long").optional(),
+  lastAIResponse: z.string().max(50000, "AI response too long").optional(),
+  userMessageOnly: z.boolean().optional(),
+  warmup: z.boolean().optional(),
+});
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -13,14 +22,32 @@ serve(async (req) => {
   const startTime = Date.now();
   
   try {
-    const { lastUserMessage, lastAIResponse, userMessageOnly, warmup } = await req.json();
+    const rawBody = await req.json();
 
-    // Handle warmup ping - instant response to pre-warm the function
-    if (warmup) {
+    // Handle warmup ping - instant response (before validation)
+    if (rawBody.warmup === true) {
       return new Response(JSON.stringify({ status: "warm" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Validate input using Zod schema
+    const parseResult = followupsRequestSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      const errors = parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+      console.error("Validation error:", errors);
+      return new Response(
+        JSON.stringify({ 
+          suggestions: getDefaultSuggestions(""),
+          source: "validation-error",
+          error: errors
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { lastUserMessage, lastAIResponse, userMessageOnly } = parseResult.data;
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
@@ -141,7 +168,7 @@ Return suggestions using the generate_followups function.`,
       }));
       
       return new Response(JSON.stringify({ 
-        suggestions: getDefaultSuggestions(lastUserMessage),
+        suggestions: getDefaultSuggestions(lastUserMessage || ""),
         source: "default",
         meta: { mode, duration: aiCallDuration, reason: "ai-error" }
       }), {
@@ -196,7 +223,7 @@ Return suggestions using the generate_followups function.`,
     }));
     
     return new Response(JSON.stringify({ 
-      suggestions: getDefaultSuggestions(lastUserMessage),
+      suggestions: getDefaultSuggestions(lastUserMessage || ""),
       source: "default",
       meta: { mode, duration: totalDuration, reason: "fallback" }
     }), {

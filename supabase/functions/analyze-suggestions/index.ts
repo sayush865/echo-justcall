@@ -1,10 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const analyzeRequestSchema = z.object({
+  userId: z.string().uuid("Invalid user ID").optional(),
+  excludeLabels: z.array(z.string().max(100)).max(20).optional(),
+});
 
 interface Suggestion {
   label: string;
@@ -36,8 +43,15 @@ serve(async (req) => {
     if (req.method === 'POST') {
       try {
         const body = await req.json();
-        singleUserId = body.userId || null;
-        excludeLabels = body.excludeLabels || [];
+        
+        // Validate input using Zod schema
+        const parseResult = analyzeRequestSchema.safeParse(body);
+        if (parseResult.success) {
+          singleUserId = parseResult.data.userId || null;
+          excludeLabels = parseResult.data.excludeLabels || [];
+        } else {
+          console.warn("Invalid request body, proceeding with full analysis:", parseResult.error.errors);
+        }
       } catch {
         // No body or invalid JSON - proceed with full analysis
       }

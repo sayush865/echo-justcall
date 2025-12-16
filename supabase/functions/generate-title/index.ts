@@ -1,10 +1,16 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Input validation schema
+const titleRequestSchema = z.object({
+  userMessage: z.string().max(5000, "Message too long").optional(),
+});
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -12,7 +18,18 @@ serve(async (req) => {
   }
 
   try {
-    const { userMessage } = await req.json();
+    const rawBody = await req.json();
+
+    // Validate input using Zod schema
+    const parseResult = titleRequestSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return new Response(
+        JSON.stringify({ title: "New conversation" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { userMessage } = parseResult.data;
 
     if (!userMessage) {
       return new Response(
