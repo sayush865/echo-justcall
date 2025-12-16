@@ -144,14 +144,32 @@ serve(async (req) => {
       });
     }
 
+    // Query for internal test users to exclude from global suggestions
+    const { data: internalUsers } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .ilike('email', '%ayush%@gmail.com');
+
+    const excludedUserIds = new Set(
+      (internalUsers || []).map((u: { user_id: string }) => u.user_id)
+    );
+
+    console.log(`Excluding ${excludedUserIds.size} internal test users from global suggestions`);
+
     // Group messages by user for personalization
     const userMessages: Record<string, typeof recentMessages> = {};
     const allUserMessages: string[] = [];
 
     for (const msg of recentMessages) {
       if (msg.role === 'user') {
-        allUserMessages.push(msg.content);
         const userId = msg.user_id;
+        
+        // Only include in global suggestions if NOT an excluded internal user
+        if (!excludedUserIds.has(userId)) {
+          allUserMessages.push(msg.content);
+        }
+        
+        // Still track per-user for personalized suggestions (Ayush can still get their own)
         if (userId) {
           if (!userMessages[userId]) {
             userMessages[userId] = [];
