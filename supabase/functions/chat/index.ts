@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 // Declare EdgeRuntime global for Supabase Edge Functions
 declare const EdgeRuntime: {
@@ -10,6 +11,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+// Input validation schema
+const chatRequestSchema = z.object({
+  message: z.string().min(1, "Message is required").max(10000, "Message too long"),
+  conversationId: z.string().uuid("Invalid conversation ID"),
+  backgroundMode: z.boolean().optional(),
+  warmup: z.boolean().optional(),
+});
 
 // Rate limiting configuration
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
@@ -128,14 +137,27 @@ serve(async (req) => {
   const startTime = Date.now();
 
   try {
-    const { message, conversationId, backgroundMode, warmup } = await req.json();
+    const rawBody = await req.json();
 
-    // Handle warmup ping - instant response to pre-warm the function
-    if (warmup) {
+    // Handle warmup ping - instant response (before validation)
+    if (rawBody.warmup === true) {
       return new Response(JSON.stringify({ status: "warm" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Validate input using Zod schema
+    const parseResult = chatRequestSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      const errors = parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+      console.error("Validation error:", errors);
+      return new Response(
+        JSON.stringify({ error: "Invalid request", details: errors }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { message, conversationId, backgroundMode } = parseResult.data;
 
     const WEBHOOK_URL = Deno.env.get("WEBHOOK_URL");
     if (!WEBHOOK_URL) {
