@@ -235,10 +235,10 @@ serve(async (req) => {
       
       return new Response(
         JSON.stringify({ 
-          error: "Access denied. You are not authorized to use this service.",
+          error: "Something went wrong. Please try again later.",
         }),
         {
-          status: 403,
+          status: 500,
           headers: { 
             ...corsHeaders, 
             "Content-Type": "application/json",
