@@ -59,6 +59,7 @@ import {
   ThumbsUp,
   AlertTriangle,
   Ban,
+  EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -137,6 +138,12 @@ interface BlockedIP {
   blocked_at: string;
   expires_at: string | null;
   is_active: boolean;
+}
+
+interface ExcludedUser {
+  user_id: string;
+  email: string | null;
+  display_name: string | null;
 }
 
 // Admin Login Component
@@ -274,6 +281,7 @@ export default function AdminDashboard() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [feedbackList, setFeedbackList] = useState<UserFeedback[]>([]);
   const [blockedIPs, setBlockedIPs] = useState<BlockedIP[]>([]);
+  const [excludedUsers, setExcludedUsers] = useState<ExcludedUser[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -325,6 +333,7 @@ export default function AdminDashboard() {
         logsRes,
         feedbackRes,
         blockedIPsRes,
+        excludedUsersRes,
         usersCountRes,
         convsCountRes,
         msgsCountRes,
@@ -338,6 +347,8 @@ export default function AdminDashboard() {
         supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(500),
         supabase.from("user_feedback").select("*").order("created_at", { ascending: false }).limit(500),
         supabase.from("blocked_ips").select("*").order("blocked_at", { ascending: false }),
+        // Fetch users excluded from global suggestions (internal test users)
+        supabase.from("profiles").select("user_id, email, display_name").ilike("email", "%ayush%@gmail.com"),
         // Count queries for accurate totals
         supabase.from("profiles").select("*", { count: "exact", head: true }),
         supabase.from("conversations").select("*", { count: "exact", head: true }),
@@ -353,6 +364,7 @@ export default function AdminDashboard() {
       if (logsRes.data) setAuditLogs(logsRes.data as AuditLog[]);
       if (feedbackRes.data) setFeedbackList(feedbackRes.data as UserFeedback[]);
       if (blockedIPsRes.data) setBlockedIPs(blockedIPsRes.data as BlockedIP[]);
+      if (excludedUsersRes.data) setExcludedUsers(excludedUsersRes.data as ExcludedUser[]);
       
       // Get active/inactive counts from parallel queries
       const activeUsersCount = (await Promise.all([
@@ -1771,6 +1783,63 @@ export default function AdminDashboard() {
                     </div>
                   );
                 })()}
+              </CardContent>
+            </Card>
+
+            {/* Excluded Users from Global Suggestions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <EyeOff className="h-5 w-5 text-muted-foreground" />
+                  Excluded from Global Suggestions
+                </CardTitle>
+                <CardDescription>
+                  Internal test users whose messages are excluded when generating global suggestion analytics
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="p-4 rounded-lg border border-orange-500/20 bg-orange-500/5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge className="bg-orange-500/20 text-orange-600 border-orange-500/30">
+                        Pattern: %ayush%@gmail.com
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Messages from these users are filtered out when generating global suggestions to prevent internal testing from polluting analytics.
+                    </p>
+                  </div>
+
+                  {excludedUsers.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {excludedUsers.length} user{excludedUsers.length !== 1 ? 's' : ''} currently excluded:
+                      </p>
+                      {excludedUsers.map((user) => (
+                        <div
+                          key={user.user_id}
+                          className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-600 font-medium text-sm">
+                            {(user.display_name || user.email || "?")[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{user.display_name || "No name"}</p>
+                            <p className="text-xs text-muted-foreground">{user.email}</p>
+                          </div>
+                          <Badge variant="outline" className="ml-auto text-xs">
+                            <EyeOff className="h-3 w-3 mr-1" />
+                            Excluded
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No users matching the exclusion pattern found.
+                    </p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
