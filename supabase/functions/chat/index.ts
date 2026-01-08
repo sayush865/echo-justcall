@@ -210,42 +210,7 @@ serve(async (req) => {
     }
 
     const userId = conversation?.user_id;
-    
-    // Get user email from profile for authorization check
-    let userEmail = null;
-    if (userId) {
-      const { data: profile } = await supabaseAdmin
-        .from("profiles")
-        .select("email")
-        .eq("user_id", userId)
-        .maybeSingle();
-      userEmail = profile?.email;
-    }
-
-    // Whitelist check - only ayush@gmail.com can use the webhook
-    const ALLOWED_EMAIL = "ayush@gmail.com";
-    if (!userEmail || userEmail.toLowerCase() !== ALLOWED_EMAIL.toLowerCase()) {
-      console.log(`[Auth] Blocked: email=${userEmail || 'unknown'} not in whitelist`);
-      
-      // Reset pending_response
-      await supabaseAdmin
-        .from("conversations")
-        .update({ pending_response: false, streaming_content: '' })
-        .eq("id", conversationId);
-      
-      return new Response(
-        JSON.stringify({ 
-          error: "Something went wrong. Please try again later.",
-        }),
-        {
-          status: 500,
-          headers: { 
-            ...corsHeaders, 
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
+    const userEmail = conversation?.user_email;
 
     // Server-side rate limiting check
     const rateLimit = await checkRateLimit(supabaseAdmin, userId, ipAddress);
