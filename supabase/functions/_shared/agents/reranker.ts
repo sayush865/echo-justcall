@@ -3,6 +3,9 @@ import type { AgentContext } from "./types.ts";
 import { pineconeRerank } from "../pinecone.ts";
 
 const TOP_N = 8;
+// bge-reranker-v2-m3 caps at 100 documents per request. Pre-trim by initial
+// cosine score before reranking when the router selects many namespaces.
+const RERANK_INPUT_CAP = 100;
 
 export class RerankerAgent extends Agent {
   readonly name = "reranker";
@@ -22,22 +25,27 @@ export class RerankerAgent extends Agent {
       return;
     }
 
+    // Cap input by initial cosine score if over the model's per-call limit.
+    const candidates = matches.length > RERANK_INPUT_CAP
+      ? [...matches].sort((a, b) => b.score - a.score).slice(0, RERANK_INPUT_CAP)
+      : matches;
+
     await emit({
       type: "step",
-      text: `Reranking ${matches.length} chunks → top ${TOP_N}…`,
+      text: `Reranking ${candidates.length} chunks → top ${TOP_N}…`,
     });
 
     try {
       const ranked = await pineconeRerank({
         apiKey: this.pineconeKey,
         query: session.userQuery,
-        documents: matches.map((m) => ({
+        documents: candidates.map((m) => ({
           text: m.text || textFromMetadata(m.metadata),
         })),
         topN: TOP_N,
       });
       session.reranked = ranked.map((r) => ({
-        ...matches[r.index],
+        ...candidates[r.index],
         score: r.score,
       }));
     } catch (err) {
