@@ -1,0 +1,146 @@
+[
+  {
+    "name": "cs-complaints-general",
+    "input": { "query": "What are CS customers complaining about most?" },
+    "metadata": {
+      "category": "cs",
+      "expected_namespaces": ["echo_cs_calls", "echo_cs_meetings"],
+      "expected_themes": ["complaints", "issues", "frustration"]
+    }
+  },
+  {
+    "name": "sales-pricing-concerns",
+    "input": { "query": "What pricing concerns are sales hearing from prospects?" },
+    "metadata": {
+      "category": "sales",
+      "expected_namespaces": ["echo_sales_calls", "echo_sales_meetings"],
+      "expected_themes": ["pricing", "cost", "discount"]
+    }
+  },
+  {
+    "name": "support-recurring-issues",
+    "input": { "query": "What are the top recurring issues the support team is handling?" },
+    "metadata": {
+      "category": "support",
+      "expected_namespaces": ["echo_support_calls", "echo_support_meetings"],
+      "expected_themes": ["bugs", "outage", "resolution"]
+    }
+  },
+  {
+    "name": "all-teams-feature-requests",
+    "input": { "query": "What feature requests are coming up across all teams this quarter?" },
+    "metadata": {
+      "category": "multi",
+      "expected_namespaces": [
+        "echo_sales_calls", "echo_sales_meetings",
+        "echo_cs_calls", "echo_cs_meetings",
+        "echo_support_calls", "echo_support_meetings"
+      ],
+      "expected_themes": ["feature", "request", "integration"]
+    }
+  },
+  {
+    "name": "integrations-cs",
+    "input": { "query": "Which integrations are CS customers asking about most?" },
+    "metadata": {
+      "category": "cs",
+      "expected_namespaces": ["echo_cs_calls", "echo_cs_meetings"],
+      "expected_themes": ["integration", "hubspot", "salesforce", "api"]
+    }
+  },
+  {
+    "name": "negative-sentiment-themes",
+    "input": { "query": "What themes are coming up in calls with negative customer sentiment?" },
+    "metadata": {
+      "category": "multi",
+      "expected_namespaces": [
+        "echo_sales_calls", "echo_cs_calls", "echo_support_calls"
+      ],
+      "expected_themes": ["negative", "frustration", "issue"]
+    }
+  },
+  {
+    "name": "dialer-bugs",
+    "input": { "query": "Are customers reporting any bugs with the Sales Dialer?" },
+    "metadata": {
+      "category": "support",
+      "expected_namespaces": ["echo_support_calls", "echo_support_meetings"],
+      "expected_themes": ["dialer", "bug", "calling"]
+    }
+  },
+  {
+    "name": "churn-risk-signals",
+    "input": { "query": "Which customers are showing churn risk based on recent CS conversations?" },
+    "metadata": {
+      "category": "cs",
+      "expected_namespaces": ["echo_cs_calls", "echo_cs_meetings"],
+      "expected_themes": ["churn", "cancel", "switching"]
+    }
+  },
+  {
+    "name": "competitor-mentions",
+    "input": { "query": "Which competitors are prospects mentioning in sales calls?" },
+    "metadata": {
+      "category": "sales",
+      "expected_namespaces": ["echo_sales_calls", "echo_sales_meetings"],
+      "expected_themes": ["competitor", "alternative"]
+    }
+  },
+  {
+    "name": "billing-complaints",
+    "input": { "query": "What billing-related issues are customers raising?" },
+    "metadata": {
+      "category": "multi",
+      "expected_namespaces": ["echo_cs_calls", "echo_support_calls"],
+      "expected_themes": ["billing", "invoice", "refund", "charge"]
+    }
+  },
+  {
+    "name": "ai-features-feedback",
+    "input": { "query": "How are customers reacting to JustCall's AI features in conversations?" },
+    "metadata": {
+      "category": "multi",
+      "expected_namespaces": [
+        "echo_sales_calls", "echo_cs_calls", "echo_support_calls"
+      ],
+      "expected_themes": ["ai", "voice agent", "intelligence"]
+    }
+  },
+  {
+    "name": "support-response-time",
+    "input": { "query": "Are customers complaining about support response times?" },
+    "metadata": {
+      "category": "support",
+      "expected_namespaces": ["echo_support_calls", "echo_cs_calls"],
+      "expected_themes": ["response", "wait", "delay", "ticket"]
+    }
+  },
+  {
+    "name": "mobile-app-issues",
+    "input": { "query": "What issues are customers reporting with the mobile app?" },
+    "metadata": {
+      "category": "support",
+      "expected_namespaces": ["echo_support_calls", "echo_support_meetings"],
+      "expected_themes": ["mobile", "app", "ios", "android"]
+    }
+  },
+  {
+    "name": "upsell-opportunities",
+    "input": { "query": "What upsell opportunities are surfacing in CS meetings?" },
+    "metadata": {
+      "category": "cs",
+      "expected_namespaces": ["echo_cs_meetings", "echo_cs_calls"],
+      "expected_themes": ["upsell", "expansion", "growth", "upgrade"]
+    }
+  },
+  {
+    "name": "no-relevant-data",
+    "input": { "query": "What does our CFO think about the new pricing model?" },
+    "metadata": {
+      "category": "edge",
+      "expected_namespaces": [],
+      "expected_themes": ["acknowledge gap"],
+      "note": "Question that should produce 'no data found' style response — tests the synthesizer's gap acknowledgment"
+    }
+  }
+]
