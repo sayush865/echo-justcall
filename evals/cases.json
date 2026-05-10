@@ -140,7 +140,165 @@
       "category": "edge",
       "expected_namespaces": [],
       "expected_themes": ["acknowledge gap"],
-      "note": "Question that should produce 'no data found' style response — tests the synthesizer's gap acknowledgment"
+      "note": "Should produce 'no data found' response — tests gap acknowledgment"
+    }
+  },
+  {
+    "name": "whatsapp-questions",
+    "input": { "query": "What questions are customers asking about WhatsApp messaging?" },
+    "metadata": {
+      "category": "multi",
+      "expected_namespaces": [
+        "echo_sales_calls", "echo_cs_calls", "echo_support_calls"
+      ],
+      "expected_themes": ["whatsapp", "messaging", "channel"]
+    }
+  },
+  {
+    "name": "trial-conversion-blockers",
+    "input": { "query": "What's blocking trial users from converting to paid?" },
+    "metadata": {
+      "category": "sales",
+      "expected_namespaces": ["echo_sales_calls", "echo_sales_meetings"],
+      "expected_themes": ["trial", "conversion", "objection"]
+    }
+  },
+  {
+    "name": "phone-number-issues",
+    "input": { "query": "What problems are customers facing with phone number provisioning or porting?" },
+    "metadata": {
+      "category": "support",
+      "expected_namespaces": ["echo_support_calls", "echo_cs_calls"],
+      "expected_themes": ["phone number", "porting", "provision"]
+    }
+  },
+  {
+    "name": "call-quality-feedback",
+    "input": { "query": "Are customers reporting call quality issues like dropped calls or audio problems?" },
+    "metadata": {
+      "category": "support",
+      "expected_namespaces": ["echo_support_calls", "echo_cs_calls"],
+      "expected_themes": ["quality", "audio", "dropped", "voice"]
+    }
+  },
+  {
+    "name": "sms-features",
+    "input": { "query": "What SMS-related features are customers requesting or asking about?" },
+    "metadata": {
+      "category": "multi",
+      "expected_namespaces": [
+        "echo_sales_calls", "echo_cs_calls", "echo_support_calls"
+      ],
+      "expected_themes": ["sms", "text", "messaging"]
+    }
+  },
+  {
+    "name": "analytics-reporting-gaps",
+    "input": { "query": "What gaps are customers seeing in analytics or reporting?" },
+    "metadata": {
+      "category": "cs",
+      "expected_namespaces": ["echo_cs_calls", "echo_cs_meetings"],
+      "expected_themes": ["analytics", "reporting", "dashboard"]
+    }
+  },
+  {
+    "name": "salesforce-integration-feedback",
+    "input": { "query": "How are customers using and feeling about the Salesforce integration?" },
+    "metadata": {
+      "category": "multi",
+      "expected_namespaces": ["echo_cs_calls", "echo_cs_meetings", "echo_sales_calls"],
+      "expected_themes": ["salesforce", "integration", "sync"]
+    }
+  },
+  {
+    "name": "hubspot-integration-feedback",
+    "input": { "query": "What's the customer feedback on the HubSpot integration?" },
+    "metadata": {
+      "category": "multi",
+      "expected_namespaces": ["echo_cs_calls", "echo_cs_meetings", "echo_sales_calls"],
+      "expected_themes": ["hubspot", "integration", "sync"]
+    }
+  },
+  {
+    "name": "onboarding-friction",
+    "input": { "query": "Where are new customers running into friction during onboarding?" },
+    "metadata": {
+      "category": "cs",
+      "expected_namespaces": ["echo_cs_calls", "echo_cs_meetings"],
+      "expected_themes": ["onboarding", "setup", "getting started"]
+    }
+  },
+  {
+    "name": "auto-dialer-feedback",
+    "input": { "query": "What do customers think about the Auto Dialer feature?" },
+    "metadata": {
+      "category": "multi",
+      "expected_namespaces": ["echo_cs_calls", "echo_sales_calls", "echo_support_calls"],
+      "expected_themes": ["auto dialer", "dialing", "campaign"]
+    }
+  },
+  {
+    "name": "sales-objection-handling",
+    "input": { "query": "What objections are sales reps encountering most often in demos?" },
+    "metadata": {
+      "category": "sales",
+      "expected_namespaces": ["echo_sales_calls", "echo_sales_meetings"],
+      "expected_themes": ["objection", "concern", "hesitation"]
+    }
+  },
+  {
+    "name": "chrome-extension-issues",
+    "input": { "query": "Are there issues being reported with the Chrome extension?" },
+    "metadata": {
+      "category": "support",
+      "expected_namespaces": ["echo_support_calls", "echo_support_meetings"],
+      "expected_themes": ["chrome", "extension", "browser"]
+    }
+  },
+  {
+    "name": "missed-call-followup",
+    "input": { "query": "How do customers handle missed call follow-up workflows?" },
+    "metadata": {
+      "category": "multi",
+      "expected_namespaces": ["echo_cs_calls", "echo_sales_calls"],
+      "expected_themes": ["missed call", "follow-up", "workflow"]
+    }
+  },
+  {
+    "name": "data-export-asks",
+    "input": { "query": "What data export or download capabilities are customers asking for?" },
+    "metadata": {
+      "category": "multi",
+      "expected_namespaces": ["echo_cs_calls", "echo_support_calls"],
+      "expected_themes": ["export", "download", "data"]
+    }
+  },
+  {
+    "name": "voicemail-features",
+    "input": { "query": "What feedback is there on voicemail features and transcription?" },
+    "metadata": {
+      "category": "support",
+      "expected_namespaces": ["echo_support_calls", "echo_cs_calls"],
+      "expected_themes": ["voicemail", "transcription"]
+    }
+  },
+  {
+    "name": "team-management-features",
+    "input": { "query": "What team management or admin features are customers requesting?" },
+    "metadata": {
+      "category": "cs",
+      "expected_namespaces": ["echo_cs_calls", "echo_cs_meetings"],
+      "expected_themes": ["team", "admin", "permissions", "roles"]
+    }
+  },
+  {
+    "name": "edge-vague-question",
+    "input": { "query": "Tell me about the weather" },
+    "metadata": {
+      "category": "edge",
+      "expected_namespaces": [],
+      "expected_themes": ["acknowledge gap"],
+      "note": "Off-topic question — tests if assistant declines or gracefully redirects"
     }
   }
 ]

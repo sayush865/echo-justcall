@@ -8,7 +8,7 @@ import { RouterAgent } from "../_shared/agents/router.ts";
 import { RetrievalAgent } from "../_shared/agents/retrieval.ts";
 import { RerankerAgent } from "../_shared/agents/reranker.ts";
 import { SynthesizerAgent } from "../_shared/agents/synthesizer.ts";
-import { citationAccuracyScore, faithfulnessScore } from "../_shared/scorers.ts";
+import { runAllOnlineScorers } from "../_shared/scorers.ts";
 import type { ChatMsg, Session, TraceParent } from "../_shared/agents/types.ts";
 
 declare const EdgeRuntime: {
@@ -47,8 +47,8 @@ function formatContextForEval(
   return out;
 }
 
-// Run async scorers and attach results to the trace. Errors are swallowed —
-// scoring failures must never affect the user response.
+// Run async scorers and attach results to the trace. Failures swallowed —
+// scoring must never affect the user response.
 async function runScorers(opts: {
   trace: TraceParent;
   query: string;
@@ -57,35 +57,23 @@ async function runScorers(opts: {
   openAiKey: string;
 }): Promise<void> {
   if (!opts.trace || !opts.answer) return;
-  const matches = opts.session.reranked ?? [];
-
-  const cite = citationAccuracyScore({ answer: opts.answer, matches });
-  try {
-    opts.trace.score?.({
-      name: "citation_accuracy",
-      value: cite.value,
-      comment: cite.reasoning,
-      dataType: "NUMERIC",
-    });
-  } catch (err) {
-    console.error("citation_accuracy score error:", err);
-  }
-
-  try {
-    const faith = await faithfulnessScore({
-      query: opts.query,
-      matches,
-      answer: opts.answer,
-      openAiKey: opts.openAiKey,
-    });
-    opts.trace.score?.({
-      name: "faithfulness",
-      value: faith.value,
-      comment: faith.reasoning,
-      dataType: "NUMERIC",
-    });
-  } catch (err) {
-    console.error("faithfulness score error:", err);
+  const scores = await runAllOnlineScorers({
+    query: opts.query,
+    answer: opts.answer,
+    session: opts.session,
+    openAiKey: opts.openAiKey,
+  });
+  for (const s of scores) {
+    try {
+      opts.trace.score?.({
+        name: s.name,
+        value: s.value,
+        comment: s.comment,
+        dataType: "NUMERIC",
+      });
+    } catch (err) {
+      console.error(`${s.name} score error:`, err);
+    }
   }
 }
 

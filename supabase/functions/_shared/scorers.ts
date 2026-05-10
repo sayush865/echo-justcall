@@ -1,34 +1,49 @@
-// Async scorers that run after the synthesizer finishes and emit scores via
-// Langfuse `trace.score()`. Runs inside EdgeRuntime.waitUntil so they don't
-// add user-perceived latency.
+// Async scorers attached to the Langfuse trace via trace.score(). Run inside
+// EdgeRuntime.waitUntil after the synthesizer finishes so they don't add
+// user-perceived latency.
 //
-// Scores show up in the Langfuse UI under Scores tab + as badges on each trace.
+// Five scorers fire on every chat request:
+//   - faithfulness          (LLM judge)
+//   - citation_accuracy     (programmatic)
+//   - answer_relevance      (LLM judge)
+//   - context_relevance     (LLM judge)
+//   - format_compliance     (programmatic)
+//
+// A sixth scorer (routing_precision) fires only from the eval runner, since
+// it requires expected_namespaces from a dataset item.
 
-import type { RetrievedMatch } from "./agents/types.ts";
+import type { RetrievedMatch, Session } from "./agents/types.ts";
 
 const JUDGE_MODEL = "gpt-4.1-mini";
 
-const FAITHFULNESS_PROMPT =
-  `You are evaluating an AI assistant's answer for faithfulness to retrieved source documents.
+// === Shared LLM judge helper ===
 
-Score from 0.0 to 1.0:
-- 1.0 = every claim in the answer is supported by the provided context
-- 0.7 = mostly grounded, minor unsupported elaboration
-- 0.4 = mixed — some grounded, some fabricated
-- 0.0 = answer fabricates information not in the context
+async function judgeJson<T>(prompt: string, openAiKey: string): Promise<T | null> {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${openAiKey}`,
+    },
+    body: JSON.stringify({
+      model: JUDGE_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+    }),
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  try {
+    return JSON.parse(data.choices?.[0]?.message?.content || "{}") as T;
+  } catch {
+    return null;
+  }
+}
 
-User question:
-{{query}}
-
-Retrieved context (transcript snippets that were given to the assistant):
-{{context}}
-
-Assistant answer:
-{{answer}}
-
-Think step by step. Identify any specific claims in the answer that are NOT supported by the context. Stylistic synthesis is fine — only flag factual claims that go beyond the context.
-
-Return JSON: { "score": <0.0..1.0>, "reasoning": "<one sentence>" }`;
+function clamp01(n: unknown): number {
+  if (typeof n !== "number" || Number.isNaN(n)) return 0;
+  return Math.max(0, Math.min(1, n));
+}
 
 function formatContext(matches: RetrievedMatch[]): string {
   if (!matches.length) return "(no context retrieved)";
@@ -41,68 +56,76 @@ function formatContext(matches: RetrievedMatch[]): string {
   }).join("\n\n");
 }
 
+export type Score = {
+  name: string;
+  value: number;
+  comment: string;
+  metadata?: Record<string, unknown>;
+};
+
+// === 1. Faithfulness (LLM judge) ===
+
 export async function faithfulnessScore(opts: {
   query: string;
   matches: RetrievedMatch[];
   answer: string;
   openAiKey: string;
-}): Promise<{ value: number; reasoning: string }> {
+}): Promise<Score> {
   if (!opts.answer.trim() || !opts.matches.length) {
-    return { value: 0, reasoning: "empty answer or empty context" };
-  }
-  const prompt = FAITHFULNESS_PROMPT
-    .replace("{{query}}", opts.query)
-    .replace("{{context}}", formatContext(opts.matches))
-    .replace("{{answer}}", opts.answer);
-
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${opts.openAiKey}`,
-    },
-    body: JSON.stringify({
-      model: JUDGE_MODEL,
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-    }),
-  });
-  if (!res.ok) {
-    throw new Error(`faithfulness judge failed: ${res.status} ${await res.text()}`);
-  }
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content || "{}";
-  try {
-    const parsed = JSON.parse(content);
-    const score = typeof parsed.score === "number"
-      ? Math.max(0, Math.min(1, parsed.score))
-      : 0;
     return {
-      value: score,
-      reasoning: typeof parsed.reasoning === "string" ? parsed.reasoning : "",
+      name: "faithfulness",
+      value: 0,
+      comment: "empty answer or empty context",
     };
-  } catch {
-    return { value: 0, reasoning: "judge returned unparseable JSON" };
   }
+  const prompt =
+    `You are evaluating an AI assistant's answer for faithfulness to retrieved source documents.
+
+Score 0.0–1.0:
+- 1.0 = every claim is supported by the context
+- 0.7 = mostly grounded, minor unsupported elaboration
+- 0.4 = mixed
+- 0.0 = fabricates information
+
+User question:
+${opts.query}
+
+Retrieved context:
+${formatContext(opts.matches)}
+
+Assistant answer:
+${opts.answer}
+
+List specific claims NOT supported by the context. Stylistic synthesis is fine — only flag factual claims.
+
+Return JSON: { "score": <0..1>, "reasoning": "<one sentence>" }`;
+
+  const result = await judgeJson<{ score: number; reasoning: string }>(
+    prompt,
+    opts.openAiKey,
+  );
+  return {
+    name: "faithfulness",
+    value: clamp01(result?.score),
+    comment: result?.reasoning ?? "judge returned no result",
+  };
 }
 
-// Programmatic check: every [source:N] in the answer maps to a real CA-prefixed
-// ID listed in the Sources block, and that ID exists in retrieval.
+// === 2. Citation accuracy (programmatic) ===
+
 export function citationAccuracyScore(opts: {
   answer: string;
   matches: RetrievedMatch[];
-}): { value: number; reasoning: string; details: Record<string, unknown> } {
-  const inlineCitations = [...opts.answer.matchAll(/\[source:(\d+)\]/gi)]
+}): Score {
+  const inline = [...opts.answer.matchAll(/\[source:(\d+)\]/gi)]
     .map((m) => parseInt(m[1], 10));
-  if (inlineCitations.length === 0) {
+  if (inline.length === 0) {
     return {
+      name: "citation_accuracy",
       value: 0,
-      reasoning: "no [source:N] citations in answer",
-      details: { inlineCount: 0 },
+      comment: "no [source:N] citations in answer",
     };
   }
-
-  // Parse the Sources: block
   const sourcesIdx = opts.answer.lastIndexOf("Sources:");
   const sourcesBlock = sourcesIdx >= 0 ? opts.answer.slice(sourcesIdx) : "";
   const sourceLines = [...sourcesBlock.matchAll(/\[(\d+)\]\s+(CA[A-Za-z0-9]+)/g)];
@@ -116,34 +139,218 @@ export function citationAccuracyScore(opts: {
     if (typeof id === "string") validIds.add(id);
   }
 
-  const uniqueCitations = [...new Set(inlineCitations)];
+  const unique = [...new Set(inline)];
   let valid = 0;
   const failures: string[] = [];
-  for (const n of uniqueCitations) {
+  for (const n of unique) {
     const id = sourceMap.get(n);
     if (!id) {
-      failures.push(`[source:${n}] has no Sources block entry`);
+      failures.push(`[source:${n}] missing in Sources block`);
       continue;
     }
     if (!validIds.has(id)) {
-      failures.push(`[source:${n}] = ${id} is not in retrieval set`);
+      failures.push(`[source:${n}] = ${id} not in retrieval`);
       continue;
     }
     valid++;
   }
-
-  const score = uniqueCitations.length === 0
-    ? 0
-    : valid / uniqueCitations.length;
   return {
-    value: score,
-    reasoning: failures.length === 0
+    name: "citation_accuracy",
+    value: unique.length === 0 ? 0 : valid / unique.length,
+    comment: failures.length === 0
       ? `all ${valid} citations valid`
-      : `${valid}/${uniqueCitations.length} valid: ${failures.slice(0, 3).join("; ")}`,
-    details: {
-      uniqueCitationCount: uniqueCitations.length,
-      validCount: valid,
-      failureCount: failures.length,
-    },
+      : `${valid}/${unique.length} valid: ${failures.slice(0, 2).join("; ")}`,
+    metadata: { totalCitations: unique.length, validCount: valid },
   };
+}
+
+// === 3. Answer relevance (LLM judge) ===
+
+export async function answerRelevanceScore(opts: {
+  query: string;
+  answer: string;
+  openAiKey: string;
+}): Promise<Score> {
+  if (!opts.answer.trim()) {
+    return { name: "answer_relevance", value: 0, comment: "empty answer" };
+  }
+  const prompt =
+    `You are evaluating whether an AI assistant's answer addresses the user's question.
+
+Score 0.0–1.0:
+- 1.0 = directly answers the question with relevant information
+- 0.7 = answers but misses some aspects
+- 0.4 = partially addresses, drifts off-topic
+- 0.0 = doesn't answer the question at all
+
+User question:
+${opts.query}
+
+Assistant answer:
+${opts.answer}
+
+Return JSON: { "score": <0..1>, "reasoning": "<one sentence>" }`;
+
+  const result = await judgeJson<{ score: number; reasoning: string }>(
+    prompt,
+    opts.openAiKey,
+  );
+  return {
+    name: "answer_relevance",
+    value: clamp01(result?.score),
+    comment: result?.reasoning ?? "judge returned no result",
+  };
+}
+
+// === 4. Context relevance (LLM judge) ===
+
+export async function contextRelevanceScore(opts: {
+  query: string;
+  matches: RetrievedMatch[];
+  openAiKey: string;
+}): Promise<Score> {
+  if (!opts.matches.length) {
+    return {
+      name: "context_relevance",
+      value: 0,
+      comment: "no context retrieved",
+    };
+  }
+  const prompt =
+    `You are evaluating whether retrieved transcript snippets are relevant to a user query for a voice-of-customer intelligence assistant.
+
+Score 0.0–1.0 based on the proportion of snippets that are on-topic:
+- 1.0 = all snippets directly relevant
+- 0.7 = most snippets relevant, some weakly so
+- 0.4 = mixed, several off-topic
+- 0.0 = retrieval missed the query entirely
+
+User question:
+${opts.query}
+
+Retrieved snippets:
+${formatContext(opts.matches)}
+
+Return JSON: { "score": <0..1>, "reasoning": "<one sentence>", "relevant_count": <int>, "total": ${opts.matches.length} }`;
+
+  const result = await judgeJson<{
+    score: number;
+    reasoning: string;
+    relevant_count?: number;
+    total?: number;
+  }>(prompt, opts.openAiKey);
+  return {
+    name: "context_relevance",
+    value: clamp01(result?.score),
+    comment: result?.reasoning ?? "judge returned no result",
+    metadata: result?.relevant_count !== undefined
+      ? { relevant: result.relevant_count, total: result.total }
+      : undefined,
+  };
+}
+
+// === 5. Format compliance (programmatic) ===
+
+export function formatComplianceScore(opts: { answer: string }): Score {
+  const a = opts.answer || "";
+  const checks = {
+    has_sources_block: /\nSources:\s*\n/.test(a),
+    has_inline_citation: /\[source:\d+\]/i.test(a),
+    citations_in_sources: false,
+    reasonable_length: a.length >= 200 && a.length <= 12000,
+    has_structure: /\n##\s|\n\d+\.\s|\n[-*]\s/.test(a),
+  };
+  // Each inline citation should appear in the Sources block
+  const sourcesIdx = a.lastIndexOf("Sources:");
+  if (sourcesIdx >= 0) {
+    const inline = [...a.matchAll(/\[source:(\d+)\]/gi)].map((m) => m[1]);
+    const sourcesBlock = a.slice(sourcesIdx);
+    checks.citations_in_sources = inline.every((n) =>
+      new RegExp(`\\[${n}\\]\\s+CA`).test(sourcesBlock)
+    );
+  }
+  const passed = Object.values(checks).filter(Boolean).length;
+  const total = Object.keys(checks).length;
+  const failures = Object.entries(checks)
+    .filter(([, v]) => !v)
+    .map(([k]) => k);
+  return {
+    name: "format_compliance",
+    value: passed / total,
+    comment: failures.length === 0
+      ? "all format checks passed"
+      : `failed: ${failures.join(", ")}`,
+    metadata: checks,
+  };
+}
+
+// === 6. Routing precision (programmatic, eval-only) ===
+
+export function routingPrecisionScore(opts: {
+  chosenTools: string[];
+  expectedNamespaces: string[];
+}): Score {
+  const expected = new Set(opts.expectedNamespaces);
+  const chosen = new Set(opts.chosenTools);
+  if (expected.size === 0) {
+    return {
+      name: "routing_precision",
+      value: 1,
+      comment: "no expected namespaces (gap-acknowledgment case)",
+    };
+  }
+  const intersection = [...expected].filter((x) => chosen.has(x)).length;
+  const precision = chosen.size === 0 ? 0 : intersection / chosen.size;
+  const recall = expected.size === 0 ? 1 : intersection / expected.size;
+  const f1 = (precision + recall) === 0
+    ? 0
+    : (2 * precision * recall) / (precision + recall);
+  return {
+    name: "routing_precision",
+    value: f1,
+    comment: `f1=${f1.toFixed(2)} (precision=${precision.toFixed(2)}, recall=${
+      recall.toFixed(2)
+    }) chosen=[${[...chosen].join(",")}] expected=[${[...expected].join(",")}]`,
+    metadata: { precision, recall, f1 },
+  };
+}
+
+// === Top-level runner ===
+
+// Runs all five online scorers in parallel and returns Score objects (callers
+// post them to Langfuse via trace.score()). Failures of individual scorers do
+// not affect others.
+export async function runAllOnlineScorers(opts: {
+  query: string;
+  answer: string;
+  session: Session;
+  openAiKey: string;
+}): Promise<Score[]> {
+  const matches = opts.session.reranked ?? [];
+  const settled = await Promise.allSettled([
+    faithfulnessScore({
+      query: opts.query,
+      matches,
+      answer: opts.answer,
+      openAiKey: opts.openAiKey,
+    }),
+    Promise.resolve(citationAccuracyScore({ answer: opts.answer, matches })),
+    answerRelevanceScore({
+      query: opts.query,
+      answer: opts.answer,
+      openAiKey: opts.openAiKey,
+    }),
+    contextRelevanceScore({
+      query: opts.query,
+      matches,
+      openAiKey: opts.openAiKey,
+    }),
+    Promise.resolve(formatComplianceScore({ answer: opts.answer })),
+  ]);
+  const scores: Score[] = [];
+  for (const s of settled) {
+    if (s.status === "fulfilled") scores.push(s.value);
+    else console.error("scorer failed:", s.reason);
+  }
+  return scores;
 }

@@ -48,7 +48,12 @@ console.log(
 
 const lfAuth = Buffer.from(`${lfPub}:${lfSec}`).toString("base64");
 
-async function findTraceBySession(sessionId, attempts = 6, delayMs = 2000) {
+// Polls until the trace AND its metadata.routes are ingested. The chat
+// function calls trace.update({metadata: {routes: [...]}}) at the end, which
+// arrives in Langfuse after the initial trace event — so a naive lookup gets
+// the trace with empty metadata. Wait for routes specifically.
+async function findTraceBySession(sessionId, attempts = 12, delayMs = 1500) {
+  let last = null;
   for (let i = 0; i < attempts; i++) {
     const res = await fetch(
       `${lfBase}/api/public/traces?sessionId=${sessionId}&limit=1`,
@@ -56,11 +61,15 @@ async function findTraceBySession(sessionId, attempts = 6, delayMs = 2000) {
     );
     if (res.ok) {
       const json = await res.json();
-      if (json.data?.[0]?.id) return json.data[0];
+      const trace = json.data?.[0];
+      if (trace) {
+        last = trace;
+        if (Array.isArray(trace.metadata?.routes)) return trace;
+      }
     }
     if (i < attempts - 1) await new Promise((r) => setTimeout(r, delayMs));
   }
-  return null;
+  return last; // return whatever we got, even if metadata is incomplete
 }
 
 // Direct REST call. The SDK's item.link() requires a LangfuseObjectClient
@@ -91,6 +100,44 @@ async function createDatasetRunItem({
     throw new Error(`dataset-run-items ${res.status}: ${await res.text()}`);
   }
   return await res.json();
+}
+
+// Eval-only programmatic scorer: F1 between router's chosen tools and the
+// dataset item's expected_namespaces. Posted directly via the public scores
+// API since we can't easily call trace.score() from outside the chat function.
+async function postRoutingPrecision({ traceId, chosenTools, expectedNamespaces }) {
+  const expected = new Set(expectedNamespaces ?? []);
+  const chosen = new Set(chosenTools ?? []);
+  let value;
+  let comment;
+  if (expected.size === 0) {
+    value = 1; // gap-acknowledgment cases — anything goes
+    comment = "no expected namespaces (edge case)";
+  } else {
+    const intersection = [...expected].filter((x) => chosen.has(x)).length;
+    const precision = chosen.size === 0 ? 0 : intersection / chosen.size;
+    const recall = intersection / expected.size;
+    value = precision + recall === 0 ? 0 : (2 * precision * recall) / (precision + recall);
+    comment = `f1=${value.toFixed(2)} (p=${precision.toFixed(2)} r=${recall.toFixed(2)})`;
+  }
+  const res = await fetch(`${lfBase}/api/public/scores`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${lfAuth}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      traceId,
+      name: "routing_precision",
+      value,
+      comment,
+      dataType: "NUMERIC",
+    }),
+  });
+  if (!res.ok) {
+    console.warn(`routing_precision post failed: ${res.status} ${await res.text()}`);
+  }
+  return value;
 }
 
 async function callChat(query, conversationId) {
@@ -170,10 +217,19 @@ for (const item of items) {
       metadata: { latency_ms: latency, answer_length: answer.length },
     });
 
+    // Compute routing_precision against the item's expected_namespaces.
+    const chosenTools = trace.metadata?.routes ?? [];
+    const expectedNamespaces = item.metadata?.expected_namespaces ?? [];
+    const routingF1 = await postRoutingPrecision({
+      traceId: trace.id,
+      chosenTools,
+      expectedNamespaces,
+    });
+
     console.log(
-      `  ✓ ${name.padEnd(28)} ${String(latency).padStart(6)}ms  trace=${trace.id.slice(0, 8)}`,
+      `  ✓ ${name.padEnd(28)} ${String(latency).padStart(6)}ms  trace=${trace.id.slice(0, 8)}  route_f1=${routingF1.toFixed(2)}`,
     );
-    results.push({ name, latency, traceId: trace.id });
+    results.push({ name, latency, traceId: trace.id, routingF1 });
   } catch (err) {
     console.log(`  ✗ ${name}: ${err?.message ?? err}`);
     results.push({ name, error: String(err?.message ?? err) });
