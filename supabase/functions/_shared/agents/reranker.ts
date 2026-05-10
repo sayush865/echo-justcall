@@ -25,7 +25,11 @@ export class RerankerAgent extends Agent {
       return;
     }
 
-    // Cap input by initial cosine score if over the model's per-call limit.
+    const span = ctx.trace?.span?.({
+      name: "reranker",
+      input: { inputCount: matches.length, topN: TOP_N, inputCap: RERANK_INPUT_CAP },
+    });
+
     const candidates = matches.length > RERANK_INPUT_CAP
       ? [...matches].sort((a, b) => b.score - a.score).slice(0, RERANK_INPUT_CAP)
       : matches;
@@ -43,18 +47,29 @@ export class RerankerAgent extends Agent {
           text: m.text || textFromMetadata(m.metadata),
         })),
         topN: TOP_N,
+        parentSpan: span,
       });
       session.reranked = ranked.map((r) => ({
         ...candidates[r.index],
         score: r.score,
       }));
+      span?.end?.({
+        output: {
+          rerankedCount: session.reranked.length,
+          topScore: session.reranked[0]?.score,
+        },
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       session.errors.push(`reranker: ${msg}`);
-      // Fallback: top-N by original cosine score.
       session.reranked = [...matches]
         .sort((a, b) => b.score - a.score)
         .slice(0, TOP_N);
+      span?.end?.({
+        level: "ERROR",
+        statusMessage: msg,
+        output: { fallbackToCosine: true, count: session.reranked.length },
+      });
     }
   }
 }

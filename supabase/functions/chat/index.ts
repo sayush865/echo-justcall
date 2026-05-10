@@ -1,13 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { Langfuse } from "npm:langfuse@3";
 import { corsHeaders } from "../_shared/cors.ts";
 import { getPineconeIndexHost } from "../_shared/pinecone.ts";
 import { RouterAgent } from "../_shared/agents/router.ts";
 import { RetrievalAgent } from "../_shared/agents/retrieval.ts";
 import { RerankerAgent } from "../_shared/agents/reranker.ts";
 import { SynthesizerAgent } from "../_shared/agents/synthesizer.ts";
-import type { ChatMsg, Session } from "../_shared/agents/types.ts";
+import type { ChatMsg, Session, TraceParent } from "../_shared/agents/types.ts";
 
 declare const EdgeRuntime: {
   waitUntil(promise: Promise<unknown>): void;
@@ -22,6 +23,28 @@ const chatRequestSchema = z.object({
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 20;
+
+// Format reranked chunks as a single string for online evaluators (hallucination,
+// faithfulness, etc.) that need the retrieved context as a {{context}} variable.
+function formatContextForEval(
+  matches: Array<{ text: string; metadata: Record<string, unknown> }>,
+): string {
+  if (!matches.length) return "";
+  const parts = matches.map((m) => {
+    const meta = m.metadata as Record<string, any>;
+    const id = meta.callSID || meta.instanceId || "unknown";
+    const summary = typeof meta.summary === "string" ? meta.summary : "";
+    const body = m.text || summary;
+    return `[Source ${id}]\n${body}`.slice(0, 1500);
+  });
+  // Cap total to ~30k chars to keep trace payload reasonable.
+  let out = "";
+  for (const p of parts) {
+    if (out.length + p.length + 2 > 30000) break;
+    out += (out ? "\n\n" : "") + p;
+  }
+  return out;
+}
 
 // === Rate-limit / IP-block helpers ===
 
@@ -120,6 +143,7 @@ async function runEchoPipeline(opts: {
   pineconeHost: string;
   ndjson: NdjsonStream;
   onProgress: (fullContent: string) => void;
+  trace?: TraceParent;
 }): Promise<Session> {
   const session: Session = {
     userQuery: opts.userQuery,
@@ -135,6 +159,7 @@ async function runEchoPipeline(opts: {
       }
       await opts.ndjson.write(obj);
     },
+    trace: opts.trace,
   };
 
   const router = new RouterAgent(opts.openAiKey);
@@ -316,6 +341,30 @@ serve(async (req) => {
     // Resolve Pinecone host (cached at module level after first call)
     const pineconeHost = await getPineconeIndexHost(pineconeKey);
 
+    // === Langfuse tracing (optional — degrades gracefully if keys missing) ===
+    const lfPublic = Deno.env.get("LANGFUSE_PUBLIC_KEY");
+    const lfSecret = Deno.env.get("LANGFUSE_SECRET_KEY");
+    const langfuse = lfPublic && lfSecret
+      ? new Langfuse({
+        publicKey: lfPublic,
+        secretKey: lfSecret,
+        baseUrl: Deno.env.get("LANGFUSE_BASE_URL") ?? "https://cloud.langfuse.com",
+        flushAt: 1,
+      })
+      : null;
+
+    const trace = langfuse?.trace({
+      name: "echo-chat",
+      sessionId: conversationId,
+      userId: userId ?? undefined,
+      input: { query: message },
+      metadata: {
+        conversationTitle: conversation?.title,
+        ip: ipAddress,
+        historyLength: dbMessages.length,
+      },
+    });
+
     // Helper: persist final state after pipeline completes
     const persistFinal = async (
       finalResponse: string,
@@ -373,6 +422,7 @@ serve(async (req) => {
             pineconeKey,
             pineconeHost,
             ndjson,
+            trace,
             onProgress: (fullContent) => {
               if (Date.now() - lastSaveTime > 500) {
                 lastSaveTime = Date.now();
@@ -383,6 +433,17 @@ serve(async (req) => {
                   .then(() => {})
                   .catch((err: unknown) => console.error("progress save:", err));
               }
+            },
+          });
+          trace?.update({
+            output: ndjson.fullContent,
+            metadata: {
+              latency_ms: Date.now() - startTime,
+              agent_errors: session.errors,
+              routes: session.routes?.map((r) => r.toolName) ?? [],
+              retrieved_count: session.retrieved?.length ?? 0,
+              reranked_count: session.reranked?.length ?? 0,
+              retrieved_context: formatContextForEval(session.reranked ?? []),
             },
           });
           await persistFinal(ndjson.fullContent, session, {
@@ -397,6 +458,8 @@ serve(async (req) => {
             .update({ pending_response: false, streaming_content: "" })
             .eq("id", conversationId)
             .catch(() => {});
+        } finally {
+          if (langfuse) await langfuse.flushAsync();
         }
       })());
       return new Response(
@@ -421,6 +484,7 @@ serve(async (req) => {
           pineconeKey,
           pineconeHost,
           ndjson,
+          trace,
           onProgress: (fullContent) => {
             if (Date.now() - lastSaveTime > 500) {
               lastSaveTime = Date.now();
@@ -444,6 +508,18 @@ serve(async (req) => {
       } finally {
         await ndjson.close();
         try {
+          trace?.update({
+            output: ndjson.fullContent,
+            metadata: {
+              total_latency_ms: Date.now() - startTime,
+              client_disconnected: !ndjson.clientConnected,
+              agent_errors: session?.errors ?? [],
+              routes: session?.routes?.map((r) => r.toolName) ?? [],
+              retrieved_count: session?.retrieved?.length ?? 0,
+              reranked_count: session?.reranked?.length ?? 0,
+              retrieved_context: formatContextForEval(session?.reranked ?? []),
+            },
+          });
           await persistFinal(
             ndjson.fullContent,
             session ?? { userQuery: message, history: dbMessages, errors: [] },
@@ -460,6 +536,8 @@ serve(async (req) => {
             .update({ pending_response: false, streaming_content: "" })
             .eq("id", conversationId)
             .catch(() => {});
+        } finally {
+          if (langfuse) await langfuse.flushAsync();
         }
       }
     })();

@@ -27,6 +27,11 @@ export class RouterAgent extends Agent {
 
   async run(ctx: AgentContext): Promise<void> {
     const { session, emit } = ctx;
+    const span = ctx.trace?.span?.({
+      name: "router",
+      input: { userQuery: session.userQuery, historyLength: session.history.length },
+    });
+
     await emit({ type: "step", text: "Planning search…" });
 
     const messages = [
@@ -44,6 +49,8 @@ export class RouterAgent extends Agent {
         apiKey: this.openAiKey,
         model: this.model,
         messages,
+        parentSpan: span,
+        spanName: "router-llm",
       });
     } catch (err) {
       session.errors.push(`router: ${err instanceof Error ? err.message : String(err)}`);
@@ -58,8 +65,9 @@ export class RouterAgent extends Agent {
       );
 
     let routes: Route[];
+    let usedFallback = false;
     if (valid.length === 0) {
-      // Fallback: search all 6 with the raw question
+      usedFallback = true;
       routes = ALL_TOOLS.map((tool) => ({
         toolName: tool,
         namespace: TOOL_TO_NAMESPACE[tool],
@@ -74,5 +82,12 @@ export class RouterAgent extends Agent {
     }
 
     session.routes = routes;
+    span?.end?.({
+      output: {
+        chosenTools: routes.map((r) => r.toolName),
+        usedFallback,
+        routeCount: routes.length,
+      },
+    });
   }
 }

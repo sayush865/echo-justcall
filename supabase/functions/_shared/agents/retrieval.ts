@@ -22,20 +22,29 @@ export class RetrievalAgent extends Agent {
       return;
     }
 
+    const span = ctx.trace?.span?.({
+      name: "retrieval",
+      input: {
+        routeCount: session.routes.length,
+        tools: session.routes.map((r) => r.toolName),
+        topK: TOPK_PER_NAMESPACE,
+      },
+    });
+
     await emit({
       type: "step",
       text: `Retrieving from ${session.routes.length} namespace(s)…`,
     });
 
-    // Embed all queries in one batch (one OpenAI call regardless of #routes).
     const queryTexts = session.routes.map((r) => r.searchQuery);
     let embeddings: number[][];
     try {
-      embeddings = await embedBatch(queryTexts, this.openAiKey);
+      embeddings = await embedBatch(queryTexts, this.openAiKey, span);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       session.errors.push(`retrieval/embed: ${msg}`);
       session.retrieved = [];
+      span?.end?.({ level: "ERROR", statusMessage: msg });
       return;
     }
 
@@ -48,6 +57,7 @@ export class RetrievalAgent extends Agent {
           namespace: route.namespace,
           vector: embeddings[idx],
           topK: TOPK_PER_NAMESPACE,
+          parentSpan: span,
         });
         const normalized = matches.map((m: any) =>
           normalizeMatch(m, route.namespace, route.toolName)
@@ -55,7 +65,7 @@ export class RetrievalAgent extends Agent {
         await emit({
           type: "tool",
           toolName: route.toolName,
-          result: { matches: normalized.slice(0, 5) }, // frontend shows top 5 for citations
+          result: { matches: normalized.slice(0, 5) },
         });
         all.push(...normalized);
       } catch (err) {
@@ -70,11 +80,10 @@ export class RetrievalAgent extends Agent {
     }));
 
     session.retrieved = all;
+    span?.end?.({ output: { retrievedCount: all.length } });
   }
 }
 
-// Pinecone metadata may use flattened dotted keys ("metadata.call_sid") or flat keys.
-// Normalize both shapes so the LLM and frontend get consistent CA-prefixed IDs.
 function readMeta(raw: Record<string, any>, key: string): any {
   return raw[key] ?? raw[`metadata.${key}`];
 }

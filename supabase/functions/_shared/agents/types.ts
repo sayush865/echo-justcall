@@ -4,9 +4,9 @@ export interface ChatMsg {
 }
 
 export interface Route {
-  toolName: string;     // e.g. "echo_cs_calls" — for frontend display + tool events
-  namespace: string;    // e.g. "Customer Success Calls" — actual Pinecone namespace
-  searchQuery: string;  // optimized search query, distinct from user's raw question
+  toolName: string;
+  namespace: string;
+  searchQuery: string;
 }
 
 export interface RetrievedMatch {
@@ -18,8 +18,7 @@ export interface RetrievedMatch {
   metadata: Record<string, unknown>;
 }
 
-// Shared blackboard between agents. Each agent reads what it needs and
-// writes its slice. Errors accumulate non-fatally.
+// Shared blackboard between agents.
 export interface Session {
   userQuery: string;
   history: ChatMsg[];
@@ -31,7 +30,14 @@ export interface Session {
 
 export type Emit = (obj: Record<string, unknown>) => Promise<void>;
 
+// Loosely typed Langfuse trace/span. Both LangfuseTraceClient and
+// LangfuseSpanClient expose .span() and .generation(); we don't need stronger
+// types here, and avoiding the import keeps this module dependency-free.
+// deno-lint-ignore no-explicit-any
+export type TraceParent = any | null | undefined;
+
 export interface AgentContext {
   session: Session;
   emit: Emit;
+  trace?: TraceParent;
 }

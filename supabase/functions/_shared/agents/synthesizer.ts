@@ -13,9 +13,15 @@ export class SynthesizerAgent extends Agent {
 
   async run(ctx: AgentContext): Promise<void> {
     const { session, emit } = ctx;
+    const matches = session.reranked ?? [];
+
+    const span = ctx.trace?.span?.({
+      name: "synthesizer",
+      input: { contextChunks: matches.length, historyLength: session.history.length },
+    });
+
     await emit({ type: "step", text: "Writing answer…" });
 
-    const matches = session.reranked ?? [];
     const contextBlock = formatMatchesForLLM(matches);
 
     const messages = [
@@ -31,15 +37,19 @@ export class SynthesizerAgent extends Agent {
       },
     ];
 
+    let full = "";
     try {
-      await chatStream({
+      full = await chatStream({
         apiKey: this.openAiKey,
         model: this.model,
         messages,
+        parentSpan: span,
+        spanName: "synthesizer-llm",
         onContent: async (delta) => {
           await emit({ type: "item", content: delta });
         },
       });
+      span?.end?.({ output: { responseLength: full.length } });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       session.errors.push(`synthesizer: ${msg}`);
@@ -47,6 +57,7 @@ export class SynthesizerAgent extends Agent {
         type: "item",
         content: `\n\n[Synthesizer error: ${msg}]`,
       });
+      span?.end?.({ level: "ERROR", statusMessage: msg });
     }
   }
 }
