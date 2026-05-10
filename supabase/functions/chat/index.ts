@@ -1,15 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { corsHeaders } from "../_shared/cors.ts";
+import { getPineconeIndexHost } from "../_shared/pinecone.ts";
+import { RouterAgent } from "../_shared/agents/router.ts";
+import { RetrievalAgent } from "../_shared/agents/retrieval.ts";
+import { RerankerAgent } from "../_shared/agents/reranker.ts";
+import { SynthesizerAgent } from "../_shared/agents/synthesizer.ts";
+import type { ChatMsg, Session } from "../_shared/agents/types.ts";
 
 declare const EdgeRuntime: {
   waitUntil(promise: Promise<unknown>): void;
-};
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
 };
 
 const chatRequestSchema = z.object({
@@ -21,94 +22,6 @@ const chatRequestSchema = z.object({
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 20;
-
-// === Echo agent config ===
-const PINECONE_INDEX = "echo";
-const EMBED_MODEL = "text-embedding-3-small";
-const EMBED_DIMS = 512;
-const CHAT_MODEL = "gpt-4.1";
-const MEMORY_WINDOW_MESSAGES = 20; // n8n had contextWindowLength=10 (interactions = pairs)
-const MAX_AGENT_ITERATIONS = 6;
-const TOPK = 5;
-
-const NAMESPACE_BY_TOOL: Record<string, string> = {
-  echo_sales_calls: "Sales Calls",
-  echo_cs_calls: "Customer Success Calls",
-  echo_support_calls: "Customer Support Calls",
-  echo_sales_meetings: "Customer Sales Meetings",
-  echo_cs_meetings: "Customer Success Meetings",
-  echo_support_meetings: "Customer Support Meetings",
-};
-
-const TOOL_DESCRIPTIONS: Record<string, string> = {
-  echo_sales_calls:
-    "Search JustCall customer calls from the Sales team (transcripts, summaries, tags, sentiment).",
-  echo_cs_calls:
-    "Search JustCall customer calls from the Customer Success team (transcripts, summaries, tags, sentiment).",
-  echo_support_calls:
-    "Search JustCall customer calls from the Customer Support team (transcripts, summaries, tags, sentiment).",
-  echo_sales_meetings:
-    "Search JustCall customer meetings from the Sales team (transcripts, summaries, tags, sentiment).",
-  echo_cs_meetings:
-    "Search JustCall customer meetings from the Customer Success team (transcripts, summaries, tags, sentiment).",
-  echo_support_meetings:
-    "Search JustCall customer meetings from the Customer Support team (transcripts, summaries, tags, sentiment).",
-};
-
-const SYSTEM_PROMPT = `You are Echo, JustCall's voice-of-customer intelligence assistant.
-
-You retrieve and synthesize insights from customer conversations stored in Pinecone. ALWAYS use the appropriate echo tools to find relevant data—never guess or fabricate information.
-
-## Available Tools
-
-| Tool | Data Source |
-|------|-------------|
-| echo_sales_calls | Sales team calls with customers/leads |
-| echo_sales_meetings | Sales team meetings with customers/leads |
-| echo_cs_calls | Customer Success team calls |
-| echo_cs_meetings | Customer Success team meetings |
-| echo_support_calls | Support team calls |
-| echo_support_meetings | Support team meetings |
-
-## Tool Selection Rules
-- For general queries: Search ALL relevant tools to get comprehensive data
-- If query mentions "CS" or "Customer Success": Search both cs_calls AND cs_meetings
-- If query mentions "Sales": Search both sales_calls AND sales_meetings
-- If query mentions "Support": Search both support_calls AND support_meetings
-- Optimize your search query for each tool based on context
-
-## Response Guidelines
-1. **Synthesize, don't just list**: Identify patterns, themes, and actionable insights with complete details. Retrieve comprehensive context from Vector DB via tool calls.
-2. **Be specific**: Quote or paraphrase actual customer statements when impactful to show accuracy
-3. **Acknowledge gaps**: If data isn't found, say so clearly—never fabricate
-4. **Stay conversational**: Format for easy reading with headers and bullets where helpful
-
-## Citation Format (CRITICAL)
-When referencing sources, use inline citations [source:N] where N starts at 1.
-**Cite sources in the order they first appear in your response.**
-
-End your response with a Sources section:
-
-Sources:
-[1] CA123abc456def (Sales Call)
-[2] 2d955387-24d2-4f30-88c3-883d8096c1b4 (CS Meeting)
-[3] CA345mno678pqr (Support Call)
-
-**ID Formats:**
-- Calls use callSID: CA-prefixed IDs (e.g., CA123abc456def)
-- Meetings use instanceId: CA-prefixed IDs (e.g., CA123abc456def)
-- Use accurate IDs (always start with CA, no breaks). Find them in metadata.callSID or metadata.instanceId.
-
-**Type Labels:**
-- (Sales Call), (Sales Meeting)
-- (CS Call), (CS Meeting)
-- (Support Call), (Support Meeting)
-
-Rules:
-- Only cite sources you actually retrieved and used
-- Number sequentially starting from 1
-- Each source on its own line
-- Never hallucinate or fabricate source IDs`;
 
 // === Rate-limit / IP-block helpers ===
 
@@ -123,13 +36,8 @@ async function checkRateLimit(
     .select("created_at", { count: "exact" })
     .eq("event_type", "user_message")
     .gte("created_at", windowStart);
-
-  if (userId) {
-    query = query.eq("user_id", userId);
-  } else {
-    query = query.eq("ip_address", ipAddress);
-  }
-
+  if (userId) query = query.eq("user_id", userId);
+  else query = query.eq("ip_address", ipAddress);
   const { count, error } = await query;
   if (error) {
     console.error("Rate limit check error:", error);
@@ -140,7 +48,9 @@ async function checkRateLimit(
   return {
     allowed: requestCount < RATE_LIMIT_MAX_REQUESTS,
     remaining,
-    resetIn: requestCount < RATE_LIMIT_MAX_REQUESTS ? 0 : Math.ceil(RATE_LIMIT_WINDOW_MS / 1000),
+    resetIn: requestCount < RATE_LIMIT_MAX_REQUESTS
+      ? 0
+      : Math.ceil(RATE_LIMIT_WINDOW_MS / 1000),
   };
 }
 
@@ -162,270 +72,7 @@ async function checkIPBlocked(
   return { blocked: !!data, reason: data?.reason || null };
 }
 
-// === Pinecone + OpenAI helpers ===
-
-let cachedIndexHost: string | null = null;
-
-async function getPineconeIndexHost(apiKey: string): Promise<string> {
-  if (cachedIndexHost) return cachedIndexHost;
-  const fromEnv = Deno.env.get("PINECONE_INDEX_HOST");
-  if (fromEnv) {
-    cachedIndexHost = fromEnv.replace(/^https?:\/\//, "");
-    return cachedIndexHost;
-  }
-  const res = await fetch(`https://api.pinecone.io/indexes/${PINECONE_INDEX}`, {
-    headers: { "Api-Key": apiKey, "X-Pinecone-API-Version": "2025-04" },
-  });
-  if (!res.ok) {
-    throw new Error(`Pinecone describe-index failed: ${res.status} ${await res.text()}`);
-  }
-  const data = await res.json();
-  cachedIndexHost = data.host as string;
-  return cachedIndexHost;
-}
-
-async function embedQuery(text: string, openAiKey: string): Promise<number[]> {
-  const res = await fetch("https://api.openai.com/v1/embeddings", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${openAiKey}`,
-    },
-    body: JSON.stringify({ model: EMBED_MODEL, input: text, dimensions: EMBED_DIMS }),
-  });
-  if (!res.ok) {
-    throw new Error(`OpenAI embed failed: ${res.status} ${await res.text()}`);
-  }
-  const data = await res.json();
-  return data.data[0].embedding as number[];
-}
-
-async function pineconeQuery(
-  host: string,
-  apiKey: string,
-  namespace: string,
-  vector: number[],
-  topK: number,
-): Promise<any[]> {
-  const res = await fetch(`https://${host}/query`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Api-Key": apiKey,
-      "X-Pinecone-API-Version": "2025-04",
-    },
-    body: JSON.stringify({
-      namespace,
-      vector,
-      topK,
-      includeMetadata: true,
-      includeValues: false,
-    }),
-  });
-  if (!res.ok) {
-    throw new Error(`Pinecone query failed (${namespace}): ${res.status} ${await res.text()}`);
-  }
-  const data = await res.json();
-  return data.matches || [];
-}
-
-// Pinecone metadata in this index uses flattened dotted keys (e.g. "metadata.call_sid").
-// Read both shapes so the LLM and frontend get the right CA-prefixed IDs.
-function readMeta(raw: Record<string, any>, key: string): any {
-  return raw[key] ?? raw[`metadata.${key}`];
-}
-
-function normalizeMatch(m: any) {
-  const raw: Record<string, any> = m.metadata || {};
-  const callSID = readMeta(raw, "call_sid") ?? raw.callSID ?? raw.callsid;
-  const instanceId =
-    readMeta(raw, "instance_sid") ??
-    readMeta(raw, "instance_id") ??
-    raw.instanceId ??
-    raw.instanceid;
-  const summary = readMeta(raw, "summary_full") ?? readMeta(raw, "summary") ?? raw.summary;
-  const text =
-    raw.text ??
-    readMeta(raw, "text") ??
-    readMeta(raw, "content") ??
-    readMeta(raw, "transcript") ??
-    raw.pageContent;
-  const tags = readMeta(raw, "tags") ?? readMeta(raw, "tag");
-  const sentiment = readMeta(raw, "sentiment") ?? raw.sentiment;
-  const customerName =
-    readMeta(raw, "customer_name") ?? readMeta(raw, "customer_names.0");
-  const callDate =
-    readMeta(raw, "call_date") ??
-    readMeta(raw, "meeting_date") ??
-    readMeta(raw, "instance_date");
-  const direction = readMeta(raw, "direction");
-  const meetingTitle = readMeta(raw, "meeting_title");
-
-  return {
-    id: m.id,
-    score: m.score,
-    metadata: {
-      ...raw,
-      // Aliases the frontend's citation extractor looks for
-      callSID,
-      instanceId,
-      summary,
-      text,
-      tags,
-      sentiment,
-      customer_name: customerName,
-      call_date: callDate,
-      direction,
-      meeting_title: meetingTitle,
-    },
-  };
-}
-
-function formatMatchesForLLM(matches: any[]): string {
-  if (!matches.length) return "No results found.";
-  return matches.map((m, i) => {
-    const meta = m.metadata || {};
-    const id = meta.callSID || meta.instanceId || m.id;
-    const lines = [`[Match ${i + 1}] ID: ${id} (score: ${m.score?.toFixed(3) ?? "n/a"})`];
-    if (meta.meeting_title) lines.push(`Title: ${meta.meeting_title}`);
-    if (meta.customer_name) lines.push(`Customer: ${meta.customer_name}`);
-    if (meta.call_date) lines.push(`Date: ${meta.call_date}`);
-    if (meta.direction) lines.push(`Direction: ${meta.direction}`);
-    if (meta.sentiment) lines.push(`Sentiment: ${meta.sentiment}`);
-    if (meta.tags) {
-      lines.push(`Tags: ${typeof meta.tags === "string" ? meta.tags : JSON.stringify(meta.tags)}`);
-    }
-    if (meta.summary) lines.push(`Summary: ${meta.summary}`);
-    if (meta.text && meta.text !== meta.summary) lines.push(`Text: ${meta.text}`);
-    return lines.join("\n");
-  }).join("\n\n");
-}
-
-function buildToolDefs() {
-  return Object.keys(NAMESPACE_BY_TOOL).map((name) => ({
-    type: "function" as const,
-    function: {
-      name,
-      description: TOOL_DESCRIPTIONS[name],
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "The search query optimized for this tool's data source.",
-          },
-        },
-        required: ["query"],
-      },
-    },
-  }));
-}
-
-async function executeToolCall(
-  toolName: string,
-  args: { query: string },
-  pineconeHost: string,
-  pineconeKey: string,
-  openAiKey: string,
-): Promise<{ matchesForFrontend: { matches: any[] }; textForLLM: string }> {
-  const namespace = NAMESPACE_BY_TOOL[toolName];
-  if (!namespace) {
-    return {
-      matchesForFrontend: { matches: [] },
-      textForLLM: `Unknown tool: ${toolName}`,
-    };
-  }
-  const queryText = args.query || "";
-  const vector = await embedQuery(queryText, openAiKey);
-  const rawMatches = await pineconeQuery(pineconeHost, pineconeKey, namespace, vector, TOPK);
-  const matches = rawMatches.map(normalizeMatch);
-  return {
-    matchesForFrontend: { matches },
-    textForLLM: formatMatchesForLLM(matches),
-  };
-}
-
-interface AccumulatedToolCall {
-  id: string;
-  name: string;
-  arguments: string;
-}
-
-async function runChatStream(
-  messages: any[],
-  tools: any[],
-  openAiKey: string,
-  onContentDelta: (delta: string) => Promise<void>,
-): Promise<{ finish: string | null; toolCalls: AccumulatedToolCall[]; assistantContent: string }> {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${openAiKey}`,
-    },
-    body: JSON.stringify({
-      model: CHAT_MODEL,
-      messages,
-      tools,
-      stream: true,
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`OpenAI chat failed: ${res.status} ${await res.text()}`);
-  }
-
-  const reader = res.body!.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let finish: string | null = null;
-  const toolCallsByIdx = new Map<number, AccumulatedToolCall>();
-  let assistantContent = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith("data:")) continue;
-      const payload = trimmed.slice(5).trim();
-      if (!payload || payload === "[DONE]") continue;
-      try {
-        const chunk = JSON.parse(payload);
-        const choice = chunk.choices?.[0];
-        if (!choice) continue;
-        if (choice.finish_reason) finish = choice.finish_reason;
-        const delta = choice.delta;
-        if (!delta) continue;
-        if (typeof delta.content === "string" && delta.content) {
-          assistantContent += delta.content;
-          await onContentDelta(delta.content);
-        }
-        if (Array.isArray(delta.tool_calls)) {
-          for (const tc of delta.tool_calls) {
-            const idx = tc.index ?? 0;
-            const existing = toolCallsByIdx.get(idx) || { id: "", name: "", arguments: "" };
-            if (tc.id) existing.id = tc.id;
-            if (tc.function?.name) existing.name += tc.function.name;
-            if (tc.function?.arguments) existing.arguments += tc.function.arguments;
-            toolCallsByIdx.set(idx, existing);
-          }
-        }
-      } catch {
-        // skip malformed chunks
-      }
-    }
-  }
-
-  const toolCalls = Array.from(toolCallsByIdx.entries())
-    .sort(([a], [b]) => a - b)
-    .map(([, v]) => v);
-
-  return { finish, toolCalls, assistantContent };
-}
+// === NDJSON streamer (handles client disconnect gracefully) ===
 
 class NdjsonStream {
   private writer: WritableStreamDefaultWriter<Uint8Array> | null;
@@ -463,101 +110,48 @@ class NdjsonStream {
   }
 }
 
-async function runEchoAgent(opts: {
-  userMessage: string;
-  history: Array<{ role: string; content: string }>;
+// === Pipeline orchestrator (Router → Retrieval → Reranker → Synthesizer) ===
+
+async function runEchoPipeline(opts: {
+  userQuery: string;
+  history: ChatMsg[];
   openAiKey: string;
   pineconeKey: string;
+  pineconeHost: string;
   ndjson: NdjsonStream;
   onProgress: (fullContent: string) => void;
-}): Promise<string> {
-  const { history, openAiKey, pineconeKey, ndjson, onProgress } = opts;
+}): Promise<Session> {
+  const session: Session = {
+    userQuery: opts.userQuery,
+    history: opts.history,
+    errors: [],
+  };
 
-  const pineconeHost = await getPineconeIndexHost(pineconeKey);
-  const tools = buildToolDefs();
+  const ctx = {
+    session,
+    emit: async (obj: Record<string, unknown>) => {
+      if (obj.type === "item" && typeof obj.content === "string") {
+        opts.onProgress(opts.ndjson.fullContent + obj.content);
+      }
+      await opts.ndjson.write(obj);
+    },
+  };
 
-  // History from DB already includes the latest user turn
-  const historyTrimmed = history.slice(-MEMORY_WINDOW_MESSAGES);
-  const messages: any[] = [
-    { role: "system", content: SYSTEM_PROMPT },
-    ...historyTrimmed.map((m) => ({ role: m.role, content: m.content })),
-  ];
+  const router = new RouterAgent(opts.openAiKey);
+  const retriever = new RetrievalAgent(
+    opts.openAiKey,
+    opts.pineconeKey,
+    opts.pineconeHost,
+  );
+  const reranker = new RerankerAgent(opts.pineconeKey);
+  const synthesizer = new SynthesizerAgent(opts.openAiKey);
 
-  for (let iter = 0; iter < MAX_AGENT_ITERATIONS; iter++) {
-    const { toolCalls, assistantContent } = await runChatStream(
-      messages,
-      tools,
-      openAiKey,
-      async (delta) => {
-        await ndjson.write({ type: "item", content: delta });
-        onProgress(ndjson.fullContent);
-      },
-    );
+  await router.run(ctx);
+  await retriever.run(ctx);
+  await reranker.run(ctx);
+  await synthesizer.run(ctx);
 
-    if (toolCalls.length === 0) {
-      return assistantContent;
-    }
-
-    messages.push({
-      role: "assistant",
-      content: assistantContent || null,
-      tool_calls: toolCalls.map((tc) => ({
-        id: tc.id,
-        type: "function",
-        function: { name: tc.name, arguments: tc.arguments },
-      })),
-    });
-
-    const toolResults = await Promise.all(
-      toolCalls.map(async (tc) => {
-        let parsedArgs: { query: string };
-        try {
-          parsedArgs = JSON.parse(tc.arguments || "{}");
-        } catch {
-          parsedArgs = { query: "" };
-        }
-        await ndjson.write({
-          type: "step",
-          text: `Searching ${tc.name}: "${parsedArgs.query}"`,
-        });
-        try {
-          const { matchesForFrontend, textForLLM } = await executeToolCall(
-            tc.name,
-            parsedArgs,
-            pineconeHost,
-            pineconeKey,
-            openAiKey,
-          );
-          await ndjson.write({
-            type: "tool",
-            toolName: tc.name,
-            result: matchesForFrontend,
-          });
-          return { tc, textForLLM };
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : "Unknown error";
-          console.error(`Tool ${tc.name} error:`, msg);
-          await ndjson.write({
-            type: "tool",
-            toolName: tc.name,
-            result: { matches: [], error: msg },
-          });
-          return { tc, textForLLM: `Error running ${tc.name}: ${msg}` };
-        }
-      }),
-    );
-
-    for (const { tc, textForLLM } of toolResults) {
-      messages.push({
-        role: "tool",
-        tool_call_id: tc.id,
-        content: textForLLM,
-      });
-    }
-  }
-
-  // Hit iteration cap
-  return ndjson.fullContent;
+  return session;
 }
 
 // === HTTP entrypoint ===
@@ -583,7 +177,6 @@ serve(async (req) => {
       const errors = parseResult.error.errors
         .map((e) => `${e.path.join(".")}: ${e.message}`)
         .join(", ");
-      console.error("Validation error:", errors);
       return new Response(
         JSON.stringify({ error: "Invalid request", details: errors }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -602,8 +195,8 @@ serve(async (req) => {
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     const userAgent = req.headers.get("user-agent") || "";
-    const ipAddress =
-      req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "";
+    const ipAddress = req.headers.get("x-forwarded-for") ||
+      req.headers.get("cf-connecting-ip") || "";
 
     // Parallel DB startup
     const parallelStartTime = Date.now();
@@ -626,7 +219,10 @@ serve(async (req) => {
     const parallelDuration = Date.now() - parallelStartTime;
     console.log(`[Latency] Parallel DB startup: ${parallelDuration}ms`);
 
-    const dbMessages = messagesResult.data || [];
+    const dbMessages: ChatMsg[] = (messagesResult.data || []).map((m: any) => ({
+      role: m.role as ChatMsg["role"],
+      content: m.content as string,
+    }));
     const conversation = conversationResult.data;
     const userId = conversation?.user_id ?? null;
     const userEmail = conversation?.user_email ?? null;
@@ -634,9 +230,6 @@ serve(async (req) => {
     // Rate limit
     const rateLimit = await checkRateLimit(supabaseAdmin, userId, ipAddress);
     if (!rateLimit.allowed) {
-      console.log(
-        `[Rate Limit] Blocked: userId=${userId || "anonymous"}, ip=${ipAddress}`,
-      );
       await supabaseAdmin.from("audit_logs").insert({
         user_id: userId,
         user_email: userEmail,
@@ -675,7 +268,6 @@ serve(async (req) => {
     // IP block
     const ipBlock = await checkIPBlocked(supabaseAdmin, ipAddress);
     if (ipBlock.blocked) {
-      console.log(`[IP Block] Blocked: ${ipAddress}, reason: ${ipBlock.reason}`);
       await supabaseAdmin.from("audit_logs").insert({
         user_id: userId,
         user_email: userEmail,
@@ -721,9 +313,13 @@ serve(async (req) => {
       }
     })());
 
-    // Helper: persist final state after agent completes
+    // Resolve Pinecone host (cached at module level after first call)
+    const pineconeHost = await getPineconeIndexHost(pineconeKey);
+
+    // Helper: persist final state after pipeline completes
     const persistFinal = async (
       finalResponse: string,
+      session: Session,
       meta: Record<string, unknown>,
     ) => {
       const ops: Promise<unknown>[] = [];
@@ -744,7 +340,13 @@ serve(async (req) => {
           conversation_id: conversationId,
           event_type: "ai_response",
           ai_response: finalResponse,
-          metadata: meta,
+          metadata: {
+            ...meta,
+            agent_errors: session.errors,
+            routes: session.routes?.map((r) => r.toolName) ?? [],
+            retrieved_count: session.retrieved?.length ?? 0,
+            reranked_count: session.reranked?.length ?? 0,
+          },
           ip_address: ipAddress,
           user_agent: userAgent,
         }),
@@ -764,11 +366,12 @@ serve(async (req) => {
         const ndjson = new NdjsonStream(null);
         let lastSaveTime = Date.now();
         try {
-          await runEchoAgent({
-            userMessage: message,
+          const session = await runEchoPipeline({
+            userQuery: message,
             history: dbMessages,
             openAiKey,
             pineconeKey,
+            pineconeHost,
             ndjson,
             onProgress: (fullContent) => {
               if (Date.now() - lastSaveTime > 500) {
@@ -782,13 +385,13 @@ serve(async (req) => {
               }
             },
           });
-          await persistFinal(ndjson.fullContent, {
+          await persistFinal(ndjson.fullContent, session, {
             latency_ms: Date.now() - startTime,
             response_length: ndjson.fullContent.length,
             background_mode: true,
           });
         } catch (err) {
-          console.error("Background agent error:", err);
+          console.error("Background pipeline error:", err);
           await supabaseAdmin
             .from("conversations")
             .update({ pending_response: false, streaming_content: "" })
@@ -807,14 +410,16 @@ serve(async (req) => {
     const writer = writable.getWriter();
     const ndjson = new NdjsonStream(writer);
     let lastSaveTime = Date.now();
+    let session: Session | null = null;
 
-    const agentRun = (async () => {
+    const pipelineRun = (async () => {
       try {
-        await runEchoAgent({
-          userMessage: message,
+        session = await runEchoPipeline({
+          userQuery: message,
           history: dbMessages,
           openAiKey,
           pineconeKey,
+          pineconeHost,
           ndjson,
           onProgress: (fullContent) => {
             if (Date.now() - lastSaveTime > 500) {
@@ -829,19 +434,25 @@ serve(async (req) => {
           },
         });
       } catch (err) {
-        console.error("Agent run error:", err);
+        console.error("Pipeline error:", err);
         await ndjson.write({
           type: "item",
-          content: `\n\n[Error: ${err instanceof Error ? err.message : "agent failed"}]`,
+          content: `\n\n[Pipeline error: ${
+            err instanceof Error ? err.message : "unknown"
+          }]`,
         });
       } finally {
         await ndjson.close();
         try {
-          await persistFinal(ndjson.fullContent, {
-            total_latency_ms: Date.now() - startTime,
-            response_length: ndjson.fullContent.length,
-            client_disconnected: !ndjson.clientConnected,
-          });
+          await persistFinal(
+            ndjson.fullContent,
+            session ?? { userQuery: message, history: dbMessages, errors: [] },
+            {
+              total_latency_ms: Date.now() - startTime,
+              response_length: ndjson.fullContent.length,
+              client_disconnected: !ndjson.clientConnected,
+            },
+          );
         } catch (cleanupErr) {
           console.error("Cleanup error:", cleanupErr);
           await supabaseAdmin
@@ -854,7 +465,7 @@ serve(async (req) => {
     })();
 
     // Keep the runtime alive even if the client disconnects
-    EdgeRuntime.waitUntil(agentRun);
+    EdgeRuntime.waitUntil(pipelineRun);
 
     return new Response(readable, {
       headers: {
