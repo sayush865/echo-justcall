@@ -1,4 +1,4 @@
-project_id = "ardncefqjatwxszcmbnn"
+project_id = "wgemenpbwxrtkmxbcmna"
 
 [functions.chat]
 verify_jwt = false
@@ -7,4 +7,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.generate-followups]
+verify_jwt = false
+
+[functions.ingest-calls]
+verify_jwt = false
+
+[functions.ingest-meetings]
 verify_jwt = false
